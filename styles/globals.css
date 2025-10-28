@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: only light;
+  --background: 246 247 249;
+  --foreground: 28 28 30;
+  --muted: 230 233 240;
+  --muted-foreground: 105 110 119;
+  --primary: 18 58 38;
+  --primary-foreground: 245 246 247;
+  --accent: 189 122 44;
+  --accent-foreground: 255 255 255;
+  --border: 219 223 231;
+  --radius-base: 0.75rem;
+}
+
+* {
+  font-feature-settings: "liga", "kern";
+}
+
+body {
+  min-height: 100svh;
+  background-color: rgb(var(--background));
+  color: rgb(var(--foreground));
+  font-family:
+    "Inter",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.container {
+  width: min(1200px, 100%);
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 2vw, 2.5rem);
+}

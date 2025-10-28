@@ -1,0 +1,43 @@
+Palmanhac Backend Guide
+=======================
+
+Database setup
+--------------
+1. Create a PostgreSQL instance locally or in the cloud.
+   • Local Docker example:
+     docker run --name palmanhac-postgres -e POSTGRES_USER=palmanhac \
+       -e POSTGRES_PASSWORD=palmanhac -e POSTGRES_DB=palmanhac -p 5432:5432 -d postgres:16
+   • Managed options such as Neon, Supabase, RDS or Timescale work as long as they expose a standard PostgreSQL connection string.
+2. Copy the database connection string into `.env.local` (and `.env` for deployment).
+   • Example: DATABASE_URL="postgresql://palmanhac:palmanhac@localhost:5432/palmanhac?schema=public"
+3. Ensure the database user has permission to create tables and run migrations.
+
+Prisma workflow
+---------------
+• Generate client:            pnpm prisma generate
+• Apply dev migrations:       pnpm prisma migrate dev
+• Apply prod migrations:      pnpm prisma migrate deploy
+• Seed catalog (10 items):    pnpm ts-node --esm lib/data/seed.ts
+  (All commands expect `DATABASE_URL` to be available in the environment.)
+
+Server data access
+------------------
+• `lib/server/db.ts` exposes a singleton Prisma client that the app uses to avoid hot-reload leaks.
+• `lib/server/products.ts` contains all read helpers (category listings, search, product by slug, related items). These helpers map Prisma records into the simplified product types used by the UI.
+• `lib/data/mockItemParser.ts` parses `/mock-items` and is consumed by `lib/data/seed.ts` to populate the 10-item catalog.
+
+Running locally
+---------------
+1. Start PostgreSQL and export `DATABASE_URL` (or create `.env.local`).
+2. Install dependencies once: pnpm install
+3. Generate Prisma client:    pnpm prisma generate
+4. Run migrations:            pnpm prisma migrate dev
+5. Seed data:                 pnpm ts-node --esm lib/data/seed.ts
+6. Start the app:             pnpm dev
+7. Visit `/en/api/products` or `/en/product/<slug>` to verify API responses and open `/en/licor` to confirm the UI shows the seeded catalog.
+
+Deployment notes
+----------------
+• On Vercel set `DATABASE_URL` in Project Settings → Environment Variables; repeat for preview and production.
+• Use `pnpm prisma migrate deploy` during deploys to keep schema in sync, followed by the seed script if environments need fresh data.
+• Rotate credentials by generating a new connection string in your managed Postgres provider, updating the Vercel variable, and redeploying.

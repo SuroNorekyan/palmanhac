@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16
+    container_name: palmanhac-postgres
+    environment:
+      POSTGRES_USER: palmanhac
+      POSTGRES_PASSWORD: palmanhac
+      POSTGRES_DB: palmanhac
+    ports:
+      - "5433:5432" # host:container
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

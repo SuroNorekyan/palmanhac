@@ -1,0 +1,262 @@
+# =====================================================================
+# PRODUCT REQUIREMENTS & IMPLEMENTATION TASK (task_prd.txt)
+# Project: Palmanhac Shop (Next.js + TypeScript)
+# Owner: Suren N. (GitHub: SuroNorekyan)
+# Goal: Fully setup, modern, production-ready e-commerce scaffold (EN/PT)
+# =====================================================================
+
+## 0) CONTEXT FROM CLIENT (DO NOT IGNORE)
+- Site: palmanhacshop.pt
+- Languages: English + Portuguese (multilingual)
+- Entry: Ask age-question modal ("Вам исполнилось 18?" → "Да"/"Нет"); on Yes show "Welcome! Palmanhac Produto de Portugal."
+- Nav tabs (routes):
+  1. About Us (brand description)
+  2. Licor – 6 products
+  3. Aguardente – 4 products
+  4. Bebida Espiritosa – 2 products
+  5. Contact Us
+- Also: Personal account (basic placeholder), Cart, Favorites, Search
+- Top banner: “Доставка заказа от 50 евро — бесплатно” (Free shipping from €50)
+- Footer: visually similar in structure to common ecommerce (legal links, contact, social, newsletter)
+- Client will provide product images; for now use mock images from `public/assets` (you MUST inspect and use them).
+
+## 1) HIGH-LEVEL REQUIREMENTS
+- Framework: Next.js (App Router), TypeScript, TailwindCSS.
+- UI libraries: shadcn/ui, framer-motion, lucide-react. Modern, elegant, responsive, “pleasantly minimal + premium” vibe.
+- State: lightweight global store (Zustand) for cart & favorites. Persist to localStorage. Avoid unnecessary rerenders (selectors).
+- i18n: Next.js built-in i18n (locales: en, pt; default: en). Support localized copy for nav, banners, headings, product fields (name/desc).
+- Age Gate: First visit shows a modal asking if user is 18+. Store consent in localStorage (and cookie) to skip next time. Deny → redirect to a neutral page (e.g., /age-gate-denied).
+- Routing:
+  - `/` home (hero, categories, featured)
+  - `/about`, `/contact`, `/account` (placeholder login/profile), `/cart`, `/favorites`
+  - `/licor`, `/aguardente`, `/bebida-espiritosa` list pages with filters/search
+  - `/product/[slug]` product detail page (use mock data & images)
+  - `/api/...` endpoints (see backend section)
+- Navigation:
+  - Beautiful desktop menu with animated underline/hover
+  - Mobile hamburger menu (slide-in, open/close animations with framer-motion)
+- UX:
+  - Top free-shipping banner
+  - Sticky header (slight blur on scroll), search input, cart/favorites icons with counters
+  - Product cards: image, title, price, tags; buttons [Add to Cart] [♡ Favorite]
+  - Accessible: alt text, semantic tags, focus states
+- Performance:
+  - Prefer Server Components for pages/layout where possible
+  - Client Components only where state/interaction needed
+  - Use `next/image`, responsive sizes, lazy-loading images
+  - Avoid prop-drilling; memoize components where appropriate
+  - Stable keys & list rendering; defer heavy JS where possible
+
+## 2) TOOLING & BASELINE QUALITY
+1) ESLint (flat config) + Prettier + Husky + lint-staged. No stylistic conflict.
+2) .editorconfig, .vscode/{settings,extensions}.
+3) Scripts:
+   - dev, build, start, lint, format, typecheck
+4) TypeScript:
+   - strict = true
+   - noUncheckedIndexedAccess = true
+   - baseUrl = ".", alias "@/*" → "./*"
+5) Ensure: `pnpm lint`, `pnpm format`, `pnpm typecheck`, `pnpm build` pass with zero errors.
+
+## 3) DIRECTORY STRUCTURE (MODERN NEXT.JS)
+Create/ensure the following (adjust if already exists):
+
+app/
+  layout.tsx
+  page.tsx
+  (marketing)/  # optional grouping for home/landing sections
+  about/page.tsx
+  contact/page.tsx
+  account/page.tsx
+  cart/page.tsx
+  favorites/page.tsx
+  licor/page.tsx
+  aguardente/page.tsx
+  bebida-espiritosa/page.tsx
+  product/[slug]/page.tsx
+  api/
+    health/route.ts
+    search/route.ts
+    products/route.ts        # list + filter
+    product/[slug]/route.ts  # single
+components/
+  layout/
+    Header.tsx
+    MobileMenu.tsx
+    Footer.tsx
+    TopBanner.tsx
+    AgeGate.tsx
+  ui/                        # shadcn ui wrappers/helpers
+  product/
+    ProductCard.tsx
+    ProductGrid.tsx
+    ProductFilters.tsx
+    QuantitySelector.tsx
+  common/
+    LanguageSwitcher.tsx
+    SearchBar.tsx
+    IconButton.tsx
+lib/
+  i18n/
+    dictionaries.ts          # load en/pt dictionaries
+  store/
+    cart.ts                  # Zustand store (cart)
+    favorites.ts             # Zustand store (favorites)
+  utils/
+    currency.ts
+    format.ts
+  data/
+    seed.ts                  # mock data seeding into sqlite (or JSON fallback)
+  server/
+    db.ts                    # Prisma client (sqlite) OR JSON data loader
+    products.ts              # data access functions (getAll, getByCategory, getBySlug)
+public/
+  assets/                    # MOCK IMAGES (Codex: inspect and USE these)
+styles/
+  globals.css
+config/
+  site.ts                    # site-wide constants (name, default locale, thresholds)
+  nav.ts                     # nav items by locale
+
+## 4) BACKEND MOCK DATA
+- Choose **Prisma + SQLite** (preferred) OR a **JSON fallback** if Prisma setup is out-of-scope. Default: Prisma.
+- Schema (prisma/schema.prisma):
+  - Product { id, slug, name_en, name_pt, description_en, description_pt, category ('licor'|'aguardente'|'bebida-espiritosa'), priceCents, abv, volumeMl, image (path in /public/assets), createdAt }
+- Seed with:
+  - Licor: 6 items
+  - Aguardente: 4 items
+  - Bebida Espiritosa: 2 items
+  - Ensure slugs, localized names/descriptions, price, abv, volume, and image paths valid.
+- Implement server utilities in `lib/server/products.ts`:
+  - `getAllProducts({ q?, category? })`
+  - `getProductBySlug(slug)`
+  - `getProductsByCategory(category)`
+- Create API routes:
+  - GET `/api/products` → list + filtering (q, category)
+  - GET `/api/product/[slug]` → details
+  - GET `/api/health` → `{ ok: true, ts }`
+  - GET `/api/search` (or reuse `/api/products?q=`)
+
+## 5) FRONTEND PAGES & FEATURES
+### Layout
+- `TopBanner`: shows “Free shipping from €50” (localized, reads threshold from config/site.ts).
+- `Header`: logo (text or placeholder), main nav (About, Licor, Aguardente, Bebida Espiritosa, Contact), search, account, favorites, cart icons (lucide-react). Active link styles. Sticky + blur on scroll.
+- `MobileMenu`: hamburger opens slide-in menu (framer-motion). Trap focus; close on overlay click/ESC.
+- `Footer`: ecommerce-style columns (About/Links/Contact/Legal/Social/Newsletter). Keep elegant & minimal.
+
+### Home `/`
+- Hero with headline: “Welcome! Palmanhac – Produto de Portugal” (localized).
+- Category tiles (3 large cards) with images from `public/assets`, CTA buttons.
+- Featured products grid (6 items).
+
+### Category pages (`/licor`, `/aguardente`, `/bebida-espiritosa`)
+- Show product grid with filters:
+  - text search (client-side, debounced)
+  - price range slider (UI only)
+  - sorting (price asc/desc, name)
+- Use server data (fetch from API routes with `fetch` in Server Components or RSC-friendly patterns).
+- Paginate if >12 items (client-side simple pager is fine).
+
+### Product page `/product/[slug]`
+- Left: image gallery (if only one image, still display with nice frame)
+- Right: title (localized), price, abv, volume, description, buttons:
+  - [Add to Cart], [♡ Favorite]
+  - QuantitySelector
+- Underneath: related items (same category, 3–4)
+
+### Cart `/cart`
+- List of items, quantity controls, subtotal, checkout button (placeholder).
+- Empty state illustration.
+
+### Favorites `/favorites`
+- Grid of favorited items (from Zustand + localStorage)
+- Button to add all to cart.
+
+### Account `/account` (placeholder)
+- Minimal page (login form UI only; no auth necessary for now).
+- Copy explaining personal account coming soon.
+
+### About `/about` & Contact `/contact`
+- About: brand description blocks (localized).
+- Contact: form fields + static info (no backend submit required; show success toast on submit).
+
+### Search
+- SearchBar in header. Debounced local search on the currently loaded list OR route to `/search?q=...` page that calls `/api/products?q=...`.
+
+### Age Gate
+- On first load, if no `ageVerified=true` in localStorage/cookie, show modal:
+  - Question in RU: “Вам исполнилось 18?”
+  - Buttons “Да / Нет”. “Да” sets flag and closes. “Нет” redirects to `/age-gate-denied`.
+
+## 6) STATE & PERFORMANCE
+- Use Zustand for `cart` and `favorites`.
+- Persist stores to localStorage; use selectors to minimize rerenders.
+- Memoize ProductCard and large lists; virtualization not needed for 20 items but keep list rendering efficient.
+- Use `next/image` with appropriate `sizes` for responsive performance.
+- Keep most pages as Server Components; move only interactive widgets to Client Components.
+
+## 7) STYLING & ANIMATIONS
+- TailwindCSS (already installed).
+- Use shadcn/ui for primitives (Buttons, Dialog/Sheet for mobile menu, Inputs, Badge, Card).
+- framer-motion for menu open/close, subtle fades on lists, and hover micro-interactions.
+- Consistent spacing, scale, typography. Large readable headings, adequate line-height.
+
+## 8) I18N IMPLEMENTATION
+- `next.config.(js|ts)`: `i18n: { locales: ['en','pt'], defaultLocale: 'en' }`
+- `lib/i18n/dictionaries.ts`: export dictionaries for en/pt; simple key/value approach is fine.
+- Add localized strings for:
+  - nav items, headings, banner text, button labels, form labels
+  - product fields (use DB localized fields)
+- Provide a `LanguageSwitcher` component in header/footer.
+
+## 9) IMAGES (IMPORTANT)
+- Inspect `public/assets` and use any existing images for hero, category tiles, and product cards.
+- If any required image is missing, create placeholder references but keep file paths consistent and obvious (e.g., `/assets/licor-1.jpg`).
+- Ensure all `next/image` components have meaningful `alt`.
+
+## 10) LINTING / PRETTIER / HUSKY
+- Install and configure:
+  - `prettier`, `eslint-config-prettier`, `eslint-plugin-import`, `eslint-plugin-unused-imports`
+  - Husky + lint-staged pre-commit hook:
+    - TS/JS: `eslint --fix`
+    - JSON/MD/CSS: `prettier --write`
+- `.editorconfig`, `.vscode/settings.json`, `.vscode/extensions.json`
+- Scripts: `lint`, `format`, `typecheck`
+- Ensure **no compilation errors** and **no lint errors** by the end.
+
+## 11) DELIVERABLES
+1) Fully working Next.js app with directories/files as specified.
+2) Clean ESLint/Prettier setup with Husky pre-commit hooks.
+3) Prisma + SQLite mock DB (seeded with 12 products across 3 categories) OR JSON fallback if Prisma is not chosen; implement server utilities & API routes.
+4) Pages implemented as above (home, about, contact, account, cart, favorites, categories, product detail).
+5) Age Gate modal logic working and persistent.
+6) Search & filtering working on category pages.
+7) Beautiful, responsive header/footer, animated mobile menu, top banner.
+8) Product cards with Add to Cart & Favorite (functioning via Zustand).
+9) Use `public/assets` images on product cards and hero/category tiles.
+10) Generate a **project-overview.txt** at the repo root that includes:
+   - A neat file tree of the project
+   - Short summary of what the project does
+   - Tech stack: Next.js (App Router), TypeScript, Tailwind, shadcn/ui, framer-motion, Zustand, Prisma/SQLite (or JSON fallback)
+   - How to run locally and how to build
+   - Notes about i18n, age gate, and mock data strategy
+
+## 12) ACCEPTANCE CHECKLIST (PLEASE VERIFY)
+- [ ] `pnpm dev` runs, site works at http://localhost:3000
+- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm format`, `pnpm build` all pass
+- [ ] Age gate shows once; persists acceptance
+- [ ] EN/PT locale switching works; nav, banner, headings localized
+- [ ] `/licor`, `/aguardente`, `/bebida-espiritosa` list the correct product counts
+- [ ] Product detail pages render; images come from `/public/assets`
+- [ ] Add to Cart/Favorites works; counts show in header; data persists
+- [ ] Mobile menu opens/closes with animation; accessible focus handling
+- [ ] Search/filter basics function
+- [ ] `project-overview.txt` exists and is informative
+
+## 13) START NOW
+- Begin by inspecting `public/assets` and wiring images.
+- Implement the structure and features step by step as above.
+- Keep commits small and descriptive. Ensure the pre-commit hook is active.
+- If any ambiguity arises, choose the simplest, most maintainable solution aligned with modern Next.js standards.
+
+# End of task_prd.txt

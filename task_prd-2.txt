@@ -1,0 +1,232 @@
+# =====================================================================
+# PRODUCT REQUIREMENTS & IMPLEMENTATION TASK (task_prd-2.txt)
+# Project: Palmanhac Shop (Next.js + TypeScript)
+# Goal: Replace all mock products with 10 items from /mock-items/*,
+#       simplify UI (only price sort), fix cart/favorites hydration,
+#       EN/PT only (remove RU), shipping + VAT logic in cart,
+#       migrate DB to PostgreSQL, and write guides/changelogs.
+# =====================================================================
+
+## 0) STARTING INSTRUCTIONS
+1) Read this file fully before making changes.
+2) Begin by EXPLORING the local repo structure. Pay special attention to:
+   - app/, components/, config/, lib/, prisma/, public/assets, mock-items/
+3) Ensure you can run: `pnpm typecheck`, `pnpm lint`, `pnpm build` after each major step.
+
+---
+
+## 1) INGEST 10 MOCK ITEMS FROM /mock-items/*
+### 1.1 Scan & parse
+- Directory: `mock-items/`
+  - There are 10 folders: `item-1` ... `item-10`.
+  - Each contains a single text file: `itemN-content.txt`.
+  - The content includes the product **name**, **price**, **EN description**, **PT description**, and structured notes (ABV, volume, etc.).
+
+**Action:**
+- Create a small parser utility `lib/data/mockItemParser.ts` that:
+  - Iterates `mock-items/item-*/item*-content.txt`.
+  - Extracts: `name` (same in EN/PT), `price` (in euros with decimal comma or point), `description_en`, `description_pt`, `abv`, `volume_ml`, optional metadata (awards/region/serving temp).
+  - Creates a normalized object:
+    ```
+    {
+      slug: string,                // derived from name (kebab-case, ascii)
+      name: string,                // same string used in both locales for "title"
+      description_en: string,
+      description_pt: string,
+      category: 'licor' | 'aguardente' | 'bebida-espiritosa', // infer from item folder or from notes; if ambiguous, default sensibly
+      priceCents: number,          // convert "24,34 €" => 2434
+      abv: number,                 // 40 (if "40%")
+      volumeMl: number,            // 700
+      image: string                // path into public/assets, see 1.3
+    }
+    ```
+  - Be robust to either comma or dot decimals in the price input.
+
+### 1.2 Update Product types & schema
+- Update all product-related **TypeScript types** in the project to match ONLY the fields above (remove tags/filters completely).
+- Remove usage of `tags`, `filter`, or any other previous fields anywhere (server, api routes, ui, components). We want **no filters**, **no tags** in codebase.
+
+### 1.3 Images cleanup
+- Please inspect `public/assets/`. Keep ONLY images referenced by the 10 new items. Remove any old/unused images.
+- If an item lacks an existing suitable image, create a consistent placeholder path `public/assets/<slug>.jpg` and temporarily reference a single generic placeholder image (e.g., `public/assets/placeholder.jpg`). Ensure the code compiles.
+
+### 1.4 Database reset to new 10 items
+- Remove all prior mock products from the database/seed.
+- **Populate DB exclusively** from the 10 parsed items.
+- The application MUST display only those 10 items across category pages and search.
+
+**Acceptance checks:**
+- `/[locale]/licor`, `/[locale]/aguardente`, `/[locale]/bebida-espiritosa` show only the relevant subset from the 10 items.
+- `/[locale]/product/[slug]` shows details for each of the 10 items.
+- No other legacy items exist in UI or API.
+
+---
+
+## 2) UI / UX TWEAKS
+### 2.1 Fix cart/favorites hydration
+- Current Zustand stores use `persist` with `skipHydration: true`.
+- Implement one of the following:
+  A) Remove `skipHydration`, OR
+  B) Keep `skipHydration` and add a single **client-side** rehydrate in a global provider (e.g., `components/layout/Providers.tsx`):
+     ```
+     useEffect(() => {
+       useCartStore.persist.rehydrate?.();
+       useFavoritesStore.persist.rehydrate?.();
+     }, []);
+     ```
+- Verify cart/favorites **persist across refresh**.
+
+### 2.2 i18n cleanup
+- App supports ONLY **English** and **Portuguese**.
+- Remove **any RU placeholders** from dictionaries and UI.
+- Ensure the product **title** is the same string for both locales (per client instruction). EN/PT descriptions differ in content and language.
+- Update dictionary keys so that all UI text (nav, banner, cart labels, VAT/IVA labels, etc.) exists in **en.pt** variants.
+
+---
+
+## 3) REMOVE ALL FILTERS & TAGS — KEEP ONLY PRICE SORT
+### 3.1 Codebase simplification
+- Remove **tags**, **filters**, advanced search facets, and any UI for them.
+- Category/product list pages should display:
+  - Optional **search by text** (if present, it’s fine to keep a simple search), but **no facet filters**.
+  - **Sorting by price**: ASC/DESC only.
+- Code hygiene: delete unused components/helpers that were dedicated to tag/filter logic; refactor props accordingly.
+
+**Acceptance checks:**
+- No references to `tags` or `filters` in TS types, UI, or API.
+- Sorting by price is the *only* control (toggle ASC/DESC).
+
+---
+
+## 4) CART PAGE: SHIPPING, DISCOUNT & VAT (IVA) RULES
+**Client rules (translated & implement):**
+- Product naming: the “title” is the same string in both languages; localized descriptions differ.
+- **Shipping conditions**:
+  - If **order total >= 50 €** → **Delivery = free (0 €)**.
+  - Else, by **bottle count** (sum of quantities):
+    - **1–2 bottles:** delivery = **6 € total**
+    - **3+ bottles:** delivery = **8 € total**
+- **Bulk discount**:
+  - If **10 bottles** (items count across cart) → **5% discount** on items subtotal (before shipping).
+- **VAT/IVA display**:
+  - The final total **includes** VAT (23%). Display a separate line:
+    - EN: `"VAT included 11.22 €"` (format with dot decimal, 2 decimals)
+    - PT: `"Inclui IVA 11,22 €"` (format with comma decimal, 2 decimals)
+  - Compute VAT included: `vat = total - (total / 1.23)`
+  - Round to 2 decimals (locale-appropriate formatting).
+
+**Order of operations (implement clearly):**
+1) `itemsSubtotal = Σ (price * qty)`
+2) If total bottles ≥ 10 → `itemsSubtotal = itemsSubtotal * 0.95` (5% discount)
+3) Compute **delivery**:
+   - If `itemsSubtotal >= 50` → `delivery = 0`
+   - Else:
+     - If `bottles <= 2` → `delivery = 6`
+     - Else `delivery = 8`
+4) `total = itemsSubtotal + delivery`
+5) `vat = total - (total / 1.23)` → format as above and display below total
+6) Localize all labels (EN/PT). Use locale-specific decimal formatting:
+   - EN: `11.22`
+   - PT: `11,22`
+
+**Acceptance checks:**
+- Cart page displays discount line (if applicable), delivery fee according to conditions, final total, and a VAT/IVA line as per locale (exact labels above).
+- Free shipping banner at the top remains consistent: “Free shipping from €50”.
+
+---
+
+## 5) MIGRATE DB TO **POSTGRESQL** (KEEP BACKEND INSIDE NEXT)
+We retain Next.js API routes but move Prisma datasource to Postgres.
+
+### 5.1 Prisma schema & env
+- Update `prisma/schema.prisma`:
+```
+datasource db {
+provider = "postgresql"
+url = env("DATABASE_URL")
+}
+```
+
+- Keep models in line with the simplified product fields (no tags/filters). If translations are a separate table, keep it; otherwise store descriptions per locale in columns like `description_en`, `description_pt`.
+- Add a new env var in `.env.local` and document it in `backend-guide.txt`:
+- `DATABASE_URL="postgresql://<user>:<pass>@<host>:<port>/<db>?schema=public"`
+
+### 5.2 Migrations & seed
+- Create proper Prisma migration(s) reflecting the simplified schema.
+- Update seed to read from **/mock-items/** (via the parser utility) and populate **only** those 10 items.
+- Ensure `pnpm prisma migrate dev` (local) and `prisma migrate deploy` (prod) work.
+- Ensure `postinstall` still runs `prisma generate` successfully.
+
+### 5.3 Connection in Next.js
+- Keep a singleton Prisma client (`lib/server/db.ts`) to prevent hot-reload leaks.
+- Ensure all server functions and API routes use the Postgres Prisma client.
+- Update any raw SQL or query assumptions accordingly.
+
+**Acceptance checks:**
+- Running locally against Postgres (docker or managed) is documented and works.
+- The app boots with seeded 10 items only.
+
+---
+
+## 6) WRITE **backend-guide.txt** (ROOT)
+Create a **step-by-step guide** covering:
+1) **Local Postgres setup**: either Docker (compose snippet) or managed (Neon/Supabase). Include how to create DB and set `DATABASE_URL`.
+2) Prisma commands:
+ - Generate: `pnpm prisma generate`
+ - Dev migrate: `pnpm prisma migrate dev`
+ - Prod deploy: `pnpm prisma migrate deploy`
+ - Seed: `pnpm ts-node --esm lib/data/seed.ts` (or `pnpm prisma db seed` if wired)
+3) How the server code in Next.js accesses DB (`lib/server/db.ts`), and the main data access helpers (`lib/server/products.ts`).
+4) How to run locally (`pnpm dev`) and verify data via `/api/products` and a product page.
+5) Notes for deployment (Vercel + managed PG), env vars for prod, and how to rotate credentials.
+
+---
+
+## 7) FUTURE-PROOF FOR PAYMENTS (Visa/Mastercard + Multibanco)
+- Do not introduce breaking changes that would block a Stripe/Mollie integration later.
+- Keep cart totals, currency (EUR), and decimal handling standardized.
+- Ensure product prices are stored in **cents** (integers) in DB.
+
+---
+
+## 8) CODE HYGIENE & DELIVERABLES
+- Remove **all** tag/filter remnants (types, props, components, hooks, CSS).
+- Remove unused images from `public/assets/`.
+- Ensure **zero** TypeScript errors: `pnpm typecheck`
+- Ensure **zero** ESLint errors: `pnpm lint`
+- Ensure build passes: `pnpm build`
+- Keep commits small and descriptive.
+
+**Artifacts to CREATE/UPDATE at repo root:**
+1) `backend-guide.txt` — Postgres & backend usage guide (as above).
+2) `Changex-2.txt` — a clear list of all added/removed/changed files and why, with a 1–2 paragraph “how the app is structured now” summary and “how the issues were fixed” (hydration, filters removal, DB migration, shipping/VAT logic).
+3) (Optional) update `project-overview.txt` if the file tree changed significantly.
+
+---
+
+## 9) EXECUTION ORDER (RECOMMENDED)
+1) Parse /mock-items and build 10 canonical product objects.
+2) Simplify product types; purge tags/filters everywhere.
+3) Image cleanup in `public/assets/`.
+4) Update seed to use the 10 items only.
+5) Fix hydration for cart/favorites.
+6) i18n cleanup (EN/PT only).
+7) Implement shipping/discount/VAT logic in cart UI.
+8) Migrate Prisma to Postgres; run migration; reseed.
+9) Verify pages/API; run quality scripts.
+10) Write `backend-guide.txt` and `Changex-2.txt`.
+
+---
+
+## 10) ACCEPTANCE CHECKLIST
+- [ ] Only 10 products from `/mock-items/*` exist in DB and UI.
+- [ ] No tags/filters in codebase; price sort ASC/DESC only.
+- [ ] Cart/favorites persist after refresh reliably.
+- [ ] Cart correctly applies: 5% discount at 10 bottles, shipping logic (6€/8€/free ≥50€), VAT/IVA line (computed and localized).
+- [ ] EN/PT only; titles equal in both locales; descriptions localized.
+- [ ] Images present only for the 10 items (others removed).
+- [ ] Prisma uses Postgres; schema simplified; seed uses mock-items; local & prod instructions exist.
+- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm build` pass with zero errors.
+- [ ] `backend-guide.txt` and `Changex-2.txt` are created and complete.
+
+# END task_prd-2.txt

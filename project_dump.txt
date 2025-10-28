@@ -1,0 +1,4444 @@
+# === Project Dump (2025-10-28T11:16:23.951Z) ===
+
+
+# --- app/[locale]/about/page.tsx ---
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function AboutPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+
+  return (
+    <section className="space-y-12">
+      <div className="space-y-4">
+        <h1 className="text-4xl font-semibold text-neutral-900">
+          {dictionary.about.heading}
+        </h1>
+        <p className="max-w-2xl text-neutral-600">{dictionary.home.heroSubheading}</p>
+      </div>
+      <div className="grid gap-10 md:grid-cols-3">
+        <article className="space-y-3 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-neutral-900">
+            {dictionary.about.missionTitle}
+          </h2>
+          <p className="text-sm leading-relaxed text-neutral-600">
+            {dictionary.about.missionDescription}
+          </p>
+        </article>
+        <article className="space-y-3 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-neutral-900">
+            {dictionary.about.craftsmanshipTitle}
+          </h2>
+          <p className="text-sm leading-relaxed text-neutral-600">
+            {dictionary.about.craftsmanshipDescription}
+          </p>
+        </article>
+        <article className="space-y-3 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-neutral-900">
+            {dictionary.about.heritageTitle}
+          </h2>
+          <p className="text-sm leading-relaxed text-neutral-600">
+            {dictionary.about.heritageDescription}
+          </p>
+        </article>
+      </div>
+    </section>
+  );
+}
+# --- end of app/[locale]/about/page.tsx ---
+
+# --- app/[locale]/account/page.tsx ---
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function AccountPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+
+  return (
+    <section className="mx-auto max-w-lg space-y-8 rounded-3xl border border-[rgb(var(--border))] bg-white p-8 shadow-sm">
+      <div className="space-y-2 text-center">
+        <h1 className="text-3xl font-semibold text-neutral-900">
+          {dictionary.account.heading}
+        </h1>
+        <p className="text-sm text-neutral-600">{dictionary.account.subheading}</p>
+      </div>
+      <form className="space-y-4">
+        <div>
+          <Label htmlFor="account-email">{dictionary.account.email}</Label>
+          <Input id="account-email" name="email" type="email" required />
+        </div>
+        <div>
+          <Label htmlFor="account-password">{dictionary.account.password}</Label>
+          <Input id="account-password" name="password" type="password" required />
+        </div>
+        <Button type="submit" className="w-full">
+          {dictionary.account.login}
+        </Button>
+      </form>
+      <div className="text-center text-sm text-neutral-500">
+        <Link href="#" className="font-medium text-neutral-800">
+          {dictionary.account.createAccount}
+        </Link>
+      </div>
+    </section>
+  );
+}
+# --- end of app/[locale]/account/page.tsx ---
+
+# --- app/[locale]/age-gate-denied/page.tsx ---
+import Link from "next/link";
+
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function AgeGateDeniedPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+
+  return (
+    <section className="flex min-h-[50vh] flex-col items-center justify-center gap-6 text-center">
+      <h1 className="text-3xl font-semibold text-neutral-900">
+        {dictionary.ageGate.deniedTitle}
+      </h1>
+      <p className="max-w-xl text-sm text-[rgb(var(--muted-foreground))]">
+        {dictionary.ageGate.deniedDescription}
+      </p>
+      <Link href={`/${locale}`} className="text-sm font-medium text-[rgb(var(--primary))] hover:underline">
+        {dictionary.home.shopNow}
+      </Link>
+    </section>
+  );
+}
+# --- end of app/[locale]/age-gate-denied/page.tsx ---
+
+# --- app/[locale]/aguardente/page.tsx ---
+import { Suspense } from "react";
+
+import { ProductFilters } from "@/components/product/ProductFilters";
+import { ProductGrid } from "@/components/product/ProductGrid";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getAllProducts, getAllTags } from "@/lib/server/products";
+
+export default async function AguardentePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ q?: string; tags?: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const resolvedSearch = (await searchParams) ?? {};
+  const dictionary = getDictionary(locale);
+  const tagFilter = resolvedSearch.tags?.split(",").filter(Boolean) ?? [];
+  const products = await getAllProducts(locale, {
+    category: "aguardente",
+    query: resolvedSearch.q,
+    tags: tagFilter,
+  });
+  const tags = await getAllTags("aguardente");
+  const heading = dictionary.home.categories.aguardente;
+
+  return (
+    <section className="space-y-10">
+      <header className="space-y-2">
+        <h1 className="text-4xl font-semibold text-neutral-900">{heading}</h1>
+        <p className="text-neutral-500">{dictionary.home.featuredDescription}</p>
+      </header>
+      <Suspense
+        fallback={
+          <div className="h-12 w-full animate-pulse rounded-2xl bg-neutral-100" />
+        }
+      >
+        <ProductFilters dictionary={dictionary} tags={tags} />
+      </Suspense>
+      <ProductGrid products={products} dictionary={dictionary} locale={locale} />
+    </section>
+  );
+}
+# --- end of app/[locale]/aguardente/page.tsx ---
+
+# --- app/[locale]/bebida-espiritosa/page.tsx ---
+import { Suspense } from "react";
+
+import { ProductFilters } from "@/components/product/ProductFilters";
+import { ProductGrid } from "@/components/product/ProductGrid";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getAllProducts, getAllTags } from "@/lib/server/products";
+
+export default async function BebidaEspirituosaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ q?: string; tags?: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const resolvedSearch = (await searchParams) ?? {};
+  const dictionary = getDictionary(locale);
+  const tagFilter = resolvedSearch.tags?.split(",").filter(Boolean) ?? [];
+  const products = await getAllProducts(locale, {
+    category: "bebida-espirituosa",
+    query: resolvedSearch.q,
+    tags: tagFilter,
+  });
+  const tags = await getAllTags("bebida-espirituosa");
+  const heading = dictionary.home.categories.bebidaEspirituosa;
+
+  return (
+    <section className="space-y-10">
+      <header className="space-y-2">
+        <h1 className="text-4xl font-semibold text-neutral-900">{heading}</h1>
+        <p className="text-neutral-500">{dictionary.home.featuredDescription}</p>
+      </header>
+      <Suspense
+        fallback={
+          <div className="h-12 w-full animate-pulse rounded-2xl bg-neutral-100" />
+        }
+      >
+        <ProductFilters dictionary={dictionary} tags={tags} />
+      </Suspense>
+      <ProductGrid products={products} dictionary={dictionary} locale={locale} />
+    </section>
+  );
+}
+# --- end of app/[locale]/bebida-espiritosa/page.tsx ---
+
+# --- app/[locale]/cart/page.tsx ---
+import { CartView } from "@/components/cart/CartView";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function CartPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+
+  return <CartView dictionary={dictionary} locale={locale} />;
+}
+# --- end of app/[locale]/cart/page.tsx ---
+
+# --- app/[locale]/contact/page.tsx ---
+import { ContactForm } from "@/components/common/ContactForm";
+import { extractLocale, siteConfig } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function ContactPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+
+  return (
+    <section className="grid gap-12 lg:grid-cols-[1fr_1fr]">
+      <div className="space-y-4">
+        <h1 className="text-4xl font-semibold text-neutral-900">
+          {dictionary.contact.heading}
+        </h1>
+        <p className="text-neutral-600">{dictionary.contact.subheading}</p>
+        <div className="mt-8 space-y-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-neutral-900">Palmanhac</h2>
+          <div className="space-y-2 text-sm text-neutral-600">
+            <p>{siteConfig.contact.address}</p>
+            <p>{siteConfig.contact.phone}</p>
+            <p>{siteConfig.contact.email}</p>
+          </div>
+        </div>
+      </div>
+      <div className="rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
+        <ContactForm dictionary={dictionary} />
+      </div>
+    </section>
+  );
+}
+# --- end of app/[locale]/contact/page.tsx ---
+
+# --- app/[locale]/cookies/page.tsx ---
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function CookiesPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+
+  return (
+    <section className="space-y-4">
+      <h1 className="text-3xl font-semibold text-neutral-900">
+        {dictionary.footer.legalLinks.cookies}
+      </h1>
+      <p className="text-neutral-500">
+        Placeholder content. Cookie policy details will be published shortly.
+      </p>
+    </section>
+  );
+}
+# --- end of app/[locale]/cookies/page.tsx ---
+
+# --- app/[locale]/favorites/page.tsx ---
+import { FavoritesView } from "@/components/favorites/FavoritesView";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function FavoritesPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+
+  return <FavoritesView dictionary={dictionary} locale={locale} />;
+}
+# --- end of app/[locale]/favorites/page.tsx ---
+
+# --- app/[locale]/layout.tsx ---
+import { notFound } from "next/navigation";
+
+import { AgeGate } from "@/components/layout/AgeGate";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
+import { Providers } from "@/components/layout/Providers";
+import { TopBanner } from "@/components/layout/TopBanner";
+import { navConfig } from "@/config/nav";
+import { locales, siteConfig, type Locale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+import type { ReactNode } from "react";
+
+export function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
+}
+
+export const dynamicParams = false;
+
+export default async function LocaleLayout({
+  children,
+  params,
+}: {
+  children: ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale: localeParam } = await params;
+  const locale = localeParam as Locale;
+
+  if (!locales.includes(locale)) {
+    notFound();
+  }
+
+  const dictionary = getDictionary(locale);
+  const navigation = navConfig[locale];
+
+  return (
+    <Providers>
+      <TopBanner banner={dictionary.banner} />
+      <Header nav={navigation} dictionary={dictionary} locale={locale} />
+      <main className="container space-y-16 py-12">{children}</main>
+      <Footer
+        nav={navigation}
+        site={siteConfig}
+        dictionary={dictionary}
+        locale={locale}
+      />
+      <AgeGate copy={dictionary.ageGate} locale={locale} />
+    </Providers>
+  );
+}
+# --- end of app/[locale]/layout.tsx ---
+
+# --- app/[locale]/licor/page.tsx ---
+import { Suspense } from "react";
+
+import { ProductFilters } from "@/components/product/ProductFilters";
+import { ProductGrid } from "@/components/product/ProductGrid";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getAllProducts, getAllTags } from "@/lib/server/products";
+
+export default async function LicorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ q?: string; tags?: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const resolvedSearch = (await searchParams) ?? {};
+  const dictionary = getDictionary(locale);
+  const tagFilter = resolvedSearch.tags?.split(",").filter(Boolean) ?? [];
+  const products = await getAllProducts(locale, {
+    category: "licor",
+    query: resolvedSearch.q,
+    tags: tagFilter,
+  });
+  const tags = await getAllTags("licor");
+  const heading = dictionary.home.categories.licor;
+
+  return (
+    <section className="space-y-10">
+      <header className="space-y-2">
+        <h1 className="text-4xl font-semibold text-neutral-900">{heading}</h1>
+        <p className="text-neutral-500">{dictionary.home.featuredDescription}</p>
+      </header>
+      <Suspense
+        fallback={
+          <div className="h-12 w-full animate-pulse rounded-2xl bg-neutral-100" />
+        }
+      >
+        <ProductFilters dictionary={dictionary} tags={tags} />
+      </Suspense>
+      <ProductGrid products={products} dictionary={dictionary} locale={locale} />
+    </section>
+  );
+}
+# --- end of app/[locale]/licor/page.tsx ---
+
+# --- app/[locale]/not-found.tsx ---
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { withLocale } from "@/lib/utils/locale";
+
+export default async function NotFound({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+
+  return (
+    <section className="flex min-h-[40vh] flex-col items-center justify-center gap-4 text-center">
+      <h1 className="text-4xl font-semibold text-neutral-900">404</h1>
+      <p className="max-w-md text-neutral-500">Palmanhac could not find this page.</p>
+      <Button asChild>
+        <Link href={withLocale(locale, "/")}>{dictionary.home.shopNow}</Link>
+      </Button>
+    </section>
+  );
+}
+# --- end of app/[locale]/not-found.tsx ---
+
+# --- app/[locale]/page.tsx ---
+import Image from "next/image";
+import Link from "next/link";
+
+import { ProductGrid } from "@/components/product/ProductGrid";
+import { Button } from "@/components/ui/button";
+import { navConfig } from "@/config/nav";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getFeaturedProducts } from "@/lib/server/products";
+import { withLocale } from "@/lib/utils/locale";
+
+const categoryImages: Record<string, string> = {
+  licor: "/assets/laranja-licor.png",
+  aguardente: "/assets/gift-box-aguardente.jpg",
+  "bebida-espiritosa": "/assets/gift-box-licor.jpg",
+};
+
+const categorySlugMap: Record<string, string> = {
+  licor: "licor",
+  aguardente: "aguardente",
+  bebidaEspirituosa: "bebida-espiritosa",
+};
+
+export default async function HomePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+  const featured = await getFeaturedProducts(locale, 6);
+
+  return (
+    <div className="space-y-20">
+      <section className="grid gap-10 rounded-[2.5rem] bg-white p-10 shadow-[0px_30px_80px_rgba(15,23,42,0.08)] lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="flex flex-col justify-between gap-8">
+          <div className="space-y-6">
+            <span className="rounded-full bg-neutral-900 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-white">
+              Palmanhac Shop
+            </span>
+            <h1 className="text-4xl font-semibold leading-tight text-neutral-900 lg:text-5xl">
+              {dictionary.home.heroHeading}
+            </h1>
+            <p className="max-w-xl text-base text-neutral-600 lg:text-lg">
+              {dictionary.home.heroSubheading}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <Button asChild size="lg">
+              <Link href={withLocale(locale, "/licor")}>{dictionary.home.shopNow}</Link>
+            </Button>
+            <Button variant="ghost" size="lg" asChild>
+              <Link href={withLocale(locale, "/about")}>
+                {dictionary.home.exploreCollections}
+              </Link>
+            </Button>
+          </div>
+        </div>
+        <div className="relative aspect-square overflow-hidden rounded-[2rem]">
+          <Image
+            src="/assets/framboesa-licor.png"
+            alt="Palmanhac hero"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </section>
+
+      <section className="space-y-8">
+        <div className="flex flex-col gap-4 text-center">
+          <h2 className="text-3xl font-semibold text-neutral-900">
+            {dictionary.home.exploreCollections}
+          </h2>
+          <p className="mx-auto max-w-2xl text-neutral-600">
+            {dictionary.home.featuredDescription}
+          </p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-3">
+          {(
+            Object.entries(dictionary.home.categories) as Array<
+              [keyof typeof dictionary.home.categories, string]
+            >
+          ).map(([key, label]) => {
+            const slug = categorySlugMap[key as string] ?? key;
+            const href = withLocale(locale, `/${slug}`);
+            return (
+              <Link
+                key={slug}
+                href={href}
+                className="group relative overflow-hidden rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+              >
+                <div className="relative h-48 overflow-hidden rounded-2xl bg-neutral-100">
+                  <Image
+                    src={categoryImages[slug] ?? "/assets/gift-box-licor.jpg"}
+                    alt={label}
+                    fill
+                    className="object-cover transition duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <div className="mt-6 space-y-2">
+                  <h3 className="text-lg font-semibold text-neutral-900">{label}</h3>
+                  <p className="text-sm text-neutral-500">
+                    {
+                      navConfig[locale].main.find((item) => item.href === `/${slug}`)
+                        ?.label
+                    }
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="space-y-8">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-semibold text-neutral-900">
+              {dictionary.home.featuredTitle}
+            </h2>
+            <p className="mt-2 max-w-xl text-neutral-600">
+              {dictionary.home.featuredDescription}
+            </p>
+          </div>
+          <Button asChild variant="ghost" className="hidden sm:inline-flex">
+            <Link href={withLocale(locale, "/licor")}>{dictionary.home.shopNow}</Link>
+          </Button>
+        </div>
+        <ProductGrid products={featured} dictionary={dictionary} locale={locale} />
+      </section>
+    </div>
+  );
+}
+# --- end of app/[locale]/page.tsx ---
+
+# --- app/[locale]/privacy/page.tsx ---
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function PrivacyPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+
+  return (
+    <section className="space-y-4">
+      <h1 className="text-3xl font-semibold text-neutral-900">
+        {dictionary.footer.legalLinks.privacy}
+      </h1>
+      <p className="text-neutral-500">
+        Placeholder content. Detailed policies will be added before launch.
+      </p>
+    </section>
+  );
+}
+# --- end of app/[locale]/privacy/page.tsx ---
+
+# --- app/[locale]/product/[slug]/page.tsx ---
+import { notFound } from "next/navigation";
+
+import { ProductDetailView } from "@/components/product/ProductDetailView";
+import { defaultLocale, locales, resolveLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import {
+  getAllProductSlugs,
+  getProductBySlug,
+  getRelatedProducts,
+} from "@/lib/server/products";
+
+export async function generateStaticParams() {
+  const slugs = await getAllProductSlugs();
+  return locales.flatMap((locale) => slugs.map((slug) => ({ locale, slug })));
+}
+
+export default async function ProductPage({
+  params,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+}) {
+  const { locale: localeParam, slug } = await params;
+  const locale = resolveLocale(localeParam);
+  const dictionary = getDictionary(locale);
+  const product = await getProductBySlug(slug, locale);
+
+  if (!product) {
+    notFound();
+  }
+
+  const translation =
+    product.translations[locale] ??
+    product.translations[defaultLocale] ??
+    Object.values(product.translations)[0];
+
+  if (!translation) {
+    notFound();
+  }
+
+  const detail = {
+    id: product.id,
+    slug: product.slug,
+    name: translation.name,
+    description: translation.shortDescription,
+    longDescription: translation.description,
+    tastingNotes: translation.tastingNotes,
+    image: product.image,
+    price: product.price,
+    category: product.category,
+    tags: product.tags,
+    volumeMl: product.volumeMl,
+    alcoholPercentage: product.alcoholPercentage,
+  } satisfies Parameters<typeof ProductDetailView>[0]["product"];
+
+  const related = await getRelatedProducts(product.slug, locale, 3);
+
+  return (
+    <ProductDetailView
+      product={detail}
+      related={related}
+      dictionary={dictionary}
+      locale={locale}
+    />
+  );
+}
+# --- end of app/[locale]/product/[slug]/page.tsx ---
+
+# --- app/[locale]/search/page.tsx ---
+import { Suspense } from "react";
+
+import { ProductFilters } from "@/components/product/ProductFilters";
+import { ProductGrid } from "@/components/product/ProductGrid";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getAllProducts, getAllTags } from "@/lib/server/products";
+
+export default async function SearchPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ q?: string; tags?: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const resolvedSearch = (await searchParams) ?? {};
+  const dictionary = getDictionary(locale);
+  const selectedTags = resolvedSearch.tags?.split(",").filter(Boolean) ?? [];
+  const products = await getAllProducts(locale, {
+    query: resolvedSearch.q,
+    tags: selectedTags,
+  });
+  const tags = await getAllTags();
+
+  return (
+    <section className="space-y-10">
+      <header className="space-y-2">
+        <h1 className="text-4xl font-semibold text-neutral-900">
+          {dictionary.nav.searchPlaceholder}
+        </h1>
+        {resolvedSearch.q ? (
+          <p className="text-neutral-500">
+            “{resolvedSearch.q}” — {products.length} results
+          </p>
+        ) : null}
+      </header>
+      <Suspense
+        fallback={
+          <div className="h-12 w-full animate-pulse rounded-2xl bg-neutral-100" />
+        }
+      >
+        <ProductFilters dictionary={dictionary} tags={tags} />
+      </Suspense>
+      <ProductGrid products={products} dictionary={dictionary} locale={locale} />
+    </section>
+  );
+}
+# --- end of app/[locale]/search/page.tsx ---
+
+# --- app/[locale]/terms/page.tsx ---
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function TermsPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+
+  return (
+    <section className="space-y-4">
+      <h1 className="text-3xl font-semibold text-neutral-900">
+        {dictionary.footer.legalLinks.terms}
+      </h1>
+      <p className="text-neutral-500">
+        Placeholder content. Detailed terms will be provided soon.
+      </p>
+    </section>
+  );
+}
+# --- end of app/[locale]/terms/page.tsx ---
+
+# --- app/api/health/route.ts ---
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({ status: "ok" });
+}
+# --- end of app/api/health/route.ts ---
+
+# --- app/api/product/[slug]/route.ts ---
+import { NextResponse } from "next/server";
+
+import { defaultLocale, locales, type Locale } from "@/config/site";
+import { getProductBySlug } from "@/lib/server/products";
+
+import type { NextRequest } from "next/server";
+
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ slug: string }> },
+) {
+  const { slug } = await context.params;
+  const { searchParams } = new URL(request.url);
+  const localeParam = searchParams.get("locale") ?? defaultLocale;
+  const locale = locales.includes(localeParam as Locale)
+    ? (localeParam as Locale)
+    : defaultLocale;
+
+  const product = await getProductBySlug(slug, locale);
+  if (!product) {
+    return NextResponse.json({ error: "Not Found" }, { status: 404 });
+  }
+
+  const translation =
+    product.translations[locale] ??
+    product.translations[defaultLocale] ??
+    Object.values(product.translations)[0];
+
+  if (!translation) {
+    return NextResponse.json({ error: "Translation not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    product: {
+      id: product.id,
+      slug: product.slug,
+      image: product.image,
+      price: product.price,
+      category: product.category,
+      tags: product.tags,
+      volumeMl: product.volumeMl,
+      alcoholPercentage: product.alcoholPercentage,
+      name: translation.name,
+      description: translation.shortDescription,
+      longDescription: translation.description,
+      tastingNotes: translation.tastingNotes,
+    },
+  });
+}
+# --- end of app/api/product/[slug]/route.ts ---
+
+# --- app/api/products/route.ts ---
+import { NextResponse } from "next/server";
+
+import { defaultLocale, locales, type Locale } from "@/config/site";
+import { getAllProducts, getProductSummariesByIds } from "@/lib/server/products";
+
+import type { NextRequest } from "next/server";
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const localeParam = searchParams.get("locale") ?? defaultLocale;
+  const locale = locales.includes(localeParam as Locale)
+    ? (localeParam as Locale)
+    : defaultLocale;
+  const idsParam = searchParams.get("ids");
+  const tagsParam = searchParams.get("tags");
+  const tags = tagsParam?.split(",").filter(Boolean);
+  const query = searchParams.get("q") ?? undefined;
+  const category = searchParams.get("category") ?? undefined;
+
+  if (idsParam) {
+    const ids = idsParam
+      .split(",")
+      .map((id) => Number.parseInt(id, 10))
+      .filter(Number.isFinite);
+    const products = await getProductSummariesByIds(ids, locale);
+    return NextResponse.json({ products });
+  }
+
+  const products = await getAllProducts(locale, {
+    category: category ?? undefined,
+    query,
+    tags: tags,
+  });
+
+  return NextResponse.json({ products });
+}
+# --- end of app/api/products/route.ts ---
+
+# --- app/api/search/route.ts ---
+import { NextResponse } from "next/server";
+
+import { defaultLocale, locales, type Locale } from "@/config/site";
+import { getAllProducts } from "@/lib/server/products";
+
+import type { NextRequest } from "next/server";
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const localeParam = searchParams.get("locale") ?? defaultLocale;
+  const locale = locales.includes(localeParam as Locale)
+    ? (localeParam as Locale)
+    : defaultLocale;
+  const query = searchParams.get("q") ?? undefined;
+  const tags = searchParams.get("tags")?.split(",").filter(Boolean);
+
+  const products = await getAllProducts(locale, { query, tags });
+
+  return NextResponse.json({ products });
+}
+# --- end of app/api/search/route.ts ---
+
+# --- app/layout.tsx ---
+import { siteConfig } from "@/config/site";
+
+import type { Metadata } from "next";
+import "@/styles/globals.css";
+
+export const metadata: Metadata = {
+  title: {
+    default: siteConfig.name,
+    template: `%s • ${siteConfig.name}`,
+  },
+  description: siteConfig.description,
+  metadataBase: new URL(`https://${siteConfig.domain}`),
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang={siteConfig.defaultLocale} suppressHydrationWarning>
+      <body className="bg-[#F6F7F9] text-[#1C1C1E] antialiased">
+        {children}
+      </body>
+    </html>
+  );
+}
+# --- end of app/layout.tsx ---
+
+# --- app/page.tsx ---
+import { redirect } from "next/navigation";
+
+import { defaultLocale } from "@/config/site";
+
+export default function RootRedirect() {
+  redirect(`/${defaultLocale}`);
+}
+# --- end of app/page.tsx ---
+
+# --- components/cart/CartView.tsx ---
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+import { QuantitySelector } from "@/components/product/QuantitySelector";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { useCartStore } from "@/lib/store/cart";
+import { useFavoritesStore } from "@/lib/store/favorites";
+import { formatCurrency } from "@/lib/utils/currency";
+import { withLocale } from "@/lib/utils/locale";
+
+import type { Locale } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { ProductListItem } from "@/types/product";
+
+interface CartProduct extends ProductListItem {
+  slug: string;
+  price: number;
+  image: string;
+}
+
+export function CartView({
+  dictionary,
+  locale,
+}: {
+  dictionary: Dictionary;
+  locale: Locale;
+}) {
+  const { toast } = useToast();
+  const items = useCartStore((state) => state.items);
+  const updateQuantity = useCartStore((state) => state.updateQuantity);
+  const addItem = useCartStore((state) => state.addItem);
+  const removeItem = useCartStore((state) => state.removeItem);
+  const clearCart = useCartStore((state) => state.clear);
+  const favoriteIds = useFavoritesStore((state) => state.ids);
+  const [products, setProducts] = useState<CartProduct[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const subtotal = useMemo(() => {
+    return items.reduce((total, item) => {
+      const product = products.find((candidate) => candidate.id === item.productId);
+      if (!product) return total;
+      return total + product.price * item.quantity;
+    }, 0);
+  }, [items, products]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setProducts([]);
+    }
+  }, [items.length]);
+
+  useEffect(() => {
+    const ids = items.map((item) => item.productId);
+    if (!ids.length) {
+      return;
+    }
+    setLoading(true);
+    const controller = new AbortController();
+    fetch(`/api/products?ids=${ids.join(",")}&locale=${locale}`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error("Failed to load products");
+        }
+        const data = (await res.json()) as { products: CartProduct[] };
+        setProducts(data.products);
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") {
+          console.error(error);
+        }
+      })
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [items, locale]);
+
+  const onAddFavoritesToCart = () => {
+    favoriteIds.forEach((id) => addItem(id, 1));
+    toast({
+      title: dictionary.cart.addAllFavorites,
+      variant: "success",
+    });
+  };
+
+  if (!items.length) {
+    return (
+      <div className="flex min-h-[30vh] flex-col items-center justify-center gap-4 text-center">
+        <Image
+          src="/assets/gift-box-licor.jpg"
+          alt="Empty cart"
+          width={200}
+          height={200}
+          className="rounded-3xl object-cover opacity-80"
+        />
+        <h1 className="text-3xl font-semibold text-neutral-900">
+          {dictionary.cart.heading}
+        </h1>
+        <p className="max-w-md text-neutral-500">{dictionary.cart.empty}</p>
+        <Button asChild>
+          <Link href={withLocale(locale, "/licor")}>
+            {dictionary.cart.continueShopping}
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-10 lg:grid-cols-[2fr_1fr]">
+      <div className="space-y-6">
+        {items.map((item) => {
+          const product = products.find((candidate) => candidate.id === item.productId);
+          if (!product) {
+            return (
+              <div
+                key={item.productId}
+                className="rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm"
+              >
+                <div className="animate-pulse h-24 rounded-xl bg-neutral-100" />
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={product.id}
+              className="flex flex-col gap-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex items-center gap-4">
+                <div className="relative h-20 w-20 overflow-hidden rounded-2xl bg-neutral-50">
+                  <Image
+                    src={product.image}
+                    alt={product.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Link
+                    href={withLocale(locale, `/product/${product.slug}`)}
+                    className="text-lg font-semibold text-neutral-900"
+                  >
+                    {product.name}
+                  </Link>
+                  <p className="text-sm text-neutral-500">{product.description}</p>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-4 sm:flex-row sm:items-center">
+                <QuantitySelector
+                  value={item.quantity}
+                  onChange={(value) => updateQuantity(product.id, value)}
+                />
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-neutral-900">
+                    {formatCurrency(product.price * item.quantity)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(product.id)}
+                    className="text-xs text-neutral-500 hover:text-neutral-800"
+                  >
+                    {dictionary.cart.remove}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <aside className="space-y-6 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
+        <h2 className="text-2xl font-semibold text-neutral-900">
+          {dictionary.cart.heading}
+        </h2>
+        <div className="flex items-center justify-between text-sm font-medium">
+          <span>{dictionary.cart.subtotal}</span>
+          <span>{formatCurrency(subtotal)}</span>
+        </div>
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={() =>
+            toast({
+              title: dictionary.cart.checkout,
+              description: "Checkout flow coming soon",
+            })
+          }
+        >
+          {dictionary.cart.checkout}
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full"
+          onClick={() => {
+            clearCart();
+            toast({ title: dictionary.cart.cleared });
+          }}
+        >
+          {dictionary.cart.clearButton}
+        </Button>
+        {favoriteIds.length ? (
+          <Button variant="outline" className="w-full" onClick={onAddFavoritesToCart}>
+            {dictionary.cart.addAllFavorites}
+          </Button>
+        ) : null}
+        {loading ? <p className="text-xs text-neutral-400">Loading...</p> : null}
+      </aside>
+    </div>
+  );
+}
+# --- end of components/cart/CartView.tsx ---
+
+# --- components/common/ContactForm.tsx ---
+"use client";
+
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
+
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+
+export function ContactForm({ dictionary }: { dictionary: Dictionary }) {
+  const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+
+  return (
+    <form
+      className="space-y-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setSubmitting(true);
+        const form = event.currentTarget;
+        const data = new FormData(form);
+        const name = data.get("name")?.toString() ?? "";
+        setTimeout(() => {
+          toast({
+            title: dictionary.contact.form.success,
+            description: name ? `Palmanhac • ${name}` : undefined,
+            variant: "success",
+          });
+          form.reset();
+          setSubmitting(false);
+        }, 400);
+      }}
+    >
+      <div>
+        <Label htmlFor="name" requiredIndicator>
+          {dictionary.contact.form.name}
+        </Label>
+        <Input id="name" name="name" required placeholder="Maria Silva" />
+      </div>
+      <div>
+        <Label htmlFor="email" requiredIndicator>
+          {dictionary.contact.form.email}
+        </Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          required
+          placeholder="palmanhac@example.com"
+        />
+      </div>
+      <div>
+        <Label htmlFor="message" requiredIndicator>
+          {dictionary.contact.form.message}
+        </Label>
+        <Textarea id="message" name="message" required placeholder="" rows={5} />
+      </div>
+      <Button type="submit" size="lg" disabled={submitting}>
+        {dictionary.contact.form.submit}
+      </Button>
+    </form>
+  );
+}
+# --- end of components/common/ContactForm.tsx ---
+
+# --- components/common/IconButton.tsx ---
+"use client";
+
+import { cn } from "@/lib/utils/format";
+
+import type { ButtonHTMLAttributes, ReactNode } from "react";
+
+export type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  icon: ReactNode;
+  badgeContent?: number;
+  srLabel?: string;
+};
+
+export function IconButton({
+  icon,
+  badgeContent,
+  srLabel,
+  className,
+  ...props
+}: IconButtonProps) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "relative flex h-11 w-11 items-center justify-center rounded-full border border-[rgb(var(--border))] bg-white text-neutral-900 transition hover:border-neutral-900 hover:bg-neutral-900 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-800",
+        className,
+      )}
+      {...props}
+    >
+      {icon}
+      {srLabel ? <span className="sr-only">{srLabel}</span> : null}
+      {badgeContent && badgeContent > 0 ? (
+        <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[rgb(var(--accent))] px-1 text-xs font-semibold text-white">
+          {badgeContent}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+# --- end of components/common/IconButton.tsx ---
+
+# --- components/common/LanguageSwitcher.tsx ---
+"use client";
+
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useMemo } from "react";
+
+import { defaultLocale, locales } from "@/config/site";
+import { cn } from "@/lib/utils/format";
+import { withLocale } from "@/lib/utils/locale";
+
+export function LanguageSwitcher() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const currentLocale = useMemo(() => {
+    if (!pathname) return defaultLocale;
+    const parts = pathname.split("/").filter(Boolean);
+    if (parts.length === 0) return defaultLocale;
+    return locales.includes(parts[0] as (typeof locales)[number])
+      ? (parts[0] as (typeof locales)[number])
+      : defaultLocale;
+  }, [pathname]);
+
+  const changeLocale = useCallback(
+    (locale: (typeof locales)[number]) => {
+      if (!pathname) return;
+      const parts = pathname.split("/").filter(Boolean);
+      if (parts.length === 0) {
+        router.push(withLocale(locale, "/"));
+        return;
+      }
+
+      const [, ...rest] = locales.includes(parts[0] as (typeof locales)[number])
+        ? (parts as string[])
+        : ([defaultLocale, ...parts] as string[]);
+
+      const basePath = `/${rest.join("/")}`.replace(/\/$/, "");
+      const target = withLocale(locale, basePath === "" ? "/" : basePath);
+      const qs = searchParams.toString();
+      router.push(qs ? `${target}?${qs}` : target);
+    },
+    [pathname, router, searchParams],
+  );
+
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-[rgb(var(--border))] bg-white p-1 text-xs font-semibold">
+      {locales.map((locale) => (
+        <button
+          key={locale}
+          type="button"
+          className={cn(
+            "rounded-full px-3 py-1 uppercase transition",
+            locale === currentLocale
+              ? "bg-neutral-900 text-white"
+              : "text-neutral-500 hover:text-neutral-900",
+          )}
+          onClick={() => changeLocale(locale)}
+          aria-pressed={locale === currentLocale}
+        >
+          {locale}
+        </button>
+      ))}
+    </div>
+  );
+}
+# --- end of components/common/LanguageSwitcher.tsx ---
+
+# --- components/common/SearchBar.tsx ---
+"use client";
+
+import { Search } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { defaultLocale, locales, type Locale } from "@/config/site";
+import { withLocale } from "@/lib/utils/locale";
+
+export function SearchBar({ placeholder }: { placeholder: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const [value, setValue] = useState(() => params.get("q") ?? "");
+
+  const currentLocale = (() => {
+    if (!pathname) return defaultLocale;
+    const parts = pathname.split("/").filter(Boolean);
+    if (parts.length === 0) return defaultLocale;
+    return locales.includes(parts[0] as Locale) ? (parts[0] as Locale) : defaultLocale;
+  })();
+
+  const onSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const next = value.trim();
+      const basePath = withLocale(currentLocale, "/search");
+      const url = new URL(basePath, window.location.origin);
+      if (next) {
+        url.searchParams.set("q", next);
+      } else {
+        url.searchParams.delete("q");
+      }
+      router.push(url.toString().replace(url.origin, ""));
+    },
+    [router, value, currentLocale],
+  );
+
+  return (
+    <form onSubmit={onSubmit} className="relative flex w-full max-w-md items-center">
+      <Search className="absolute left-4 h-5 w-5 text-neutral-400" aria-hidden />
+      <Input
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        className="pl-12 pr-12"
+        aria-label={placeholder}
+      />
+      <Button
+        type="submit"
+        variant="secondary"
+        size="sm"
+        className="absolute right-2 h-8 rounded-full px-4 text-xs"
+      >
+        Go
+      </Button>
+    </form>
+  );
+}
+# --- end of components/common/SearchBar.tsx ---
+
+# --- components/favorites/FavoritesView.tsx ---
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import { ProductGrid } from "@/components/product/ProductGrid";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { useCartStore } from "@/lib/store/cart";
+import { useFavoritesStore } from "@/lib/store/favorites";
+import { withLocale } from "@/lib/utils/locale";
+
+import type { Locale } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { ProductListItem } from "@/types/product";
+
+export function FavoritesView({
+  dictionary,
+  locale,
+}: {
+  dictionary: Dictionary;
+  locale: Locale;
+}) {
+  const ids = useFavoritesStore((state) => state.ids);
+  const clearFavorites = useFavoritesStore((state) => state.clear);
+  const { toast } = useToast();
+  const addItem = useCartStore((state) => state.addItem);
+  const [products, setProducts] = useState<ProductListItem[]>([]);
+
+  useEffect(() => {
+    if (ids.length === 0) {
+      setProducts([]);
+    }
+  }, [ids.length]);
+
+  useEffect(() => {
+    if (!ids.length) {
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`/api/products?ids=${ids.join(",")}&locale=${locale}`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error("Failed to load favorites");
+        }
+        const data = (await res.json()) as { products: ProductListItem[] };
+        setProducts(data.products);
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") {
+          console.error(error);
+        }
+      });
+
+    return () => controller.abort();
+  }, [ids, locale]);
+
+  const addAllToCart = () => {
+    ids.forEach((id) => addItem(id, 1));
+    toast({ title: dictionary.favorites.moveToCart, variant: "success" });
+  };
+
+  if (!ids.length) {
+    return (
+      <div className="flex min-h-[30vh] flex-col items-center justify-center gap-4 text-center">
+        <Image
+          src="/assets/limao-licor.png"
+          alt="Favorites"
+          width={200}
+          height={200}
+          className="rounded-3xl object-cover opacity-90"
+        />
+        <h1 className="text-3xl font-semibold text-neutral-900">
+          {dictionary.favorites.heading}
+        </h1>
+        <p className="max-w-md text-neutral-500">{dictionary.favorites.empty}</p>
+        <Button asChild>
+          <Link href={withLocale(locale, "/licor")}>
+            {dictionary.cart.continueShopping}
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button onClick={addAllToCart}>{dictionary.favorites.moveToCart}</Button>
+        <Button variant="ghost" onClick={clearFavorites}>
+          {dictionary.favorites.clear}
+        </Button>
+      </div>
+      <ProductGrid products={products} dictionary={dictionary} locale={locale} />
+    </div>
+  );
+}
+# --- end of components/favorites/FavoritesView.tsx ---
+
+# --- components/layout/AgeGate.tsx ---
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+
+const STORAGE_KEY = "palmanhac-age-verified";
+const COOKIE_KEY = "ageVerified";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
+
+const getInitialState = () => {
+  if (typeof window === "undefined") return true;
+
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  if (stored === "true") {
+    return true;
+  }
+
+  const cookies = window.document.cookie.split(";");
+  return cookies.some((cookie) => cookie.trim().startsWith(`${COOKIE_KEY}=true`));
+};
+
+export function AgeGate({
+  copy,
+  locale,
+}: {
+  copy: Dictionary["ageGate"];
+  locale: string;
+}) {
+  const router = useRouter();
+  const [verified, setVerified] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setVerified(getInitialState());
+  }, []);
+
+  const approve = useCallback(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, "true");
+      window.document.cookie = `${COOKIE_KEY}=true; path=/; max-age=${COOKIE_MAX_AGE}`;
+    } catch (error) {
+      console.warn("Unable to persist age gate approval", error);
+    }
+    setVerified(true);
+  }, []);
+
+  const deny = useCallback(() => {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.warn("Unable to update age gate storage", error);
+    }
+    setVerified(false);
+    router.replace(`/${locale}/age-gate-denied`);
+  }, [locale, router]);
+
+  if (verified === null) {
+    return null;
+  }
+
+  return (
+    <Dialog open={!verified}>
+      <DialogContent aria-describedby="age-gate-description" hideCloseButton>
+        <DialogHeader>
+          <DialogTitle className="text-3xl font-semibold">{copy.title}</DialogTitle>
+          <DialogDescription id="age-gate-description" className="text-base">
+            {copy.description}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mt-6 flex items-center justify-center gap-4">
+          <Button variant="pill" className="min-w-[120px]" onClick={approve}>
+            {copy.confirm}
+          </Button>
+          <Button variant="outline" className="min-w-[120px]" onClick={deny}>
+            {copy.deny}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+# --- end of components/layout/AgeGate.tsx ---
+
+# --- components/layout/DesktopNav.tsx ---
+"use client";
+
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useMemo, useState } from "react";
+
+import { withLocale } from "@/lib/utils/locale";
+
+import type { NavItem } from "@/config/nav";
+import type { Locale } from "@/config/site";
+
+
+export function DesktopNav({ items, locale }: { items: NavItem[]; locale: Locale }) {
+  const pathname = usePathname();
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  const activeHref = useMemo(() => {
+    if (!pathname) return null;
+    const trimmed = pathname.replace(/\/$/, "");
+    const withoutLocale = trimmed.replace(/^\/[a-z]{2}(?=\/|$)/, "");
+    const normalized = withoutLocale === "" ? "/" : withoutLocale;
+    const found = items.find((item) => normalized === item.href);
+    return found?.href ?? null;
+  }, [pathname, items]);
+
+  return (
+    <nav className="hidden items-center gap-6 lg:flex">
+      {items.map((item) => {
+        const isActive = hovered ? hovered === item.href : activeHref === item.href;
+        return (
+          <Link
+            key={item.href}
+            href={withLocale(locale, item.href)}
+            className="relative px-1 text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
+            onFocus={() => setHovered(item.href)}
+            onMouseEnter={() => setHovered(item.href)}
+            onMouseLeave={() => setHovered(null)}
+            onBlur={() => setHovered(null)}
+          >
+            {item.label}
+            {isActive ? (
+              <motion.span
+                layoutId="nav-underline"
+                className="absolute -bottom-1 left-0 h-[2px] w-full rounded-full bg-neutral-900"
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+              />
+            ) : null}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+# --- end of components/layout/DesktopNav.tsx ---
+
+# --- components/layout/Footer.tsx ---
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { withLocale } from "@/lib/utils/locale";
+
+import type { NavConfig } from "@/config/nav";
+import type { Locale, SiteConfig } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+
+export function Footer({
+  nav,
+  site,
+  dictionary,
+  locale,
+}: {
+  nav: NavConfig;
+  site: SiteConfig;
+  dictionary: Dictionary;
+  locale: Locale;
+}) {
+  return (
+    <footer className="mt-16 border-t border-[rgb(var(--border))] bg-white/80 backdrop-blur">
+      <div className="container grid gap-12 py-12 md:grid-cols-[2fr_1fr_1fr]">
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-2xl font-semibold tracking-tight text-neutral-900">
+              Palmanhac
+            </h3>
+            <p className="mt-3 max-w-md text-sm text-[rgb(var(--muted-foreground))]">
+              {site.description}
+            </p>
+          </div>
+          <div className="space-y-2 text-sm text-neutral-600">
+            <p>{site.contact.address}</p>
+            <p>
+              <Link href={`mailto:${site.contact.email}`} className="hover:underline">
+                {site.contact.email}
+              </Link>
+            </p>
+            <p>
+              <Link href={`tel:${site.contact.phone}`} className="hover:underline">
+                {site.contact.phone}
+              </Link>
+            </p>
+          </div>
+          <div className="flex gap-4 text-sm font-medium text-neutral-700">
+            <Link href={site.social.instagram} target="_blank" rel="noreferrer">
+              Instagram
+            </Link>
+            <Link href={site.social.facebook} target="_blank" rel="noreferrer">
+              Facebook
+            </Link>
+          </div>
+        </div>
+        <div>
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            Explore
+          </h4>
+          <ul className="mt-4 space-y-3 text-sm text-neutral-700">
+            {nav.main.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={withLocale(locale, item.href)}
+                  className="hover:text-neutral-900"
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="space-y-4">
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            {dictionary.footer.newsletterTitle}
+          </h4>
+          <p className="text-sm text-[rgb(var(--muted-foreground))]">
+            {dictionary.footer.newsletterDescription}
+          </p>
+          <form className="flex flex-col gap-3 sm:flex-row">
+            <Input
+              type="email"
+              placeholder={dictionary.footer.emailPlaceholder}
+              required
+              className="sm:flex-1"
+            />
+            <Button type="submit" className="sm:w-auto">
+              {dictionary.footer.submit}
+            </Button>
+          </form>
+        </div>
+      </div>
+      <div className="border-t border-[rgb(var(--border))] bg-white/60 py-6">
+        <div className="container flex flex-col gap-4 text-sm text-neutral-500 md:flex-row md:items-center md:justify-between">
+          <p>{dictionary.footer.rights}</p>
+          <div className="flex flex-wrap gap-4">
+            <Link
+              href={withLocale(locale, "/privacy")}
+              className="hover:text-neutral-800"
+            >
+              {dictionary.footer.legalLinks.privacy}
+            </Link>
+            <Link href={withLocale(locale, "/terms")} className="hover:text-neutral-800">
+              {dictionary.footer.legalLinks.terms}
+            </Link>
+            <Link
+              href={withLocale(locale, "/cookies")}
+              className="hover:text-neutral-800"
+            >
+              {dictionary.footer.legalLinks.cookies}
+            </Link>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+# --- end of components/layout/Footer.tsx ---
+
+# --- components/layout/Header.tsx ---
+
+import { User } from "lucide-react";
+import Link from "next/link";
+import { Suspense } from "react";
+
+import { IconButton } from "@/components/common/IconButton";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
+import { SearchBar } from "@/components/common/SearchBar";
+import { withLocale } from "@/lib/utils/locale";
+
+import { DesktopNav } from "./DesktopNav";
+import { CartIndicator, FavoritesIndicator } from "./HeaderIndicators";
+import { MobileMenu } from "./MobileMenu";
+
+import type { NavConfig } from "@/config/nav";
+import type { Locale } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+
+export function Header({
+  nav,
+  dictionary,
+  locale,
+}: {
+  nav: NavConfig;
+  dictionary: Dictionary;
+  locale: Locale;
+}) {
+  return (
+    <header className="sticky top-0 z-40 border-b border-white/60 bg-white/80 backdrop-blur-lg">
+      <div className="container flex items-center gap-4 py-4">
+        <div className="flex items-center gap-3 lg:gap-6">
+          <div className="lg:hidden">
+            <MobileMenu nav={nav} dictionary={dictionary} locale={locale} />
+          </div>
+          <Link
+            href={withLocale(locale, "/")}
+            className="text-lg font-semibold tracking-tight text-neutral-900"
+          >
+            Palmanhac
+          </Link>
+        </div>
+        <DesktopNav items={nav.main} locale={locale} />
+        <div className="ml-auto hidden lg:flex lg:flex-1 lg:justify-center">
+          <Suspense
+            fallback={
+              <div className="h-11 w-full animate-pulse rounded-full bg-neutral-100" />
+            }
+          >
+            <SearchBar placeholder={dictionary.nav.searchPlaceholder} />
+          </Suspense>
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          <div className="hidden md:block">
+            <Suspense fallback={<div className="h-9 w-20 rounded-full bg-neutral-100" />}>
+              <LanguageSwitcher />
+            </Suspense>
+          </div>
+          <FavoritesIndicator label={dictionary.nav.favorites} locale={locale} />
+          <CartIndicator label={dictionary.nav.cart} locale={locale} />
+          <Link href={withLocale(locale, "/account")} className="hidden md:inline-flex">
+            <IconButton
+              icon={<User className="h-5 w-5" />}
+              srLabel={dictionary.nav.account}
+              className="border-0 bg-transparent text-neutral-700 hover:bg-neutral-900 hover:text-white"
+            />
+          </Link>
+        </div>
+      </div>
+      <div className="border-t border-white/60 bg-white/50 py-3 backdrop-blur lg:hidden">
+        <div className="container">
+          <Suspense
+            fallback={
+              <div className="h-11 w-full animate-pulse rounded-full bg-neutral-100" />
+            }
+          >
+            <SearchBar placeholder={dictionary.nav.searchPlaceholder} />
+          </Suspense>
+        </div>
+      </div>
+    </header>
+  );
+}
+# --- end of components/layout/Header.tsx ---
+
+# --- components/layout/HeaderIndicators.tsx ---
+"use client";
+
+import { Heart, ShoppingBag } from "lucide-react";
+import Link from "next/link";
+
+import { IconButton } from "@/components/common/IconButton";
+import { useCartStore } from "@/lib/store/cart";
+import { useFavoritesStore } from "@/lib/store/favorites";
+import { withLocale } from "@/lib/utils/locale";
+
+import type { Locale } from "@/config/site";
+
+export function CartIndicator({ label, locale }: { label: string; locale: Locale }) {
+  const count = useCartStore((state) => state.totalItems());
+
+  return (
+    <Link href={withLocale(locale, "/cart")} className="inline-flex">
+      <IconButton
+        icon={<ShoppingBag className="h-5 w-5" />}
+        badgeContent={count}
+        srLabel={label}
+      />
+    </Link>
+  );
+}
+
+export function FavoritesIndicator({ label, locale }: { label: string; locale: Locale }) {
+  const favoritesCount = useFavoritesStore((state) => state.ids.length);
+
+  return (
+    <Link href={withLocale(locale, "/favorites")} className="inline-flex">
+      <IconButton
+        icon={<Heart className="h-5 w-5" />}
+        badgeContent={favoritesCount}
+        srLabel={label}
+      />
+    </Link>
+  );
+}
+# --- end of components/layout/HeaderIndicators.tsx ---
+
+# --- components/layout/MobileMenu.tsx ---
+"use client";
+
+
+import { Menu } from "lucide-react";
+import Link from "next/link";
+import { Suspense, useState } from "react";
+
+import { IconButton } from "@/components/common/IconButton";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
+import { SearchBar } from "@/components/common/SearchBar";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { withLocale } from "@/lib/utils/locale";
+
+import { CartIndicator, FavoritesIndicator } from "./HeaderIndicators";
+
+import type { NavConfig } from "@/config/nav";
+import type { Locale } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+
+export function MobileMenu({
+  nav,
+  dictionary,
+  locale,
+}: {
+  nav: NavConfig;
+  dictionary: Dictionary;
+  locale: Locale;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <IconButton
+          icon={<Menu className="h-5 w-5" />}
+          srLabel="Open menu"
+          className="border-0 bg-transparent text-neutral-900 hover:bg-neutral-100"
+        />
+      </SheetTrigger>
+      <SheetContent className="gap-6">
+        <SheetHeader className="items-start gap-2">
+          <SheetTitle className="text-2xl font-semibold text-neutral-900">
+            Palmanhac
+          </SheetTitle>
+          <Suspense fallback={<div className="h-8 w-20 rounded-full bg-neutral-100" />}>
+            <LanguageSwitcher />
+          </Suspense>
+        </SheetHeader>
+        <Suspense
+          fallback={<div className="h-11 w-full animate-pulse rounded-full bg-neutral-100" />}
+        >
+          <SearchBar placeholder={dictionary.nav.searchPlaceholder} />
+        </Suspense>
+        <div className="space-y-6">
+          <div className="space-y-3">
+            {nav.main.map((item) => (
+              <SheetClose asChild key={item.href}>
+                <Link
+                  href={withLocale(locale, item.href)}
+                  className="block text-lg font-medium text-neutral-800"
+                  onClick={() => setOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              </SheetClose>
+            ))}
+          </div>
+          <div className="space-y-3 border-t border-[rgb(var(--border))] pt-4">
+            {nav.secondary.map((item) => (
+              <SheetClose asChild key={item.href}>
+                <Link
+                  href={withLocale(locale, item.href)}
+                  className="block text-sm font-medium text-neutral-600"
+                  onClick={() => setOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              </SheetClose>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-4 border-t border-[rgb(var(--border))] pt-4">
+          <CartIndicator label={dictionary.nav.cart} locale={locale} />
+          <FavoritesIndicator label={dictionary.nav.favorites} locale={locale} />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+# --- end of components/layout/MobileMenu.tsx ---
+
+# --- components/layout/Providers.tsx ---
+"use client";
+
+import { Toaster } from "@/components/ui/toaster";
+import { ToastProvider } from "@/components/ui/use-toast";
+
+import type { ReactNode } from "react";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <ToastProvider>
+      {children}
+      <Toaster />
+    </ToastProvider>
+  );
+}
+# --- end of components/layout/Providers.tsx ---
+
+# --- components/layout/TopBanner.tsx ---
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+
+export function TopBanner({ banner }: { banner: Dictionary["banner"] }) {
+  return (
+    <div className="bg-[#123A26] py-2 text-sm text-[rgb(var(--primary-foreground))]">
+      <div className="container flex items-center justify-center font-medium tracking-wide">
+        {banner.freeShipping}
+      </div>
+    </div>
+  );
+}
+# --- end of components/layout/TopBanner.tsx ---
+
+# --- components/product/ProductCard.tsx ---
+"use client";
+
+import { Heart } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+
+import { IconButton } from "@/components/common/IconButton";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
+import { useCartStore } from "@/lib/store/cart";
+import { useFavoritesStore } from "@/lib/store/favorites";
+import { formatCurrency } from "@/lib/utils/currency";
+import { cn } from "@/lib/utils/format";
+import { withLocale } from "@/lib/utils/locale";
+
+import type { Locale } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { ProductListItem } from "@/types/product";
+
+export type ProductCardProps = {
+  product: ProductListItem;
+  dictionary: Dictionary;
+  locale: Locale;
+};
+
+export function ProductCard({ product, dictionary, locale }: ProductCardProps) {
+  const addToCart = useCartStore((state) => state.addItem);
+  const toggleFavorite = useFavoritesStore((state) => state.toggle);
+  const isFavorite = useFavoritesStore((state) => state.has(product.id));
+  const { toast } = useToast();
+
+  const handleAddToCart = () => {
+    addToCart(product.id, 1);
+    toast({
+      title: dictionary.product.addToCart,
+      description: `${product.name} • ${formatCurrency(product.price)}`,
+      variant: "success",
+    });
+  };
+
+  const handleToggleFavorite = () => {
+    toggleFavorite(product.id);
+    toast({
+      title: isFavorite
+        ? dictionary.product.removeFromFavorites
+        : dictionary.product.addToFavorites,
+      description: product.name,
+    });
+  };
+
+  return (
+    <Card className="group flex h-full flex-col overflow-hidden bg-white">
+      <Link
+        href={withLocale(locale, `/product/${product.slug}`)}
+        className="relative block overflow-hidden"
+      >
+        <Image
+          src={product.image}
+          alt={product.name}
+          width={480}
+          height={480}
+          className="h-64 w-full rounded-2xl object-cover transition duration-500 group-hover:scale-105"
+        />
+        <div className="absolute left-4 top-4 flex gap-2">
+          <Badge variant="muted" className="uppercase">
+            {product.category.replace("-", " ")}
+          </Badge>
+        </div>
+      </Link>
+      <CardContent className="flex flex-1 flex-col justify-between gap-4 pt-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <Link
+              href={withLocale(locale, `/product/${product.slug}`)}
+              className="text-lg font-semibold text-neutral-900"
+            >
+              {product.name}
+            </Link>
+            <span className="text-sm font-semibold text-neutral-600">
+              {formatCurrency(product.price)}
+            </span>
+          </div>
+          <p className="line-clamp-2 text-sm text-neutral-500">{product.description}</p>
+          <div className="flex flex-wrap gap-2">
+            {product.tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <Button onClick={handleAddToCart} className="flex-1">
+            {dictionary.product.addToCart}
+          </Button>
+          <IconButton
+            icon={
+              <Heart
+                className={cn("h-5 w-5", isFavorite && "fill-red-500 text-red-500")}
+              />
+            }
+            onClick={handleToggleFavorite}
+            srLabel={dictionary.product.addToFavorites}
+            className="border-0 bg-neutral-100 text-neutral-600 hover:bg-neutral-900 hover:text-white"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+# --- end of components/product/ProductCard.tsx ---
+
+# --- components/product/ProductDetailView.tsx ---
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useState } from "react";
+
+import { ProductGrid } from "@/components/product/ProductGrid";
+import { QuantitySelector } from "@/components/product/QuantitySelector";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { useCartStore } from "@/lib/store/cart";
+import { useFavoritesStore } from "@/lib/store/favorites";
+import { formatCurrency } from "@/lib/utils/currency";
+import { withLocale } from "@/lib/utils/locale";
+
+import type { Locale } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { ProductListItem } from "@/types/product";
+
+export interface ProductDetailData {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  longDescription: string;
+  tastingNotes: string;
+  image: string;
+  price: number;
+  category: string;
+  tags: string[];
+  volumeMl: number;
+  alcoholPercentage: number;
+}
+
+export function ProductDetailView({
+  product,
+  related,
+  dictionary,
+  locale,
+}: {
+  product: ProductDetailData;
+  related: ProductListItem[];
+  dictionary: Dictionary;
+  locale: Locale;
+}) {
+  const { toast } = useToast();
+  const addItem = useCartStore((state) => state.addItem);
+  const toggleFavorite = useFavoritesStore((state) => state.toggle);
+  const isFavorite = useFavoritesStore((state) => state.has(product.id));
+  const [quantity, setQuantity] = useState(1);
+
+  return (
+    <div className="space-y-16">
+      <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="relative overflow-hidden rounded-[2.5rem] bg-white p-8 shadow-[0px_24px_65px_rgba(15,23,42,0.12)]">
+          <div className="relative h-[520px] overflow-hidden rounded-[2rem] bg-neutral-50">
+            <Image
+              src={product.image}
+              alt={product.name}
+              fill
+              className="object-cover"
+              priority
+            />
+          </div>
+          <div className="absolute left-10 top-10">
+            <Badge variant="muted">{product.category.replace("-", " ")}</Badge>
+          </div>
+        </div>
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <h1 className="text-4xl font-semibold text-neutral-900">{product.name}</h1>
+            <p className="text-lg text-neutral-600">{product.description}</p>
+            <div className="flex items-center gap-3 text-sm text-neutral-500">
+              <span>{product.volumeMl} ml</span>
+              <span>•</span>
+              <span>{product.alcoholPercentage}% ABV</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-6">
+            <p className="text-3xl font-semibold text-neutral-900">
+              {formatCurrency(product.price)}
+            </p>
+            <QuantitySelector value={quantity} onChange={setQuantity} />
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <Button
+              size="lg"
+              onClick={() => {
+                addItem(product.id, quantity);
+                toast({
+                  title: dictionary.product.addToCart,
+                  description: `${product.name} • ${formatCurrency(product.price * quantity)}`,
+                  variant: "success",
+                });
+                setQuantity(1);
+              }}
+            >
+              {dictionary.product.addToCart}
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => {
+                toggleFavorite(product.id);
+                toast({
+                  title: isFavorite
+                    ? dictionary.product.removeFromFavorites
+                    : dictionary.product.addToFavorites,
+                  description: product.name,
+                });
+              }}
+            >
+              {isFavorite
+                ? dictionary.product.removeFromFavorites
+                : dictionary.product.addToFavorites}
+            </Button>
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-neutral-900">
+              {dictionary.product.description}
+            </h2>
+            <p className="text-sm leading-relaxed text-neutral-600">
+              {product.longDescription}
+            </p>
+          </div>
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+              {dictionary.product.tastingNotes}
+            </h3>
+            <ul className="flex flex-wrap gap-2 text-sm text-neutral-600">
+              {product.tastingNotes.split(",").map((note) => (
+                <li
+                  key={note}
+                  className="rounded-full bg-neutral-100 px-3 py-1 text-xs uppercase tracking-wide"
+                >
+                  {note.trim()}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+              {dictionary.filters.tags}
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {product.tags.map((tag) => (
+                <Link
+                  key={tag}
+                  href={withLocale(locale, `/search?tag=${encodeURIComponent(tag)}`)}
+                  className="rounded-full border border-[rgb(var(--border))] px-3 py-1 text-xs uppercase tracking-wide text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
+                >
+                  {tag}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      {related.length ? (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-semibold text-neutral-900">
+            {dictionary.product.relatedItems}
+          </h2>
+          <ProductGrid products={related} dictionary={dictionary} locale={locale} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+# --- end of components/product/ProductDetailView.tsx ---
+
+# --- components/product/ProductFilters.tsx ---
+"use client";
+
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils/format";
+
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+
+function buildUrl({
+  pathname,
+  searchParams,
+  next,
+}: {
+  pathname: string;
+  searchParams: URLSearchParams;
+  next: Record<string, string | null>;
+}) {
+  const params = new URLSearchParams(searchParams.toString());
+  Object.entries(next).forEach(([key, value]) => {
+    if (!value) {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
+  });
+  const query = params.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
+
+export function ProductFilters({
+  dictionary,
+  tags,
+}: {
+  dictionary: Dictionary;
+  tags: string[];
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeTags = useMemo(
+    () => new Set((searchParams.get("tags") ?? "").split(",").filter(Boolean)),
+    [searchParams],
+  );
+  const query = searchParams.get("q") ?? "";
+
+  const toggleTag = (tag: string) => {
+    const nextTags = new Set(activeTags);
+    if (nextTags.has(tag)) {
+      nextTags.delete(tag);
+    } else {
+      nextTags.add(tag);
+    }
+    const value = Array.from(nextTags).join(",");
+    router.replace(
+      buildUrl({
+        pathname: pathname ?? "/",
+        searchParams,
+        next: { tags: value || null },
+      }),
+    );
+  };
+
+  const clearFilters = () => {
+    router.replace(
+      buildUrl({
+        pathname: pathname ?? "/",
+        searchParams,
+        next: { q: null, tags: null },
+      }),
+    );
+  };
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-lg font-semibold text-neutral-900">
+          {dictionary.filters.heading}
+        </h3>
+        <Button variant="ghost" size="sm" onClick={clearFilters}>
+          {dictionary.filters.clear}
+        </Button>
+      </div>
+      <div>
+        <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          {dictionary.filters.searchPlaceholder}
+        </label>
+        <Input
+          defaultValue={query}
+          placeholder={dictionary.filters.searchPlaceholder}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              const target = event.target as HTMLInputElement;
+              router.replace(
+                buildUrl({
+                  pathname: pathname ?? "/",
+                  searchParams,
+                  next: { q: target.value || null },
+                }),
+              );
+            }
+          }}
+          onBlur={(event) => {
+            const value = event.target.value;
+            if (value !== query) {
+              router.replace(
+                buildUrl({
+                  pathname: pathname ?? "/",
+                  searchParams,
+                  next: { q: value || null },
+                }),
+              );
+            }
+          }}
+        />
+      </div>
+      {tags.length ? (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            {dictionary.filters.tags}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => {
+              const isActive = activeTags.has(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition",
+                    isActive
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-[rgb(var(--border))] bg-neutral-100 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900",
+                  )}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+# --- end of components/product/ProductFilters.tsx ---
+
+# --- components/product/ProductGrid.tsx ---
+import { ProductCard } from "./ProductCard";
+
+import type { Locale } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { ProductListItem } from "@/types/product";
+
+export function ProductGrid({
+  products,
+  dictionary,
+  locale,
+}: {
+  products: ProductListItem[];
+  dictionary: Dictionary;
+  locale: Locale;
+}) {
+  return (
+    <div className="grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
+      {products.map((product) => (
+        <ProductCard
+          key={product.id}
+          product={product}
+          dictionary={dictionary}
+          locale={locale}
+        />
+      ))}
+    </div>
+  );
+}
+# --- end of components/product/ProductGrid.tsx ---
+
+# --- components/product/QuantitySelector.tsx ---
+"use client";
+
+import { Minus, Plus } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+
+export function QuantitySelector({
+  value,
+  min = 1,
+  max = 8,
+  onChange,
+}: {
+  value: number;
+  min?: number;
+  max?: number;
+  onChange: (value: number) => void;
+}) {
+  const decrease = () => {
+    const next = Math.max(min, value - 1);
+    onChange(next);
+  };
+
+  const increase = () => {
+    const next = Math.min(max, value + 1);
+    onChange(next);
+  };
+
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--border))] bg-white px-3 py-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={decrease}
+        disabled={value <= min}
+        className="h-8 w-8 rounded-full"
+      >
+        <Minus className="h-4 w-4" />
+      </Button>
+      <span className="min-w-[2rem] text-center text-sm font-semibold">{value}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={increase}
+        disabled={value >= max}
+        className="h-8 w-8 rounded-full"
+      >
+        <Plus className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+# --- end of components/product/QuantitySelector.tsx ---
+
+# --- components/ui/badge.tsx ---
+import { cn } from "@/lib/utils/format";
+
+import type { HTMLAttributes } from "react";
+
+export type BadgeVariant = "default" | "outline" | "muted";
+
+const variantStyles: Record<BadgeVariant, string> = {
+  default:
+    "bg-[rgb(var(--accent))] text-[rgb(var(--accent-foreground))] border-transparent",
+  outline: "border border-[rgb(var(--border))] bg-white text-[rgb(var(--foreground))]",
+  muted: "bg-[rgb(var(--muted))] text-[rgb(var(--muted-foreground))] border-transparent",
+};
+
+export type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
+  variant?: BadgeVariant;
+};
+
+export function Badge({ className, variant = "default", ...props }: BadgeProps) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wide",
+        variantStyles[variant],
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+# --- end of components/ui/badge.tsx ---
+
+# --- components/ui/button.tsx ---
+"use client";
+
+import { Slot } from "@radix-ui/react-slot";
+import * as React from "react";
+
+import { cn } from "@/lib/utils/format";
+
+type ButtonVariant = "default" | "outline" | "ghost" | "secondary" | "link" | "pill";
+
+type ButtonSize = "default" | "sm" | "lg" | "icon";
+
+const variantClasses: Record<ButtonVariant, string> = {
+  default:
+    "bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:bg-[rgb(var(--primary))]/90",
+  outline:
+    "border border-[rgb(var(--border))] bg-white text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))]/40",
+  ghost: "text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))]/50",
+  secondary: "bg-neutral-900 text-white hover:bg-neutral-800",
+  link: "text-[rgb(var(--primary))] underline-offset-4 hover:underline",
+  pill: "rounded-full bg-[rgb(var(--accent))] px-6 text-[rgb(var(--accent-foreground))] hover:bg-[rgb(var(--accent))]/90",
+};
+
+const sizeClasses: Record<ButtonSize, string> = {
+  default: "h-11 px-6 text-sm",
+  sm: "h-9 rounded-md px-3 text-xs",
+  lg: "h-12 rounded-lg px-8 text-base",
+  icon: "h-10 w-10",
+};
+
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  asChild?: boolean;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  (
+    { className, variant = "default", size = "default", asChild = false, ...props },
+    ref,
+  ) => {
+    const Comp = asChild ? Slot : "button";
+
+    return (
+      <Comp
+        className={cn(
+          "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-700 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+          variantClasses[variant],
+          sizeClasses[size],
+          className,
+        )}
+        ref={ref as never}
+        {...props}
+      />
+    );
+  },
+);
+
+Button.displayName = "Button";
+
+export { Button };
+# --- end of components/ui/button.tsx ---
+
+# --- components/ui/card.tsx ---
+import { cn } from "@/lib/utils/format";
+
+import type { HTMLAttributes } from "react";
+
+export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-[rgb(var(--border))] bg-white p-6 shadow-[0px_12px_35px_rgba(15,23,42,0.04)]",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("mb-4 flex flex-col gap-2", className)} {...props} />;
+}
+
+export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
+  return (
+    <h3 className={cn("text-lg font-semibold tracking-tight", className)} {...props} />
+  );
+}
+
+export function CardDescription({
+  className,
+  ...props
+}: HTMLAttributes<HTMLParagraphElement>) {
+  return (
+    <p
+      className={cn("text-sm text-[rgb(var(--muted-foreground))]", className)}
+      {...props}
+    />
+  );
+}
+
+export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("space-y-4", className)} {...props} />;
+}
+# --- end of components/ui/card.tsx ---
+
+# --- components/ui/dialog.tsx ---
+"use client";
+
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
+
+import { cn } from "@/lib/utils/format";
+
+import type { ComponentPropsWithoutRef, HTMLAttributes } from "react";
+
+const Dialog = DialogPrimitive.Root;
+const DialogTrigger = DialogPrimitive.Trigger;
+const DialogPortal = DialogPrimitive.Portal;
+const DialogClose = DialogPrimitive.Close;
+
+const DialogOverlay = DialogPrimitive.Overlay;
+
+const DialogOverlayStyled = ({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<typeof DialogOverlay>) => (
+  <DialogOverlay
+    className={cn("fixed inset-0 z-50 bg-black/40 backdrop-blur-sm", className)}
+    {...props}
+  />
+);
+DialogOverlayStyled.displayName = DialogOverlay.displayName;
+
+const DialogContent = ({
+  className,
+  children,
+  hideCloseButton = false,
+  ...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  hideCloseButton?: boolean;
+}) => (
+  <DialogPortal>
+    <DialogOverlayStyled />
+    <DialogPrimitive.Content
+      className={cn(
+        "fixed left-1/2 top-1/2 z-50 grid w-[min(420px,90vw)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-8 shadow-xl",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      {hideCloseButton ? null : (
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-full p-1 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-800">
+          <X className="h-5 w-5" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      )}
+    </DialogPrimitive.Content>
+  </DialogPortal>
+);
+DialogContent.displayName = DialogPrimitive.Content.displayName;
+
+const DialogHeader = ({ className, ...props }: HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("flex flex-col gap-2 text-center", className)} {...props} />
+);
+
+const DialogTitle = ({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Title>) => (
+  <DialogPrimitive.Title
+    className={cn("text-2xl font-semibold text-neutral-900", className)}
+    {...props}
+  />
+);
+DialogTitle.displayName = DialogPrimitive.Title.displayName;
+
+const DialogDescription = ({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Description>) => (
+  <DialogPrimitive.Description
+    className={cn("text-sm text-[rgb(var(--muted-foreground))]", className)}
+    {...props}
+  />
+);
+DialogDescription.displayName = DialogPrimitive.Description.displayName;
+
+export {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+};
+# --- end of components/ui/dialog.tsx ---
+
+# --- components/ui/input.tsx ---
+"use client";
+
+import * as React from "react";
+
+import { cn } from "@/lib/utils/format";
+
+export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type = "text", ...props }, ref) => {
+    return (
+      <input
+        type={type}
+        className={cn(
+          "flex h-11 w-full rounded-lg border border-[rgb(var(--border))] bg-white px-4 text-sm transition-colors placeholder:text-[rgb(var(--muted-foreground))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-800 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50",
+          className,
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  },
+);
+
+Input.displayName = "Input";
+
+export { Input };
+# --- end of components/ui/input.tsx ---
+
+# --- components/ui/label.tsx ---
+"use client";
+
+import * as React from "react";
+
+import { cn } from "@/lib/utils/format";
+
+export type LabelProps = React.LabelHTMLAttributes<HTMLLabelElement> & {
+  requiredIndicator?: boolean;
+};
+
+const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
+  ({ className, children, requiredIndicator, ...props }, ref) => (
+    <label
+      ref={ref}
+      className={cn(
+        "mb-1.5 inline-flex items-center gap-1 text-sm font-medium text-neutral-700",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      {requiredIndicator ? (
+        <span className="text-xs font-normal text-red-500">*</span>
+      ) : null}
+    </label>
+  ),
+);
+
+Label.displayName = "Label";
+
+export { Label };
+# --- end of components/ui/label.tsx ---
+
+# --- components/ui/sheet.tsx ---
+"use client";
+
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
+
+import { cn } from "@/lib/utils/format";
+
+import type { ComponentPropsWithoutRef, HTMLAttributes } from "react";
+
+const Sheet = DialogPrimitive.Root;
+const SheetTrigger = DialogPrimitive.Trigger;
+const SheetClose = DialogPrimitive.Close;
+const SheetPortal = DialogPrimitive.Portal;
+const SheetOverlay = DialogPrimitive.Overlay;
+
+const SheetOverlayStyled = ({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<typeof SheetOverlay>) => (
+  <SheetOverlay
+    className={cn("fixed inset-0 z-50 bg-black/40 backdrop-blur-sm", className)}
+    {...props}
+  />
+);
+SheetOverlayStyled.displayName = SheetOverlay.displayName;
+
+const SheetContent = ({
+  className,
+  children,
+  side = "right",
+  ...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  side?: "left" | "right";
+}) => (
+  <SheetPortal>
+    <SheetOverlayStyled />
+    <DialogPrimitive.Content
+      className={cn(
+        "fixed top-0 z-50 flex h-full w-[min(340px,90vw)] flex-col bg-white p-8 shadow-2xl transition focus-visible:outline-none",
+        side === "right" ? "right-0" : "left-0",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <SheetClose className="absolute right-5 top-5 rounded-full p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-800">
+        <X className="h-5 w-5" />
+        <span className="sr-only">Close</span>
+      </SheetClose>
+    </DialogPrimitive.Content>
+  </SheetPortal>
+);
+SheetContent.displayName = DialogPrimitive.Content.displayName;
+
+const SheetHeader = ({ className, ...props }: HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("flex flex-col gap-1 text-left", className)} {...props} />
+);
+
+const SheetTitle = ({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Title>) => (
+  <DialogPrimitive.Title
+    className={cn("text-xl font-semibold text-neutral-900", className)}
+    {...props}
+  />
+);
+SheetTitle.displayName = DialogPrimitive.Title.displayName;
+
+const SheetDescription = ({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Description>) => (
+  <DialogPrimitive.Description
+    className={cn("text-sm text-[rgb(var(--muted-foreground))]", className)}
+    {...props}
+  />
+);
+SheetDescription.displayName = DialogPrimitive.Description.displayName;
+
+export {
+  Sheet,
+  SheetTrigger,
+  SheetClose,
+  SheetPortal,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+};
+# --- end of components/ui/sheet.tsx ---
+
+# --- components/ui/textarea.tsx ---
+"use client";
+
+import * as React from "react";
+
+import { cn } from "@/lib/utils/format";
+
+export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <textarea
+        className={cn(
+          "flex min-h-[120px] w-full rounded-lg border border-[rgb(var(--border))] bg-white px-4 py-3 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-800 focus-visible:ring-offset-1 placeholder:text-[rgb(var(--muted-foreground))] disabled:cursor-not-allowed disabled:opacity-50",
+          className,
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  },
+);
+
+Textarea.displayName = "Textarea";
+
+export { Textarea };
+# --- end of components/ui/textarea.tsx ---
+
+# --- components/ui/toaster.tsx ---
+"use client";
+
+
+import { AnimatePresence, motion } from "framer-motion";
+import { AlertCircle, CheckCircle2, Info } from "lucide-react";
+
+import { cn } from "@/lib/utils/format";
+
+import { useToast, type ToastVariant } from "./use-toast";
+
+import type { ReactNode } from "react";
+
+const iconMap: Record<ToastVariant, ReactNode> = {
+  default: <Info className="h-5 w-5" />,
+  success: <CheckCircle2 className="h-5 w-5 text-green-600" />,
+  destructive: <AlertCircle className="h-5 w-5 text-red-500" />,
+};
+
+export function Toaster() {
+  const { toasts, dismiss } = useToast();
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-[100] flex justify-center sm:justify-end">
+      <AnimatePresence initial={false}>
+        {toasts.map((toast) => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: -16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.96 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="pointer-events-auto"
+          >
+            <button
+              type="button"
+              onClick={() => dismiss(toast.id)}
+              className={cn(
+                "mb-3 flex w-[min(360px,90vw)] items-start gap-3 rounded-2xl border border-[rgb(var(--border))] bg-white p-4 text-left shadow-lg transition hover:border-neutral-800",
+                toast.variant === "destructive" && "border-red-200 bg-red-50",
+                toast.variant === "success" && "border-green-200 bg-green-50",
+              )}
+            >
+              <span className="mt-0.5 shrink-0 text-neutral-700">
+                {iconMap[toast.variant ?? "default"]}
+              </span>
+              <span className="flex-1 space-y-1">
+                <span className="block text-sm font-semibold text-neutral-900">
+                  {toast.title}
+                </span>
+                {toast.description ? (
+                  <span className="block text-xs text-neutral-500">
+                    {toast.description}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+# --- end of components/ui/toaster.tsx ---
+
+# --- components/ui/use-toast.tsx ---
+"use client";
+
+import { nanoid } from "nanoid";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+export type ToastVariant = "default" | "success" | "destructive";
+
+export type Toast = {
+  id: string;
+  title: string;
+  description?: string;
+  variant?: ToastVariant;
+  duration?: number;
+};
+
+type ToastContextValue = {
+  toasts: Toast[];
+  toast: (toast: Omit<Toast, "id"> & { id?: string }) => void;
+  dismiss: (id: string) => void;
+};
+
+const ToastContext = createContext<ToastContextValue | null>(null);
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const dismiss = useCallback((id: string) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+
+  const toast = useCallback(
+    ({ id, duration = 4000, ...rest }: Omit<Toast, "id"> & { id?: string }) => {
+      const toastId = id ?? nanoid();
+      setToasts((current) => {
+        const next = current.filter((toast) => toast.id !== toastId);
+        next.push({ id: toastId, duration, ...rest });
+        return next;
+      });
+      if (duration > 0) {
+        window.setTimeout(() => dismiss(toastId), duration);
+      }
+    },
+    [dismiss],
+  );
+
+  const value = useMemo<ToastContextValue>(
+    () => ({ toasts, toast, dismiss }),
+    [toasts, toast, dismiss],
+  );
+
+  return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
+}
+
+export const useToast = () => {
+  const context = useContext(ToastContext);
+  if (!context) {
+    throw new Error("useToast must be used within ToastProvider");
+  }
+  return context;
+};
+# --- end of components/ui/use-toast.tsx ---
+
+# --- config/nav.ts ---
+import type { Locale } from "./site";
+
+export type NavItem = {
+  href: string;
+  label: string;
+};
+
+export type NavConfig = {
+  main: NavItem[];
+  secondary: NavItem[];
+};
+
+export const navConfig: Record<Locale, NavConfig> = {
+  en: {
+    main: [
+      { href: "/about", label: "About Us" },
+      { href: "/licor", label: "Licor" },
+      { href: "/aguardente", label: "Aguardente" },
+      { href: "/bebida-espiritosa", label: "Bebida Espiritosa" },
+      { href: "/contact", label: "Contact Us" },
+    ],
+    secondary: [
+      { href: "/account", label: "Account" },
+      { href: "/cart", label: "Cart" },
+      { href: "/favorites", label: "Favorites" },
+    ],
+  },
+  pt: {
+    main: [
+      { href: "/about", label: "Sobre Nós" },
+      { href: "/licor", label: "Licor" },
+      { href: "/aguardente", label: "Aguardente" },
+      { href: "/bebida-espiritosa", label: "Bebida Espirituosa" },
+      { href: "/contact", label: "Contacte-nos" },
+    ],
+    secondary: [
+      { href: "/account", label: "Conta" },
+      { href: "/cart", label: "Carrinho" },
+      { href: "/favorites", label: "Favoritos" },
+    ],
+  },
+};
+# --- end of config/nav.ts ---
+
+# --- config/site.ts ---
+export const locales = ["en", "pt"] as const;
+
+export type Locale = (typeof locales)[number];
+
+export const defaultLocale: Locale = "en";
+
+type ContactInfo = {
+  email: string;
+  phone: string;
+  address: string;
+};
+
+export const siteConfig = {
+  name: "Palmanhac Shop",
+  domain: "palmanhacshop.pt",
+  description:
+    "Palmanhac Shop showcases premium Portuguese liqueurs, aguardente, and specialty spirits crafted in small batches.",
+  defaultLocale,
+  locales,
+  freeShippingThreshold: 50,
+  currency: "EUR",
+  contact: {
+    email: "hello@palmanhacshop.pt",
+    phone: "+351 910 000 000",
+    address: "Rua da Alegria 123, 1200-123 Lisboa, Portugal",
+  } satisfies ContactInfo,
+  social: {
+    instagram: "https://instagram.com/palmanhac",
+    facebook: "https://facebook.com/palmanhac",
+  },
+};
+
+export type SiteConfig = typeof siteConfig;
+
+export const resolveLocale = (candidate: string): Locale =>
+  (locales.includes(candidate as Locale) ? (candidate as Locale) : defaultLocale);
+
+export const extractLocale = async (params?: Promise<{ locale: string }>) => {
+  if (!params) {
+    return defaultLocale;
+  }
+
+  const { locale } = await params;
+  return resolveLocale(locale);
+};
+# --- end of config/site.ts ---
+
+# --- lib/data/seed.ts ---
+import { PrismaClient } from "@prisma/client";
+
+type Locale = "en" | "pt";
+
+type ProductSeed = {
+  slug: string;
+  sku: string;
+  category: "licor" | "aguardente" | "bebida-espiritosa";
+  priceCents: number;
+  image: string;
+  volumeMl: number;
+  alcoholPercentage: number;
+  tags: string[];
+  translations: Record<
+    Locale,
+    {
+      name: string;
+      shortDescription: string;
+      description: string;
+      tastingNotes: string;
+    }
+  >;
+};
+
+export const productSeeds: ProductSeed[] = [
+  {
+    slug: "palmanhac-licor-framboesa",
+    sku: "PAL-LIC-001",
+    category: "licor",
+    priceCents: 3200,
+    image: "/assets/framboesa-licor.png",
+    volumeMl: 500,
+    alcoholPercentage: 18,
+    tags: ["fruit", "raspberry", "sweet", "summer"],
+    translations: {
+      en: {
+        name: "Framboesa Licor",
+        shortDescription: "Bright raspberry liqueur with velvet texture and floral lift.",
+        description:
+          "Crafted with handpicked Algarve raspberries, this vibrant licor delivers layers of forest fruit wrapped in silky sweetness. Perfect as an aperitif or with sparkling wine.",
+        tastingNotes:
+          "Ripe raspberry, wild strawberry, rose petal, and a whisper of vanilla.",
+      },
+      pt: {
+        name: "Licor de Framboesa",
+        shortDescription: "Licor de framboesa vivo com textura aveludada e toque floral.",
+        description:
+          "Elaborado com framboesas do Algarve colhidas à mão, este licor vibrante revela camadas de frutos silvestres envoltas numa doçura sedosa. Ideal como aperitivo ou com espumante.",
+        tastingNotes:
+          "Framboesa madura, morango silvestre, pétalas de rosa e um toque de baunilha.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-licor-citricos",
+    sku: "PAL-LIC-002",
+    category: "licor",
+    priceCents: 3100,
+    image: "/assets/laranja-licor.png",
+    volumeMl: 500,
+    alcoholPercentage: 20,
+    tags: ["citrus", "orange", "fresh"],
+    translations: {
+      en: {
+        name: "Laranja do Douro",
+        shortDescription: "Sun-drenched orange licor with bittersweet balance.",
+        description:
+          "A lively expression of Douro citrus, macerated over weeks to capture essential oils and delicate zest. Refreshing on ice or as a cocktail base.",
+        tastingNotes:
+          "Sweet orange peel, candied citrus, toasted sugar, and light spice.",
+      },
+      pt: {
+        name: "Laranja do Douro",
+        shortDescription: "Licor cítrico com equilíbrio agridoce.",
+        description:
+          "Expressão viva de citrinos do Douro, macerados durante semanas para captar os óleos essenciais e a casca delicada. Refrescante com gelo ou como base de cocktail.",
+        tastingNotes:
+          "Casca de laranja doce, citrinos cristalizados, açúcar tostado e leve especiaria.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-licor-limao",
+    sku: "PAL-LIC-003",
+    category: "licor",
+    priceCents: 2950,
+    image: "/assets/limao-licor.png",
+    volumeMl: 500,
+    alcoholPercentage: 17,
+    tags: ["citrus", "lemon", "digestif"],
+    translations: {
+      en: {
+        name: "Limão Fresco",
+        shortDescription: "Lemon zest licor with crystalline clarity and lift.",
+        description:
+          "Inspired by garden-grown lemons along the coastline, this licor balances tart brightness with a gentle sweetness that lingers.",
+        tastingNotes:
+          "Fresh lemon peel, lemongrass, crystalline sugar, and coastal herbs.",
+      },
+      pt: {
+        name: "Limão Fresco",
+        shortDescription: "Licor de casca de limão com clareza cristalina e frescura.",
+        description:
+          "Inspirado em limoeiros à beira-mar, este licor equilibra o brilho ácido com doçura suave que perdura.",
+        tastingNotes:
+          "Casca de limão fresca, erva-príncipe, açúcar cristal e ervas atlânticas.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-licor-morango",
+    sku: "PAL-LIC-004",
+    category: "licor",
+    priceCents: 3050,
+    image: "/assets/morango-licor.png",
+    volumeMl: 500,
+    alcoholPercentage: 18,
+    tags: ["berry", "dessert", "velvet"],
+    translations: {
+      en: {
+        name: "Morango Velvet",
+        shortDescription: "Crushed strawberry licor with satin finish.",
+        description:
+          "Made with sun-ripened berries, Morango Velvet glides across the palate with red fruit generosity and a subtle herbal backbone.",
+        tastingNotes: "Strawberry confiture, garden mint, hibiscus, and soft caramel.",
+      },
+      pt: {
+        name: "Morango Velvet",
+        shortDescription: "Licor de morango esmagado com final acetinado.",
+        description:
+          "Feito com morangos maduros ao sol, o Morango Velvet desliza pelo paladar com fruta vermelha abundante e um subtil toque herbal.",
+        tastingNotes: "Compota de morango, hortelã fresca, hibisco e caramelo suave.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-licor-cesta-citrica",
+    sku: "PAL-LIC-005",
+    category: "licor",
+    priceCents: 3600,
+    image: "/assets/gift-box-licor.jpg",
+    volumeMl: 700,
+    alcoholPercentage: 19,
+    tags: ["gift", "citrus", "collection"],
+    translations: {
+      en: {
+        name: "Citrus Collection Gift Box",
+        shortDescription: "Trio of coastal citrus licores for elevated gifting.",
+        description:
+          "A curated gift box featuring limited releases of orange, lemon, and bergamot licores with artisanal presentation.",
+        tastingNotes: "Vibrant citrus medley, candied zest, sea breeze minerality.",
+      },
+      pt: {
+        name: "Caixa Presente Coleção Cítrica",
+        shortDescription:
+          "Trio de licores cítricos costeiros para oferecer com elegância.",
+        description:
+          "Caixa selecionada com edições limitadas de licores de laranja, limão e bergamota, apresentada com detalhe artesanal.",
+        tastingNotes:
+          "Mistura de citrinos vibrantes, casca cristalizada e mineralidade marítima.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-licor-frutos-roxos",
+    sku: "PAL-LIC-006",
+    category: "licor",
+    priceCents: 3300,
+    image: "/assets/framboesa-licor.png",
+    volumeMl: 500,
+    alcoholPercentage: 19,
+    tags: ["berry", "evening", "signature"],
+    translations: {
+      en: {
+        name: "Frutos Roxos Signature",
+        shortDescription: "Deep berry licor with midnight florals.",
+        description:
+          "A nocturnal blend of blackberries and cassis rested in French oak for a plush, contemplative finish.",
+        tastingNotes: "Blackberry coulis, cassis, violets, and toasted oak spice.",
+      },
+      pt: {
+        name: "Assinatura Frutos Roxos",
+        shortDescription: "Licor intenso de frutos roxos com flores noturnas.",
+        description:
+          "Mistura noturna de amoras e cassis repousada em carvalho francês para um final envolvente e contemplativo.",
+        tastingNotes:
+          "Coulis de amora, cassis, violetas e especiaria de carvalho tostado.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-aguardente-reserva-ouro",
+    sku: "PAL-AGU-001",
+    category: "aguardente",
+    priceCents: 4800,
+    image: "/assets/gift-box-aguardente.jpg",
+    volumeMl: 700,
+    alcoholPercentage: 40,
+    tags: ["aged", "oak", "reserve"],
+    translations: {
+      en: {
+        name: "Reserva Ouro",
+        shortDescription: "Aged aguardente with honeyed depth and oak.",
+        description:
+          "Distilled from late-harvest grapes and aged in toasted barrels, Reserva Ouro reveals layers of warm spice and golden fruit.",
+        tastingNotes: "Dried apricot, roasted almond, vanilla pod, and cinnamon bark.",
+      },
+      pt: {
+        name: "Reserva Ouro",
+        shortDescription: "Aguardente envelhecida com profundidade melosa e carvalho.",
+        description:
+          "Destilada a partir de uvas de vindima tardia e envelhecida em barricas tostadas, a Reserva Ouro revela camadas de especiarias quentes e fruta dourada.",
+        tastingNotes:
+          "Damasco seco, amêndoa torrada, vagem de baunilha e casca de canela.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-aguardente-brava",
+    sku: "PAL-AGU-002",
+    category: "aguardente",
+    priceCents: 4200,
+    image: "/assets/gift-box-aguardente.jpg",
+    volumeMl: 700,
+    alcoholPercentage: 42,
+    tags: ["bold", "barrel", "floral"],
+    translations: {
+      en: {
+        name: "Aguardente Brava",
+        shortDescription: "Bold and floral aguardente with Atlantic lift.",
+        description:
+          "A brave expression rested near the Atlantic coast, developing saline nuance to balance its robust barrel profile.",
+        tastingNotes: "Orange blossom, salted caramel, smoked oak, and peppercorn.",
+      },
+      pt: {
+        name: "Aguardente Brava",
+        shortDescription: "Aguardente intensa e floral com frescura atlântica.",
+        description:
+          "Expressão audaz repousada junto à costa atlântica, desenvolvendo nuances salinas que equilibram o perfil robusto de barrica.",
+        tastingNotes: "Flor de laranjeira, caramelo salgado, carvalho fumado e pimenta.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-aguardente-carvalho-antigo",
+    sku: "PAL-AGU-003",
+    category: "aguardente",
+    priceCents: 5100,
+    image: "/assets/gift-box-aguardente.jpg",
+    volumeMl: 750,
+    alcoholPercentage: 43,
+    tags: ["solera", "heritage", "limited"],
+    translations: {
+      en: {
+        name: "Carvalho Antigo",
+        shortDescription: "Heritage aguardente matured by solera craft.",
+        description:
+          "A multi-vintage aguardente layered through a solera system, revealing notes of dried fruit and polished wood.",
+        tastingNotes: "Date, hazelnut praline, antique cabinet cedar, and clove.",
+      },
+      pt: {
+        name: "Carvalho Antigo",
+        shortDescription: "Aguardente de herança amadurecida em sistema solera.",
+        description:
+          "Aguardente multicolheita estratificada através de um sistema solera, revelando notas de fruta seca e madeira polida.",
+        tastingNotes: "Tâmara, praliné de avelã, cedro antigo e cravinho.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-aguardente-branca",
+    sku: "PAL-AGU-004",
+    category: "aguardente",
+    priceCents: 3500,
+    image: "/assets/gift-box-aguardente.jpg",
+    volumeMl: 700,
+    alcoholPercentage: 38,
+    tags: ["white", "cocktail", "floral"],
+    translations: {
+      en: {
+        name: "Aguardente Branca",
+        shortDescription: "Fresh white aguardente ideal for cocktails.",
+        description:
+          "Bottled without oak to preserve aromatic clarity, perfect for mixing or served chilled alongside seafood.",
+        tastingNotes: "Pear skin, jasmine, chalk, and a hint of green almond.",
+      },
+      pt: {
+        name: "Aguardente Branca",
+        shortDescription: "Aguardente branca fresca ideal para cocktails.",
+        description:
+          "Engarrafada sem carvalho para preservar a clareza aromática, perfeita para cocktails ou servida fresca com marisco.",
+        tastingNotes: "Pele de pera, jasmim, giz e um toque de amêndoa verde.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-bebida-espirituosa-cafe",
+    sku: "PAL-BEB-001",
+    category: "bebida-espiritosa",
+    priceCents: 3700,
+    image: "/assets/gift-box-licor.jpg",
+    volumeMl: 500,
+    alcoholPercentage: 24,
+    tags: ["coffee", "botanical", "evening"],
+    translations: {
+      en: {
+        name: "Espírito do Café",
+        shortDescription: "Botanical coffee spirit with cocoa richness and spice.",
+        description:
+          "Cold-infused with single-origin coffee and botanicals, ideal as a digestif or in contemporary cocktails.",
+        tastingNotes: "Espresso crema, cocoa nibs, star anise, and toasted hazelnut.",
+      },
+      pt: {
+        name: "Espírito do Café",
+        shortDescription:
+          "Bebida espirituosa de café com riqueza de cacau e especiarias.",
+        description:
+          "Infusão a frio de café de origem única com botânicos, ideal como digestivo ou em cocktails contemporâneos.",
+        tastingNotes: "Creme de espresso, nibs de cacau, anis estrelado e avelã tostada.",
+      },
+    },
+  },
+  {
+    slug: "palmanhac-bebida-espirituosa-cascara",
+    sku: "PAL-BEB-002",
+    category: "bebida-espiritosa",
+    priceCents: 3650,
+    image: "/assets/gift-box-licor.jpg",
+    volumeMl: 500,
+    alcoholPercentage: 26,
+    tags: ["botanical", "cascara", "signature"],
+    translations: {
+      en: {
+        name: "Cáscara & Caraval",
+        shortDescription: "Cáscara-infused spirit balancing floral sweetness and spice.",
+        description:
+          "An adventurous spirit weaving cáscara tea with warm spices and aged aguardente for a layered finish.",
+        tastingNotes: "Cáscara blossom, burnt caramel, pink peppercorn, and cacao husk.",
+      },
+      pt: {
+        name: "Cáscara & Caraval",
+        shortDescription:
+          "Bebida espirituosa com cáscara equilibrando doçura floral e especiarias.",
+        description:
+          "Espírito arrojado que combina chá de cáscara com especiarias quentes e aguardente envelhecida para um final em camadas.",
+        tastingNotes:
+          "Flor de cáscara, caramelo queimado, pimenta rosa e casca de cacau.",
+      },
+    },
+  },
+];
+
+export const seedProducts = async () => {
+  const prisma = new PrismaClient();
+
+  try {
+    for (const product of productSeeds) {
+      await prisma.product.upsert({
+        where: { slug: product.slug },
+        create: {
+          slug: product.slug,
+          sku: product.sku,
+          category: product.category,
+          priceCents: product.priceCents,
+          image: product.image,
+          volumeMl: product.volumeMl,
+          alcoholPercentage: product.alcoholPercentage,
+          tags: JSON.stringify(product.tags),
+          translations: {
+            create: Object.entries(product.translations).map(([locale, translation]) => ({
+              locale,
+              name: translation.name,
+              shortDescription: translation.shortDescription,
+              description: translation.description,
+              tastingNotes: translation.tastingNotes,
+            })),
+          },
+        },
+        update: {
+          sku: product.sku,
+          category: product.category,
+          priceCents: product.priceCents,
+          image: product.image,
+          volumeMl: product.volumeMl,
+          alcoholPercentage: product.alcoholPercentage,
+          tags: JSON.stringify(product.tags),
+          translations: {
+            deleteMany: {},
+            create: Object.entries(product.translations).map(([locale, translation]) => ({
+              locale,
+              name: translation.name,
+              shortDescription: translation.shortDescription,
+              description: translation.description,
+              tastingNotes: translation.tastingNotes,
+            })),
+          },
+        },
+      });
+    }
+  } finally {
+    await prisma.$disconnect();
+  }
+};
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  seedProducts()
+    .then(() => {
+      console.info("Database seeded with product catalog.");
+    })
+    .catch((error) => {
+      console.error("Failed to seed database", error);
+      process.exit(1);
+    });
+}
+# --- end of lib/data/seed.ts ---
+
+# --- lib/i18n/dictionaries.ts ---
+import type { Locale } from "@/config/site";
+
+export type Dictionary = {
+  nav: {
+    searchPlaceholder: string;
+    cart: string;
+    favorites: string;
+    account: string;
+  };
+  banner: {
+    freeShipping: string;
+  };
+  ageGate: {
+    title: string;
+    description: string;
+    confirm: string;
+    deny: string;
+    deniedTitle: string;
+    deniedDescription: string;
+  };
+  home: {
+    heroHeading: string;
+    heroSubheading: string;
+    shopNow: string;
+    exploreCollections: string;
+    featuredTitle: string;
+    featuredDescription: string;
+    categories: {
+      licor: string;
+      aguardente: string;
+      bebidaEspirituosa: string;
+    };
+  };
+  about: {
+    heading: string;
+    missionTitle: string;
+    missionDescription: string;
+    craftsmanshipTitle: string;
+    craftsmanshipDescription: string;
+    heritageTitle: string;
+    heritageDescription: string;
+  };
+  contact: {
+    heading: string;
+    subheading: string;
+    form: {
+      name: string;
+      email: string;
+      message: string;
+      submit: string;
+      success: string;
+    };
+  };
+  account: {
+    heading: string;
+    subheading: string;
+    email: string;
+    password: string;
+    login: string;
+    createAccount: string;
+  };
+  cart: {
+    heading: string;
+    empty: string;
+    subtotal: string;
+    checkout: string;
+    continueShopping: string;
+    addAllFavorites: string;
+    remove: string;
+    cleared: string;
+    clearButton: string;
+  };
+  favorites: {
+    heading: string;
+    empty: string;
+    moveToCart: string;
+    clear: string;
+  };
+  footer: {
+    newsletterTitle: string;
+    newsletterDescription: string;
+    emailPlaceholder: string;
+    submit: string;
+    legalLinks: {
+      privacy: string;
+      terms: string;
+      cookies: string;
+    };
+    rights: string;
+  };
+  product: {
+    quantity: string;
+    addToCart: string;
+    addToFavorites: string;
+    removeFromFavorites: string;
+    description: string;
+    details: string;
+    tastingNotes: string;
+    relatedItems: string;
+    categoryLabel: string;
+  };
+  filters: {
+    heading: string;
+    searchPlaceholder: string;
+    tags: string;
+    clear: string;
+  };
+  form: {
+    required: string;
+  };
+};
+
+const dictionaries: Record<Locale, Dictionary> = {
+  en: {
+    nav: {
+      searchPlaceholder: "Search products",
+      cart: "Cart",
+      favorites: "Favorites",
+      account: "Account",
+    },
+    banner: {
+      freeShipping: "Доставка заказа от 50 евро — бесплатно",
+    },
+    ageGate: {
+      title: "Вам исполнилось 18?",
+      description:
+        "By entering Palmanhac Shop you confirm you are of legal drinking age in your country.",
+      confirm: "Да",
+      deny: "Нет",
+      deniedTitle: "Access Restricted",
+      deniedDescription:
+        "We are sorry, but you must be of legal drinking age to explore Palmanhac Shop.",
+    },
+    home: {
+      heroHeading: "Palmanhac Produto de Portugal.",
+      heroSubheading:
+        "Discover artisanal Portuguese liqueurs, aguardente, and celebrated spirits crafted with heritage and heart.",
+      shopNow: "Shop Collections",
+      exploreCollections: "Explore Our Collections",
+      featuredTitle: "Featured Spirits",
+      featuredDescription:
+        "Handpicked selections to introduce you to the depth and character of Palmanhac.",
+      categories: {
+        licor: "Licor",
+        aguardente: "Aguardente",
+        bebidaEspirituosa: "Bebida Espiritosa",
+      },
+    },
+    about: {
+      heading: "About Palmanhac",
+      missionTitle: "Our Mission",
+      missionDescription:
+        "We celebrate the craft of Portuguese distillation, highlighting small producers and their signature spirits.",
+      craftsmanshipTitle: "Craftsmanship",
+      craftsmanshipDescription:
+        "From maceration to maturation, each bottle is perfected through meticulous processes and sustainable practices.",
+      heritageTitle: "Heritage",
+      heritageDescription:
+        "Inspired by the landscapes of Portugal, Palmanhac blends tradition with modern refinement.",
+    },
+    contact: {
+      heading: "Contact Us",
+      subheading:
+        "Share your inquiries with us and our team will respond within one business day.",
+      form: {
+        name: "Name",
+        email: "Email",
+        message: "Message",
+        submit: "Send Message",
+        success: "Thank you — we will be in touch shortly.",
+      },
+    },
+    account: {
+      heading: "Personal Account",
+      subheading:
+        "Sign in to manage your orders, saved items, and preferences. Account features arrive soon.",
+      email: "Email",
+      password: "Password",
+      login: "Sign In",
+      createAccount: "Create Account",
+    },
+    cart: {
+      heading: "Your Cart",
+      empty: "Your cart is empty. Discover our spirits to begin your collection.",
+      subtotal: "Subtotal",
+      checkout: "Proceed to Checkout",
+      continueShopping: "Continue Shopping",
+      addAllFavorites: "Add favorites to cart",
+      remove: "Remove",
+      cleared: "Cart cleared",
+      clearButton: "Clear cart",
+    },
+    favorites: {
+      heading: "Favorites",
+      empty: "You have not saved any items yet.",
+      moveToCart: "Add all to cart",
+      clear: "Clear favorites",
+    },
+    footer: {
+      newsletterTitle: "Join the Palmanhac circle",
+      newsletterDescription:
+        "Receive release news, tasting notes, and invitations to private events.",
+      emailPlaceholder: "Email address",
+      submit: "Subscribe",
+      legalLinks: {
+        privacy: "Privacy Policy",
+        terms: "Terms of Service",
+        cookies: "Cookie Policy",
+      },
+      rights: "© Palmanhac Shop. All rights reserved.",
+    },
+    product: {
+      quantity: "Quantity",
+      addToCart: "Add to Cart",
+      addToFavorites: "Add to Favorites",
+      removeFromFavorites: "Removed from Favorites",
+      description: "Description",
+      details: "Details",
+      tastingNotes: "Tasting Notes",
+      relatedItems: "Related Items",
+      categoryLabel: "Category",
+    },
+    filters: {
+      heading: "Filters",
+      searchPlaceholder: "Search within this collection",
+      tags: "Tags",
+      clear: "Clear filters",
+    },
+    form: {
+      required: "This field is required.",
+    },
+  },
+  pt: {
+    nav: {
+      searchPlaceholder: "Pesquisar produtos",
+      cart: "Carrinho",
+      favorites: "Favoritos",
+      account: "Conta",
+    },
+    banner: {
+      freeShipping: "Доставка заказа от 50 евро — бесплатно",
+    },
+    ageGate: {
+      title: "Вам исполнилось 18?",
+      description:
+        "Ao aceder à Palmanhac Shop confirma que tem idade legal para consumir bebidas alcoólicas.",
+      confirm: "Да",
+      deny: "Нет",
+      deniedTitle: "Acesso Restrito",
+      deniedDescription:
+        "Lamentamos, mas tem de ter idade legal para explorar a Palmanhac Shop.",
+    },
+    home: {
+      heroHeading: "Palmanhac Produto de Portugal.",
+      heroSubheading:
+        "Descubra licores artesanais portugueses, aguardente e espirituosas celebradas, elaboradas com tradição e alma.",
+      shopNow: "Ver Coleções",
+      exploreCollections: "Explore as Nossas Coleções",
+      featuredTitle: "Destaques",
+      featuredDescription:
+        "Seleções escolhidas para dar a conhecer a profundidade e o caráter da Palmanhac.",
+      categories: {
+        licor: "Licor",
+        aguardente: "Aguardente",
+        bebidaEspirituosa: "Bebida Espirituosa",
+      },
+    },
+    about: {
+      heading: "Sobre a Palmanhac",
+      missionTitle: "A Nossa Missão",
+      missionDescription:
+        "Celebramos a arte da destilação portuguesa, destacando pequenos produtores e os seus espirituosos de assinatura.",
+      craftsmanshipTitle: "Ofício",
+      craftsmanshipDescription:
+        "Da maceração à maturação, cada garrafa é aperfeiçoada com processos meticulosos e práticas sustentáveis.",
+      heritageTitle: "Herança",
+      heritageDescription:
+        "Inspirada nas paisagens de Portugal, a Palmanhac combina tradição com um requinte contemporâneo.",
+    },
+    contact: {
+      heading: "Contacte-nos",
+      subheading:
+        "Partilhe connosco as suas questões e responderemos dentro de um dia útil.",
+      form: {
+        name: "Nome",
+        email: "Email",
+        message: "Mensagem",
+        submit: "Enviar Mensagem",
+        success: "Obrigado — entraremos em contacto em breve.",
+      },
+    },
+    account: {
+      heading: "Conta Pessoal",
+      subheading:
+        "Inicie sessão para gerir encomendas, itens guardados e preferências. Em breve haverá mais funcionalidades.",
+      email: "Email",
+      password: "Palavra-passe",
+      login: "Entrar",
+      createAccount: "Criar Conta",
+    },
+    cart: {
+      heading: "O Seu Carrinho",
+      empty:
+        "O carrinho está vazio. Descubra os nossos espirituosos para começar a coleção.",
+      subtotal: "Subtotal",
+      checkout: "Prosseguir para Checkout",
+      continueShopping: "Continuar a Comprar",
+      addAllFavorites: "Adicionar favoritos ao carrinho",
+      remove: "Remover",
+      cleared: "Carrinho limpo",
+      clearButton: "Limpar carrinho",
+    },
+    favorites: {
+      heading: "Favoritos",
+      empty: "Ainda não guardou itens.",
+      moveToCart: "Adicionar tudo ao carrinho",
+      clear: "Limpar favoritos",
+    },
+    footer: {
+      newsletterTitle: "Entre no círculo Palmanhac",
+      newsletterDescription:
+        "Receba novidades, notas de prova e convites para eventos privados.",
+      emailPlaceholder: "Endereço de email",
+      submit: "Subscrever",
+      legalLinks: {
+        privacy: "Política de Privacidade",
+        terms: "Termos de Serviço",
+        cookies: "Política de Cookies",
+      },
+      rights: "© Palmanhac Shop. Todos os direitos reservados.",
+    },
+    product: {
+      quantity: "Quantidade",
+      addToCart: "Adicionar ao Carrinho",
+      addToFavorites: "Adicionar aos Favoritos",
+      removeFromFavorites: "Removido dos Favoritos",
+      description: "Descrição",
+      details: "Detalhes",
+      tastingNotes: "Notas de Prova",
+      relatedItems: "Itens Relacionados",
+      categoryLabel: "Categoria",
+    },
+    filters: {
+      heading: "Filtros",
+      searchPlaceholder: "Pesquisar nesta coleção",
+      tags: "Etiquetas",
+      clear: "Limpar filtros",
+    },
+    form: {
+      required: "Este campo é obrigatório.",
+    },
+  },
+};
+
+export const getDictionary = (locale: Locale): Dictionary => {
+  if (locale in dictionaries) {
+    return dictionaries[locale];
+  }
+
+  return dictionaries.en;
+};
+# --- end of lib/i18n/dictionaries.ts ---
+
+# --- lib/server/db.ts ---
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+# --- end of lib/server/db.ts ---
+
+# --- lib/server/products.ts ---
+
+import { defaultLocale } from "@/config/site";
+
+import { prisma } from "./db";
+
+import type { Locale } from "@/config/site";
+import type { Product, ProductListItem } from "@/types/product";
+import type { Prisma } from "@prisma/client";
+
+type ProductEntity = Prisma.ProductGetPayload<{
+  include: { translations: true };
+}>;
+
+
+const parseTags = (value: string | null): string[] => {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const mapProduct = (product: ProductEntity | null, locale: Locale): Product | null => {
+  if (!product) {
+    return null;
+  }
+
+  const translations = product.translations.reduce<Record<string, ProductEntity["translations"][number]>>(
+    (acc, translation) => {
+      acc[translation.locale] = translation;
+      return acc;
+    },
+    {},
+  );
+
+  const localized =
+    translations[locale] ?? translations[defaultLocale] ?? product.translations[0];
+
+  if (!localized) {
+    return null;
+  }
+
+  const price = product.priceCents / 100;
+
+  return {
+    id: product.id,
+    slug: product.slug,
+    sku: product.sku,
+    category: product.category as Product["category"],
+    price,
+    image: product.image,
+    volumeMl: product.volumeMl,
+    alcoholPercentage: product.alcoholPercentage,
+    tags: parseTags(product.tags),
+    translations: Object.fromEntries(
+      product.translations.map((translation) => [
+        translation.locale,
+        {
+          locale: translation.locale as Locale,
+          name: translation.name,
+          shortDescription: translation.shortDescription,
+          description: translation.description,
+          tastingNotes: translation.tastingNotes,
+        },
+      ]),
+    ) as Partial<Record<Locale, Product["translations"][Locale]>>,
+  };
+};
+
+const mapProductListItem = (
+  product: ProductEntity,
+  locale: Locale,
+): ProductListItem => {
+  const normalized = mapProduct(product, locale);
+  if (!normalized) {
+    throw new Error("Product missing translations");
+  }
+
+  const localizedTranslation =
+    normalized.translations[locale] ??
+    normalized.translations[defaultLocale] ??
+    Object.values(normalized.translations)[0];
+
+  if (!localizedTranslation) {
+    throw new Error("Product missing translations");
+  }
+
+  return {
+    id: normalized.id,
+    slug: normalized.slug,
+    category: normalized.category,
+    image: normalized.image,
+    price: normalized.price,
+    tags: normalized.tags,
+    name: localizedTranslation.name,
+    description: localizedTranslation.shortDescription,
+  };
+};
+
+type ProductFilters = {
+  category?: string;
+  query?: string;
+  tags?: string[];
+};
+
+export const getAllProducts = async (locale: Locale, filters: ProductFilters = {}) => {
+  const { category, query, tags } = filters;
+
+  const products = (await prisma.product.findMany({
+    where: {
+      category: category ?? undefined,
+      translations: query
+        ? {
+            some: {
+              locale,
+              OR: [
+                { name: { contains: query } },
+                { shortDescription: { contains: query } },
+              ],
+            },
+          }
+        : undefined,
+    },
+    include: {
+      translations: true,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  })) as ProductEntity[];
+
+  const list = products.map((product) => mapProductListItem(product, locale));
+
+  if (!tags?.length) {
+    return list;
+  }
+
+  return list.filter((item) => tags.every((tag) => item.tags.includes(tag)));
+};
+
+export const getProductsByIds = async (ids: number[], locale: Locale) => {
+  if (!ids.length) return [] as Product[];
+
+  const products = (await prisma.product.findMany({
+    where: {
+      id: {
+        in: ids,
+      },
+    },
+    include: {
+      translations: true,
+    },
+  })) as ProductEntity[];
+
+  return products
+    .map((product) => mapProduct(product, locale))
+    .filter((product): product is Product => Boolean(product));
+};
+
+export const getProductSummariesByIds = async (ids: number[], locale: Locale) => {
+  if (!ids.length) return [] as ProductListItem[];
+  const products = (await prisma.product.findMany({
+    where: {
+      id: {
+        in: ids,
+      },
+    },
+    include: {
+      translations: true,
+    },
+  })) as ProductEntity[];
+
+  return products.map((product) => mapProductListItem(product, locale));
+};
+
+export const getAllTags = async (category?: string) => {
+  const products = await prisma.product.findMany({
+    select: {
+      tags: true,
+      category: true,
+    },
+    where: category ? { category } : undefined,
+  });
+
+  const tagSet = new Set<string>();
+  products.forEach((product) => {
+    parseTags(product.tags).forEach((tag) => tagSet.add(tag));
+  });
+
+  return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
+};
+
+export const getAllProductSlugs = async () => {
+  const products = await prisma.product.findMany({
+    select: { slug: true },
+  });
+
+  return products.map((product) => product.slug);
+};
+
+export const getProductBySlug = async (slug: string, locale: Locale) => {
+  const product = await prisma.product.findUnique({
+    where: { slug },
+    include: {
+      translations: true,
+    },
+  });
+
+  return mapProduct(product, locale);
+};
+
+export const getRelatedProducts = async (slug: string, locale: Locale, limit = 4) => {
+  const product = await getProductBySlug(slug, locale);
+
+  if (!product) {
+    return [];
+  }
+
+  const related = await prisma.product.findMany({
+    where: {
+      category: product.category,
+      slug: {
+        not: slug,
+      },
+    },
+    include: {
+      translations: true,
+    },
+    take: limit,
+  });
+
+  return related.map((item) => mapProductListItem(item, locale));
+};
+
+export const getFeaturedProducts = async (locale: Locale, limit = 4) => {
+  const products = await prisma.product.findMany({
+    orderBy: {
+      createdAt: "asc",
+    },
+    take: limit,
+    include: {
+      translations: true,
+    },
+  });
+
+  return products.map((product) => mapProductListItem(product, locale));
+};
+# --- end of lib/server/products.ts ---
+
+# --- lib/store/cart.ts ---
+import { create } from "zustand";
+import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
+
+export type CartItem = {
+  productId: number;
+  quantity: number;
+};
+
+type CartStore = {
+  items: CartItem[];
+  addItem: (productId: number, quantity?: number) => void;
+  removeItem: (productId: number) => void;
+  updateQuantity: (productId: number, quantity: number) => void;
+  clear: () => void;
+  totalItems: () => number;
+};
+
+const storageFactory = (): StateStorage => {
+  if (typeof window === "undefined") {
+    return {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    };
+  }
+
+  return localStorage;
+};
+
+export const useCartStore = create<CartStore>()(
+  persist(
+    (set, get) => ({
+      items: [],
+      addItem: (productId, quantity = 1) => {
+        set((state) => {
+          const existing = state.items.find((item) => item.productId === productId);
+
+          if (existing) {
+            return {
+              items: state.items.map((item) =>
+                item.productId === productId
+                  ? { ...item, quantity: item.quantity + quantity }
+                  : item,
+              ),
+            };
+          }
+
+          return {
+            items: [...state.items, { productId, quantity }],
+          };
+        });
+      },
+      removeItem: (productId) =>
+        set((state) => ({
+          items: state.items.filter((item) => item.productId !== productId),
+        })),
+      updateQuantity: (productId, quantity) =>
+        set((state) => ({
+          items: state.items
+            .map((item) => (item.productId === productId ? { ...item, quantity } : item))
+            .filter((item) => item.quantity > 0),
+        })),
+      clear: () => set({ items: [] }),
+      totalItems: () => get().items.reduce((acc, item) => acc + item.quantity, 0),
+    }),
+    {
+      name: "palmanhac-cart",
+      skipHydration: true,
+      storage: createJSONStorage(storageFactory),
+    },
+  ),
+);
+# --- end of lib/store/cart.ts ---
+
+# --- lib/store/favorites.ts ---
+import { create } from "zustand";
+import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
+
+type FavoritesStore = {
+  ids: number[];
+  toggle: (productId: number) => void;
+  add: (productId: number) => void;
+  remove: (productId: number) => void;
+  clear: () => void;
+  has: (productId: number) => boolean;
+};
+
+const storageFactory = (): StateStorage => {
+  if (typeof window === "undefined") {
+    return {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    };
+  }
+
+  return localStorage;
+};
+
+export const useFavoritesStore = create<FavoritesStore>()(
+  persist(
+    (set, get) => ({
+      ids: [],
+      toggle: (productId) => {
+        const { ids } = get();
+        if (ids.includes(productId)) {
+          set({ ids: ids.filter((id) => id !== productId) });
+        } else {
+          set({ ids: [...ids, productId] });
+        }
+      },
+      add: (productId) =>
+        set((state) =>
+          state.ids.includes(productId) ? state : { ids: [...state.ids, productId] },
+        ),
+      remove: (productId) =>
+        set((state) => ({
+          ids: state.ids.filter((id) => id !== productId),
+        })),
+      clear: () => set({ ids: [] }),
+      has: (productId) => get().ids.includes(productId),
+    }),
+    {
+      name: "palmanhac-favorites",
+      skipHydration: true,
+      storage: createJSONStorage(storageFactory),
+    },
+  ),
+);
+# --- end of lib/store/favorites.ts ---
+
+# --- lib/utils/currency.ts ---
+const currencyFormatter = new Intl.NumberFormat("en-PT", {
+  style: "currency",
+  currency: "EUR",
+  minimumFractionDigits: 2,
+});
+
+export const formatCurrency = (value: number): string => currencyFormatter.format(value);
+# --- end of lib/utils/currency.ts ---
+
+# --- lib/utils/format.ts ---
+import clsx from "clsx";
+import { twMerge } from "tailwind-merge";
+
+import type { ClassValue } from "clsx";
+
+export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
+
+export const titleize = (value: string) =>
+  value
+    .split(" ")
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
+# --- end of lib/utils/format.ts ---
+
+# --- lib/utils/locale.ts ---
+import type { Locale } from "@/config/site";
+
+export const withLocale = (locale: Locale, path: string): string => {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  if (normalized === "/") {
+    return `/${locale}`;
+  }
+  return `/${locale}${normalized}`;
+};
+# --- end of lib/utils/locale.ts ---
+
+# --- prisma/schema.prisma ---
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Product {
+  id                Int                   @id @default(autoincrement())
+  slug              String                @unique
+  sku               String                @unique
+  category          String
+  priceCents        Int
+  image             String
+  volumeMl          Int
+  alcoholPercentage Float
+  tags              String
+  translations      ProductTranslation[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+}
+
+model ProductTranslation {
+  id              Int      @id @default(autoincrement())
+  locale          String
+  name            String
+  shortDescription String
+  tastingNotes    String
+  description     String
+  productId       Int
+  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, locale])
+}
+# --- end of prisma/schema.prisma ---

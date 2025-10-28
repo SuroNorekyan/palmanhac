@@ -1,0 +1,37 @@
+Changex-2
+=========
+
+Added
+-----
+- lib/data/mockItemParser.ts — parses the ten text-based mock items into normalized product records for seeding and reuse.
+- prisma/migrations/20250105000123_init_postgres/migration.sql — initial PostgreSQL migration that creates the simplified `Product` table.
+- prisma/migrations/migration_lock.toml — locks Prisma Migrate to the PostgreSQL provider.
+- backend-guide.txt — operational guide covering Postgres setup, Prisma workflow, and local/deploy runbooks.
+- Changex-2.txt — this change log.
+
+Removed
+-------
+- prisma/dev.db — obsolete SQLite database file from the previous setup.
+
+Updated
+-------
+- components/product/ProductFilters.tsx — rewritten as a lightweight price-sort/search toolbar.
+- prisma/schema.prisma — switched datasource to PostgreSQL and collapsed the schema to match the new product shape (name, priceCents, descriptions, abv, volume, image).
+- lib/data/seed.ts — now consumes the parser output to seed only the ten curated products and stores image paths aligned with `/public/assets`.
+- lib/server/products.ts — rewritten data mappers and queries for the new schema, added price sorting, and removed tag/filter logic.
+- app/api/* routes — stripped tag parameters, returned the new data shape, and exposed price sort controls.
+- components/product/* — product card/detail/grid updated to work with cents-based pricing, localized descriptions, and no tag UI.
+- components/cart/CartView.tsx — shipping/discount/VAT computation added, prices handled in cents, and summary UI rewritten.
+- components/layout/Providers.tsx — enables client-side rehydration of Zustand stores to fix cart/favorites persistence.
+- lib/i18n/dictionaries.ts — removed RU placeholders, added catalog controls, cart labels, and kept EN/PT only.
+- app/[locale] pages — removed filter props, defaulted to price sorting, and refreshed hero/category imagery.
+- public/assets — cleaned old assets and added images matching the ten mock items (slug-based filenames).
+- types/product.ts and utility helpers — aligned domain types with the normalized product shape and added currency helpers for locale-aware formatting.
+
+Structure now
+-------------
+The catalog is sourced from `/mock-items` via `lib/data/mockItemParser.ts`, seeded into PostgreSQL through Prisma, and accessed exclusively through `lib/server/products.ts`. Frontend data flows rely on `ProductListItem` (for lists/cards) and the simplified `Product` structure (for detail views), with price values stored and computed in cents to stay payment-ready. Filtering UI has been replaced by a single search field and a price sort toggle, while cart and favorites hydration is centralized in `components/layout/Providers.tsx`.
+
+Fixes delivered
+---------------
+Mock data has been fully replaced by the ten curated items, filters/tags were removed across API and UI, and cart/favorites now persist correctly after refresh thanks to explicit store rehydration. The cart summary applies the requested shipping tiers, 5% bulk discount, and displays a localized VAT line. Prisma now targets PostgreSQL with a matching migration/seed pipeline, and `backend-guide.txt` documents setup, operations, and deployment considerations.

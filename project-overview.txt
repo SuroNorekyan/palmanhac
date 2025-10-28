@@ -1,0 +1,61 @@
+Palmanhac Shop Overview
+========================
+
+Project Summary
+---------------
+Palmanhac Shop is a bilingual (EN/PT) e-commerce scaffold built with Next.js App Router, providing catalog browsing, category filtering, product detail views, cart & favorites state via Zustand, and an age-gate modal. UI components rely on Tailwind-ready shadcn-styled primitives with responsive navigation and mobile interactions animated through Framer Motion.
+
+Key Structure
+-------------
+app/
+  layout.tsx                     Global providers, header/footer/age-gate wiring
+  middleware.ts                  Locale redirect middleware (root -> /en)
+  [locale]/                      Locale-scoped routes
+    page.tsx                     Home hero, category grid, featured list
+    about/contact/account/...    Static content pages
+    product/[slug]/page.tsx      Product detail + related suggestions
+    licor|aguardente|...         Category listings with filters
+    api/...                      Mock API routes (health, search, products)
+components/
+  layout/                        Header, Footer, AgeGate, etc.
+  product/                       ProductCard, grid, filters, detail view
+  common/                        Reusable UI (SearchBar, LanguageSwitcher,...)
+lib/
+  server/products.ts             Prisma access helpers
+  data/seed.ts                   Seed data for SQLite catalog
+  store/                         Zustand stores for cart & favorites
+  i18n/dictionaries.ts           EN/PT copy dictionary
+config/
+  site.ts, nav.ts                Site metadata and navigation config
+public/assets/                   Mock imagery used across catalog
+
+Tech Stack
+----------
+- Next.js 16 App Router with TypeScript
+- Tailwind CSS utility styling
+- Zustand (cart & favorites with persistence)
+- Framer Motion animations
+- shadcn/ui-inspired component primitives (Button, Input, etc.)
+- Prisma ORM with SQLite database + seed script
+- ESLint + Prettier + Husky + lint-staged
+
+Running & Tooling
+-----------------
+1. Install dependencies: `pnpm install`
+2. Sync database schema: `pnpm prisma db push`
+3. Seed mock catalog: `pnpm prisma db seed`
+4. Dev server: `pnpm dev`
+5. Validate: `pnpm lint`, `pnpm typecheck`, `pnpm build`
+
+Internationalization & UX Notes
+-------------------------------
+- Localized routing is handled via `/[locale]/...` segments with middleware redirecting `/` to `/en`.
+- Copy is sourced from `lib/i18n/dictionaries.ts`; update strings there to extend translations.
+- `LanguageSwitcher` toggles locales while preserving the current path & query.
+- Age gate (`components/layout/AgeGate`) appears on first visit, persisting consent in localStorage + cookie. Decline redirects to `/[locale]/age-gate-denied`.
+
+Data & API Mock Strategy
+------------------------
+- Prisma schema (`prisma/schema.prisma`) models products and translations; SQLite DB lives at `prisma/dev.db`.
+- Seed data (`pnpm prisma db seed`) loads 12 sample products using assets under `public/assets`.
+- Server helpers in `lib/server/products.ts` provide filtering, related items, and API responses consumed by both pages and `/api` routes.
