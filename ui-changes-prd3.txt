@@ -1,0 +1,96 @@
+[File]: app/[locale]/page.tsx
+[Summary]: Rebuilt the homepage with full catalog, revised collections, and non-overlapping featured controls.
+[Details]: Loads mock-derived catalog data with sorting, reorders sections, removes the bebida-espiritosa collection card, and spaces carousel navigation away from the primary CTA.
+---
+[File]: app/[locale]/about/page.tsx
+[Summary]: Added bilingual client logistics and address block with complaints link.
+[Details]: Renders delivery blurb, structured contact lines, and Livro de Reclamações entry alongside the existing story tiles.
+---
+[File]: app/[locale]/product/[slug]/page.tsx
+[Summary]: Migrated product detail route to file-based data with resilient localization.
+[Details]: Pulls parsed mock item content, falls back across locales for missing fields, and assembles related products from the new file-backed loader.
+---
+[File]: app/api/products/route.ts
+[Summary]: Tightened category filtering to supported slugs for the product API.
+[Details]: Validates catalog requests against the licor/aguardente union before delegating to the data service.
+---
+[File]: components/home/HeroSection.tsx
+[Summary]: Created animated hero component with wine video background and smooth-scroll CTA.
+[Details]: Added overlay gradient, fade-in effect, and scroll handler targeting the product list section.
+---
+[File]: components/layout/AgeGate.tsx
+[Summary]: Added 30-day TTL consent storage and legacy key cleanup to the age gate modal.
+[Details]: Stores approvals with expirations in localStorage, refreshes legacy flags, clears cookies on denial, and localizes the prompt text.
+---
+[File]: components/layout/Footer.tsx
+[Summary]: Reworked footer copy to showcase delivery promise, address lines, and complaints link.
+[Details]: Injected bilingual logistics text, mapped contact lines with smart linking, and kept social/newsletter blocks intact.
+---
+[File]: components/product/FeaturedCarousel.tsx
+[Summary]: Updated featured carousel controls and scrolling behaviour.
+[Details]: Moved arrows into a dedicated flex row and removed scroll snapping to avoid layout oscillation near the CTA.
+---
+[File]: components/product/ProductCard.tsx
+[Summary]: Enriched cards with alcohol content and bottle size without losing compact styling.
+[Details]: Added a wrapped metadata row using localized labels alongside existing description and actions.
+---
+[File]: components/product/ProductDetailView.tsx
+[Summary]: Expanded product snapshot with structured facts and fully visible imagery.
+[Details]: Displays localized region/base/type grids, optional awards, and uses object-contain sizing so bottles stay fully in frame across breakpoints.
+---
+[File]: components/product/ProductGrid.tsx
+[Summary]: Adjusted product grid breakpoints for denser responsive layout.
+[Details]: Updated column counts and spacing to accommodate the compact card design across viewports.
+---
+[File]: components/product/ProductSortControl.tsx
+[Summary]: Added client-side sort dropdown mirroring catalog filters.
+[Details]: Synced with URL search params to toggle price ordering from the homepage.
+---
+[File]: config/nav.ts
+[Summary]: Reordered navigation so About precedes Contact and pruned the bebida-espiritosa entry.
+[Details]: Limits main navigation to licor, aguardente, about, and contact links per locale.
+---
+[File]: config/site.ts
+[Summary]: Updated site contact metadata to the Palmela distillery details.
+[Details]: Replaced placeholder phone, email, domain, and address with the provided client information.
+---
+[File]: lib/data/mockItemParser.ts
+[Summary]: Rebuilt mock item parser to capture detailed fields with locale fallbacks.
+[Details]: Normalizes two-category mapping, extracts descriptions, region/base/type strings, service temps, awards, resolves image paths, and falls back when EN/PT markers are missing.
+---
+[File]: lib/data/seed.ts
+[Summary]: Aligned seeding with new parser output.
+[Details]: Persists precomputed image paths while keeping descriptions, pricing, and metrics intact.
+---
+[File]: lib/i18n/dictionaries.ts
+[Summary]: Expanded EN/PT dictionaries for new product facts, logistics copy, and revised age-gate text.
+[Details]: Adds labels for detail grids, logistics blurbs, address arrays, carousel strings, and refreshed hero/catalog wording.
+---
+[File]: lib/server/products.ts
+[Summary]: Replaced Prisma-backed product queries with file-parsed catalog utilities.
+[Details]: Caches mock-item parsing, exposes list/detail helpers, implements price sorting, locale-aware summaries, and related-product lookups.
+---
+[File]: package.json
+[Summary]: Removed ESLint tooling in favor of a Prettier-only workflow.
+[Details]: Dropped ESLint dependencies and scripts, folding lint-staged config into a single Prettier target.
+---
+[File]: pnpm-lock.yaml
+[Summary]: Regenerated lockfile after pruning ESLint dependencies.
+[Details]: Removes lint packages from the dependency graph while retaining existing runtime modules.
+---
+[File]: styles/globals.css
+[Summary]: Stabilized page height to prevent scroll oscillation.
+[Details]: Ensured html/body enforce min-height and clamp overflow-x to hidden.
+---
+[File]: types/product.ts
+[Summary]: Refined product typing for two-category support and rich detail payloads.
+[Details]: Introduced ProductDetails metadata maps, added volume/abv to list items, and removed the deprecated bebida-espiritosa slug.
+---
+[File]: app/[locale]/bebida-espiritosa/page.tsx
+[Summary]: Removed obsolete bebida-espiritosa route.
+[Details]: Eliminated the unused collection page in line with the two-category navigation.
+---
+[File]: eslint.config.mjs
+[Summary]: Deleted ESLint configuration file.
+[Details]: Cleans up tooling artifacts after migrating to Prettier-only formatting.
+---

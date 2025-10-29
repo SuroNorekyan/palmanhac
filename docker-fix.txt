@@ -16,3 +16,5 @@ Troubleshooting notes
 - If seeding fails with `ERR_MODULE_NOT_FOUND`, double-check the local changes above and re-run `pnpm prisma db seed`.
 - Connection errors usually mean the container is not ready yet; re-run `docker compose ps` to confirm `palmanhac-postgres` is `Up` and listening on `0.0.0.0:5433`.
 - Prisma Studio reads the same `DATABASE_URL`, so once steps 1–5 succeed you’ll see all 10 products there.
+
+To continue this session, run codex resume 019a2af8-b3e4-75d1-b902-97ebf1967d22

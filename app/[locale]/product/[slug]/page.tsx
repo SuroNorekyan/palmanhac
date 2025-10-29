@@ -27,23 +27,58 @@ export default async function ProductPage({
     notFound();
   }
 
-  const localizedDescription =
-    product.description[locale] ?? product.description[defaultLocale];
+  const localizedDescriptionValue = product.description[locale]?.trim().length
+    ? product.description[locale]
+    : product.description[defaultLocale];
 
-  if (!localizedDescription) {
+  if (!localizedDescriptionValue) {
     notFound();
   }
+
+  const withFallback = (value: string | undefined, fallback: string | undefined) =>
+    value && value.trim().length ? value : (fallback ?? "");
+
+  const localizedDetails = {
+    region: withFallback(
+      product.details.region[locale],
+      product.details.region[defaultLocale],
+    ),
+    base: withFallback(product.details.base[locale], product.details.base[defaultLocale]),
+    type: withFallback(product.details.type[locale], product.details.type[defaultLocale]),
+    alcoholContent: withFallback(
+      product.details.alcoholContent[locale],
+      product.details.alcoholContent[defaultLocale] ?? `${product.abv}%`,
+    ),
+    bottleSize: withFallback(
+      product.details.bottleSize[locale],
+      product.details.bottleSize[defaultLocale] ?? `${product.volumeMl} ml`,
+    ),
+    servingTemperature: withFallback(
+      product.details.servingTemperature[locale],
+      product.details.servingTemperature[defaultLocale],
+    ),
+    awards: product.details.awards[locale]?.length
+      ? product.details.awards[locale]
+      : (product.details.awards[defaultLocale] ?? []),
+  };
 
   const detail = {
     id: product.id,
     slug: product.slug,
     name: product.name,
-    description: localizedDescription,
+    description: localizedDescriptionValue,
     image: product.image,
     priceCents: product.priceCents,
     category: product.category,
     volumeMl: product.volumeMl,
     abv: product.abv,
+    region: localizedDetails.region,
+    base: localizedDetails.base,
+    type: localizedDetails.type,
+    alcoholContent: localizedDetails.alcoholContent,
+    bottleSize: localizedDetails.bottleSize,
+    servingTemperature: localizedDetails.servingTemperature,
+    awards: localizedDetails.awards,
   } satisfies Parameters<typeof ProductDetailView>[0]["product"];
 
   const related = await getRelatedProducts(product.slug, locale, 3);

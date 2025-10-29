@@ -1,0 +1,114 @@
+Task PRD — Homepage UI + Product Display Overhaul
+Objective
+
+Enhance the homepage layout and product presentation to display all available products (from data/seed.ts and mock-items) clearly and beautifully, while improving the overall visual appeal and responsiveness of the site.
+
+1. Display All Products on the Homepage
+Current Issue
+
+The main page (app/[locale]/page.tsx) only displays a "Explore Our Collections" section and a "Featured Spirits" area.
+
+Not all products from data/seed.ts or the mock-items directory are displayed.
+
+Requirements
+
+The homepage should first display all products (no pagination).
+
+Each product must be rendered using the ProductCard component.
+
+Below the full product list, display a “Featured Products” carousel.
+
+Below the featured carousel, display the “Explore Our Collections” section with redirect links to:
+
+/licor
+
+/aguardente
+
+/bebida-espiritosa
+
+Additional Requirement
+
+Include an ascending/descending sorting dropdown (like the ProductFilter used in /licor, /aguardente, and /bebida-espiritosa pages).
+
+Sorting should work seamlessly for the homepage product list as well.
+
+2. Hero Section — Visual Redesign
+Current Issue
+
+The hero section (currently defined as
+
+<section className="grid gap-10 rounded-[2.5rem] bg-white p-10 shadow-[0px_30px_80px_rgba(15,23,42,0.08)] lg:grid-cols-[1.1fr_0.9fr]">
+
+
+) looks flat and lacks visual depth.
+
+Requirements
+
+Replace the white background with a video background:
+
+File: /public/videos/wine-animation.mp4
+
+The video should be darkened slightly using a gradient or overlay for better contrast with text.
+
+Overlay the following content on the video:
+
+Heading: dictionary.home.heroHeading
+
+A single primary button labeled with dictionary.home.exploreCollections
+
+This button should scroll smoothly to the full product list section.
+
+Remove the second button linking to /licor.
+
+Ensure the hero layout is visually balanced, animated, and appealing both on desktop and mobile.
+
+Consider adding a fade-in or gentle parallax scroll effect for the text and button.
+
+3. ProductCard Component Adjustments
+Current Issue
+
+The product image occupies excessive vertical space, causing unbalanced layouts and poor density.
+
+Requirements
+
+Resize the ProductCard so it appears smaller and more compact, while still showing the entire bottle image.
+
+Ensure the product name, price, and other key details remain legible.
+
+Maintain visual appeal and consistent spacing across all screen sizes.
+
+4. Responsiveness and Mobile Design
+Requirements
+
+Verify that all changes (video hero section, product grid, carousel, buttons, and cards) adapt correctly to mobile layouts.
+
+Avoid overlapping elements, cropped images, or broken grid behavior.
+
+Test across multiple breakpoints (sm, md, lg).
+
+5. Change Logging
+Requirement
+
+All UI changes implemented for this PRD must be logged automatically or manually recorded in a new file:
+
+ui-changes-prd3.txt
+
+Format for ui-changes-prd3.txt
+
+Each entry should follow this structure:
+
+[File]: path/to/modified/file.tsx
+[Summary]: Short description of the change
+[Details]: (Optional) Explanation of what was added, removed, or refactored
+---
+
+
+Example:
+
+[File]: app/[locale]/page.tsx
+[Summary]: Added full product list and sorting functionality.
+[Details]: Integrated ProductFilter component; mapped products from data/seed.ts and mock-items; added carousel below product list.
+---
+
+
+💡 This log will help maintain clarity in future PRD iterations and simplify UI review cycles.

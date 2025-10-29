@@ -19,16 +19,21 @@ export type Dictionary = {
     deniedDescription: string;
   };
   home: {
+    heroEyebrow: string;
     heroHeading: string;
     heroSubheading: string;
     shopNow: string;
     exploreCollections: string;
+    allProductsEyebrow: string;
+    allProductsTitle: string;
+    allProductsDescription: string;
     featuredTitle: string;
     featuredDescription: string;
+    featuredPrevious: string;
+    featuredNext: string;
     categories: {
       licor: string;
       aguardente: string;
-      bebidaEspirituosa: string;
     };
   };
   about: {
@@ -39,6 +44,9 @@ export type Dictionary = {
     craftsmanshipDescription: string;
     heritageTitle: string;
     heritageDescription: string;
+    logistics: string;
+    addressHeading: string;
+    addressLines: string[];
   };
   contact: {
     heading: string;
@@ -85,6 +93,10 @@ export type Dictionary = {
     newsletterDescription: string;
     emailPlaceholder: string;
     submit: string;
+    logisticsBlurb: string;
+    addressHeading: string;
+    addressLines: string[];
+    complaintsBook: string;
     legalLinks: {
       privacy: string;
       terms: string;
@@ -100,6 +112,15 @@ export type Dictionary = {
     description: string;
     relatedItems: string;
     categoryLabel: string;
+    details: {
+      region: string;
+      base: string;
+      type: string;
+      alcoholContent: string;
+      bottleSize: string;
+      servingTemperature: string;
+      awards: string;
+    };
   };
   catalog: {
     heading: string;
@@ -129,28 +150,32 @@ const dictionaries: Record<Locale, Dictionary> = {
       freeShipping: "Free shipping from €50",
     },
     ageGate: {
-      title: "Are you over 18?",
-      description:
-        "By entering Palmanhac Shop you confirm you are of legal drinking age in your country.",
+      title: "Are you of legal drinking age?",
+      description: "Palmanhac promotes the responsible enjoyment of our spirits.",
       confirm: "Yes",
       deny: "No",
       deniedTitle: "Access Restricted",
-      deniedDescription:
-        "We are sorry, but you must be of legal drinking age to explore Palmanhac Shop.",
+      deniedDescription: "We can only share Palmanhac with adults of legal drinking age.",
     },
     home: {
+      heroEyebrow: "Palmanhac Shop",
       heroHeading: "Palmanhac. Product of Portugal.",
       heroSubheading:
         "Discover artisanal Portuguese liqueurs, aguardente, and celebrated spirits crafted with heritage and heart.",
       shopNow: "Shop Collections",
       exploreCollections: "Explore Our Collections",
+      allProductsEyebrow: "Our Selection",
+      allProductsTitle: "All Palmanhac Spirits",
+      allProductsDescription:
+        "Browse every bottle from Palmanhac, spanning liqueurs and handcrafted aguardente.",
       featuredTitle: "Featured Spirits",
       featuredDescription:
         "Handpicked selections to introduce you to the depth and character of Palmanhac.",
+      featuredPrevious: "Scroll featured spirits backward",
+      featuredNext: "Scroll featured spirits forward",
       categories: {
         licor: "Licor",
         aguardente: "Aguardente",
-        bebidaEspirituosa: "Bebida Espiritosa",
       },
     },
     about: {
@@ -164,6 +189,20 @@ const dictionaries: Record<Locale, Dictionary> = {
       heritageTitle: "Heritage",
       heritageDescription:
         "Inspired by the landscapes of Portugal, Palmanhac blends tradition with modern refinement.",
+      logistics:
+        "Deliveries within 24–48h in Mainland Portugal. Free shipping for orders over €50.",
+      addressHeading: "Client Services",
+      addressLines: [
+        "KARMUXILON LDA",
+        "Palmanhac",
+        "Destilaria-Adega Rua de Mercúrio lote 38",
+        "Vale do Alecrim, Palmela",
+        "Post Code 2950-019",
+        "Tel: T.964 690 254",
+        "Site: www.palmanhac.pt",
+        "Mail: info@palmanhac.pt",
+        "Working hours: 09.00 - 18.00",
+      ],
     },
     contact: {
       heading: "Contact Us",
@@ -213,6 +252,21 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Receive release news, tasting notes, and invitations to private events.",
       emailPlaceholder: "Email address",
       submit: "Subscribe",
+      logisticsBlurb:
+        "Deliveries within 24–48h in Mainland Portugal. Free shipping for orders over €50.",
+      addressHeading: "Client Services",
+      addressLines: [
+        "KARMUXILON LDA",
+        "Palmanhac",
+        "Destilaria-Adega Rua de Mercúrio lote 38",
+        "Vale do Alecrim, Palmela",
+        "Post Code 2950-019",
+        "Tel: T.964 690 254",
+        "Site: www.palmanhac.pt",
+        "Mail: info@palmanhac.pt",
+        "Working hours: 09.00 - 18.00",
+      ],
+      complaintsBook: "Livro de Reclamações",
       legalLinks: {
         privacy: "Privacy Policy",
         terms: "Terms of Service",
@@ -228,6 +282,15 @@ const dictionaries: Record<Locale, Dictionary> = {
       description: "Description",
       relatedItems: "Related Items",
       categoryLabel: "Category",
+      details: {
+        region: "Region",
+        base: "Base",
+        type: "Type / Color",
+        alcoholContent: "Alcohol Content",
+        bottleSize: "Bottle Size",
+        servingTemperature: "Serving Temperature",
+        awards: "Awards",
+      },
     },
     catalog: {
       heading: "Refine selection",
@@ -255,28 +318,32 @@ const dictionaries: Record<Locale, Dictionary> = {
       freeShipping: "Portes grátis a partir de 50 €",
     },
     ageGate: {
-      title: "Tem mais de 18 anos?",
-      description:
-        "Ao aceder à Palmanhac Shop confirma que tem idade legal para consumir bebidas alcoólicas.",
+      title: "Tem idade legal para o consumo de bebidas alcoólicas?",
+      description: "A Palmanhac promove o consumo responsável das nossas bebidas.",
       confirm: "Sim",
       deny: "Não",
       deniedTitle: "Acesso Restrito",
-      deniedDescription:
-        "Lamentamos, mas tem de ter idade legal para explorar a Palmanhac Shop.",
+      deniedDescription: "Só podemos partilhar a Palmanhac com maiores de idade.",
     },
     home: {
+      heroEyebrow: "Palmanhac Shop",
       heroHeading: "Palmanhac Produto de Portugal.",
       heroSubheading:
         "Descubra licores artesanais portugueses, aguardente e espirituosas celebradas, elaboradas com tradição e alma.",
       shopNow: "Ver Coleções",
       exploreCollections: "Explore as Nossas Coleções",
+      allProductsEyebrow: "A Nossa Seleção",
+      allProductsTitle: "Todos os Espirituosos Palmanhac",
+      allProductsDescription:
+        "Explore cada garrafa Palmanhac, incluindo licores e aguardentes artesanais.",
       featuredTitle: "Destaques",
       featuredDescription:
         "Seleções escolhidas para dar a conhecer a profundidade e o caráter da Palmanhac.",
+      featuredPrevious: "Recuar destaques de espirituosas",
+      featuredNext: "Avançar destaques de espirituosas",
       categories: {
         licor: "Licor",
         aguardente: "Aguardente",
-        bebidaEspirituosa: "Bebida Espirituosa",
       },
     },
     about: {
@@ -290,6 +357,20 @@ const dictionaries: Record<Locale, Dictionary> = {
       heritageTitle: "Herança",
       heritageDescription:
         "Inspirada nas paisagens de Portugal, a Palmanhac combina tradição com um requinte contemporâneo.",
+      logistics:
+        "Entregas em 24–48h em Portugal Continental. Portes gratuitos para encomendas superiores a 50€.",
+      addressHeading: "Atendimento ao Cliente",
+      addressLines: [
+        "KARMUXILON LDA",
+        "Palmanhac",
+        "Destilaria-Adega Rua de Mercúrio lote 38",
+        "Vale do Alecrim, Palmela",
+        "Código Postal 2950-019",
+        "Tel.: T.964 690 254",
+        "Site: www.palmanhac.pt",
+        "Email: info@palmanhac.pt",
+        "Horário: 09h00 - 18h00",
+      ],
     },
     contact: {
       heading: "Contacte-nos",
@@ -340,6 +421,21 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Receba novidades, notas de prova e convites para eventos privados.",
       emailPlaceholder: "Endereço de email",
       submit: "Subscrever",
+      logisticsBlurb:
+        "Entregas em 24–48h em Portugal Continental. Portes gratuitos para encomendas superiores a 50€.",
+      addressHeading: "Atendimento ao Cliente",
+      addressLines: [
+        "KARMUXILON LDA",
+        "Palmanhac",
+        "Destilaria-Adega Rua de Mercúrio lote 38",
+        "Vale do Alecrim, Palmela",
+        "Código Postal 2950-019",
+        "Tel.: T.964 690 254",
+        "Site: www.palmanhac.pt",
+        "Email: info@palmanhac.pt",
+        "Horário: 09h00 - 18h00",
+      ],
+      complaintsBook: "Livro de Reclamações",
       legalLinks: {
         privacy: "Política de Privacidade",
         terms: "Termos de Serviço",
@@ -355,6 +451,15 @@ const dictionaries: Record<Locale, Dictionary> = {
       description: "Descrição",
       relatedItems: "Itens Relacionados",
       categoryLabel: "Categoria",
+      details: {
+        region: "Região",
+        base: "Base",
+        type: "Tipo / Cor",
+        alcoholContent: "Teor Alcoólico",
+        bottleSize: "Formato",
+        servingTemperature: "Temperatura de Serviço",
+        awards: "Prémios",
+      },
     },
     catalog: {
       heading: "Refinar seleção",

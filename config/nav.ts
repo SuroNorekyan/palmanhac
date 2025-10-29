@@ -13,10 +13,9 @@ export type NavConfig = {
 export const navConfig: Record<Locale, NavConfig> = {
   en: {
     main: [
-      { href: "/about", label: "About Us" },
       { href: "/licor", label: "Licor" },
       { href: "/aguardente", label: "Aguardente" },
-      { href: "/bebida-espiritosa", label: "Bebida Espiritosa" },
+      { href: "/about", label: "About Us" },
       { href: "/contact", label: "Contact Us" },
     ],
     secondary: [
@@ -27,10 +26,9 @@ export const navConfig: Record<Locale, NavConfig> = {
   },
   pt: {
     main: [
-      { href: "/about", label: "Sobre Nós" },
       { href: "/licor", label: "Licor" },
       { href: "/aguardente", label: "Aguardente" },
-      { href: "/bebida-espiritosa", label: "Bebida Espirituosa" },
+      { href: "/about", label: "Sobre Nós" },
       { href: "/contact", label: "Contacte-nos" },
     ],
     secondary: [

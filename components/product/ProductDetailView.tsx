@@ -24,6 +24,13 @@ export interface ProductDetailData {
   category: string;
   volumeMl: number;
   abv: number;
+  region: string;
+  base: string;
+  type: string;
+  alcoholContent: string;
+  bottleSize: string;
+  servingTemperature: string;
+  awards: string[];
 }
 
 export function ProductDetailView({
@@ -50,17 +57,50 @@ export function ProductDetailView({
 
   const intro = descriptionParagraphs[0] ?? "";
   const additionalParagraphs = descriptionParagraphs.slice(1);
+  const infoItems = [
+    {
+      key: "region",
+      label: dictionary.product.details.region,
+      value: product.region,
+    },
+    {
+      key: "base",
+      label: dictionary.product.details.base,
+      value: product.base,
+    },
+    {
+      key: "type",
+      label: dictionary.product.details.type,
+      value: product.type,
+    },
+    {
+      key: "alcohol",
+      label: dictionary.product.details.alcoholContent,
+      value: product.alcoholContent || `${product.abv}%`,
+    },
+    {
+      key: "bottle",
+      label: dictionary.product.details.bottleSize,
+      value: product.bottleSize || `${product.volumeMl} ml`,
+    },
+    {
+      key: "serving",
+      label: dictionary.product.details.servingTemperature,
+      value: product.servingTemperature,
+    },
+  ].filter((item) => item.value && item.value.trim().length);
 
   return (
     <div className="space-y-16">
       <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="relative overflow-hidden rounded-[2.5rem] bg-white p-8 shadow-[0px_24px_65px_rgba(15,23,42,0.12)]">
-          <div className="relative h-[520px] overflow-hidden rounded-[2rem] bg-neutral-50">
+          <div className="relative h-[380px] overflow-hidden rounded-[2rem] bg-neutral-50 sm:h-[440px] lg:h-[520px]">
             <Image
               src={product.image}
               alt={product.name}
               fill
-              className="object-cover"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
+              className="object-contain"
               priority
             />
           </div>
@@ -117,6 +157,38 @@ export function ProductDetailView({
                 : dictionary.product.addToFavorites}
             </Button>
           </div>
+          {infoItems.length ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {infoItems.map((item) => (
+                <div
+                  key={item.key}
+                  className="rounded-2xl border border-[rgb(var(--border))] bg-white p-4 shadow-sm"
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    {item.label}
+                  </span>
+                  <p className="mt-1 text-sm text-neutral-700">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {product.awards.length ? (
+            <div className="space-y-3 rounded-3xl border border-dashed border-[rgb(var(--border))] bg-white/80 p-5">
+              <h2 className="text-lg font-semibold text-neutral-900">
+                {dictionary.product.details.awards}
+              </h2>
+              <ul className="space-y-2 text-sm text-neutral-600">
+                {product.awards.map((award) => (
+                  <li key={award} className="flex items-start gap-2">
+                    <span aria-hidden className="mt-[3px] text-neutral-400">
+                      •
+                    </span>
+                    <span>{award}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {additionalParagraphs.length ? (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-neutral-900">

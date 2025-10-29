@@ -1,18 +1,31 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { Locale } from "../../config/site";
+import type { Locale } from "@/config/site";
+import type { ProductCategorySlug } from "@/types/product";
 
 const ITEMS_ROOT = path.join(process.cwd(), "mock-items");
+const LABEL_LINE_REGEX = /^[A-Za-zÀ-ÿ][\w\s/()º°.-]*:/u;
+const BULLET_TRIM_REGEX = /^[\s•*⭐-]+/u;
 
 export type ParsedMockItem = {
+  id: number;
   slug: string;
   name: string;
   description: Record<Locale, string>;
-  category: "licor" | "aguardente" | "bebida-espiritosa";
+  category: ProductCategorySlug;
   priceCents: number;
   abv: number;
   volumeMl: number;
-  imageFilename?: string;
+  image: string;
+  details: {
+    region: Record<Locale, string>;
+    base: Record<Locale, string>;
+    type: Record<Locale, string>;
+    bottleSize: Record<Locale, string>;
+    servingTemperature: Record<Locale, string>;
+    alcoholContent: Record<Locale, string>;
+    awards: Record<Locale, string[]>;
+  };
 };
 
 const slugify = (value: string): string =>
@@ -24,7 +37,7 @@ const slugify = (value: string): string =>
     .toLowerCase();
 
 const parsePrice = (content: string): number => {
-  const match = content.match(/Price\s+([\d.,]+)/i);
+  const match = content.match(/\bPrice\s+([\d.,]+)/i);
   if (!match || match[1] === undefined) {
     throw new Error("Price not found in mock item content.");
   }
@@ -60,31 +73,146 @@ const parseVolume = (content: string): number => {
   return value;
 };
 
-const extractDescription = (lines: string[], keyword: string): string => {
-  const index = lines.findIndex((line) =>
-    line.toLowerCase().startsWith(keyword.toLowerCase()),
-  );
+const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
 
+const splitLocaleSections = (content: string) => {
+  const lines = content.split(/\r?\n/);
+  const sections: Record<Locale, string[]> = {
+    en: [],
+    pt: [],
+  };
+
+  let localeRef: Locale | null = null;
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (/^EN\b/i.test(trimmed)) {
+      localeRef = "en";
+      continue;
+    }
+    if (/^PT\b/i.test(trimmed)) {
+      localeRef = "pt";
+      continue;
+    }
+
+    if (localeRef) {
+      sections[localeRef].push(trimmed);
+    }
+  }
+
+  return sections;
+};
+
+const extractFieldValue = (
+  lines: string[],
+  patterns: RegExp[],
+  fallback?: string,
+): string => {
+  const index = lines.findIndex((line) => patterns.some((pattern) => pattern.test(line)));
+  if (index === -1) {
+    return fallback ?? "";
+  }
+
+  const labelLine = lines[index] ?? "";
+  const inline = labelLine.split(":").slice(1).join(":").trim();
+  const collected: string[] = [];
+  if (inline) {
+    collected.push(inline);
+  }
+
+  for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+    const line = lines[cursor];
+    if (line === undefined) {
+      break;
+    }
+    if (!line.trim()) {
+      break;
+    }
+    if (LABEL_LINE_REGEX.test(line)) {
+      break;
+    }
+    collected.push(line);
+  }
+
+  if (!collected.length) {
+    return fallback ?? "";
+  }
+
+  return normalizeWhitespace(collected.join(" "));
+};
+
+const extractListValue = (lines: string[], patterns: RegExp[]): string[] => {
+  const index = lines.findIndex((line) => patterns.some((pattern) => pattern.test(line)));
+  if (index === -1) {
+    return [];
+  }
+
+  const items: string[] = [];
+  const labelLine = lines[index] ?? "";
+  const inline = labelLine.split(":").slice(1).join(":").trim();
+  if (inline) {
+    items.push(inline);
+  }
+
+  for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+    const line = lines[cursor];
+    if (line === undefined) {
+      break;
+    }
+    if (!line.trim()) {
+      break;
+    }
+    if (LABEL_LINE_REGEX.test(line)) {
+      break;
+    }
+    items.push(line);
+  }
+
+  return items
+    .map((item) => normalizeWhitespace(item.replace(BULLET_TRIM_REGEX, "")))
+    .filter(Boolean);
+};
+
+const englishLabels = {
+  description: [/^Description\b/i],
+  region: [/^Region\b/i],
+  base: [/^Base\b/i],
+  type: [/^Type\/?Color\b/i],
+  bottleSize: [/^Bottle Size\b/i],
+  servingTemperature: [/^Serving Temperature\b/i],
+  alcoholContent: [/^Alcohol Content\b/i],
+  awards: [/^Awards?\b/i],
+};
+
+const portugueseLabels = {
+  description: [/^Descri[cç][aã]o\b/i],
+  region: [/^Regi[ãa]o\b/i],
+  base: [/^Base\b/i],
+  type: [/^Tipo\/?Cor\b/i],
+  bottleSize: [/^Formato\b/i],
+  servingTemperature: [/^Temperatura de Servi[cç]o\b/i],
+  alcoholContent: [/^Teor Alco[oó]lico\b/i],
+  awards: [/^Pr[ée]mios?\b/i],
+};
+
+const extractDescription = (lines: string[], patterns: RegExp[]): string => {
+  const index = lines.findIndex((line) => patterns.some((pattern) => pattern.test(line)));
   if (index === -1) {
     return "";
   }
 
   const collected: string[] = [];
   for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
-    const line = lines[cursor] ?? "";
+    const line = lines[cursor];
+    if (line === undefined) {
+      break;
+    }
     if (!line.trim()) {
       collected.push("");
       continue;
     }
-
-    if (/^[A-Za-zÀ-ÿ\s]+:/.test(line) || /^pt\b/i.test(line)) {
+    if (LABEL_LINE_REGEX.test(line)) {
       break;
     }
-
-    if (/^Price\b/i.test(line) || /^Palmanhac\b/i.test(line)) {
-      break;
-    }
-
     collected.push(line);
   }
 
@@ -94,20 +222,10 @@ const extractDescription = (lines: string[], keyword: string): string => {
     .replace(/\n{2,}/g, "\n\n");
 };
 
-const inferCategory = (content: string): ParsedMockItem["category"] => {
+const inferCategory = (content: string): ProductCategorySlug => {
   const normalized = content.toLowerCase();
   if (normalized.includes("aguardente")) {
     return "aguardente";
-  }
-  if (normalized.includes("licor")) {
-    return "licor";
-  }
-  if (
-    normalized.includes("spirit") ||
-    normalized.includes("espirituosa") ||
-    normalized.includes("bebida")
-  ) {
-    return "bebida-espiritosa";
   }
   return "licor";
 };
@@ -139,19 +257,17 @@ const extractName = (lines: string[]): string => {
   return `Palmanhac ${last}`.replace(/\s+/g, " ").trim();
 };
 
-const collectDescriptionByLocale = (lines: string[], locale: Locale): string => {
-  if (locale === "en") {
-    const description = extractDescription(lines, "Description");
-    return description || extractDescription(lines, "Descrição");
-  }
-
-  const description = extractDescription(lines, "Descrição");
-  return description || extractDescription(lines, "Description");
-};
-
 const discoverImageFilename = async (directory: string) => {
   const entries = await fs.readdir(directory);
   return entries.find((entry) => !entry.endsWith(".txt"));
+};
+
+const resolveImagePath = (slug: string, imageFilename?: string) => {
+  if (!imageFilename) {
+    return `/assets/${slug}.jpg`;
+  }
+  const ext = path.extname(imageFilename) || ".jpg";
+  return `/assets/${slug}${ext.toLowerCase()}`;
 };
 
 export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
@@ -173,8 +289,10 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
     }
 
     const content = await fs.readFile(path.join(folderPath, textFile), "utf-8");
-    const lines = content.split(/\r?\n/).map((line) => line.trim());
-    const name = extractName(lines);
+    const rawLines = content.split(/\r?\n/).map((line) => line.trim());
+    const name = extractName(rawLines);
+    const sections = splitLocaleSections(content);
+
     let slug = slugify(name);
     const existingCount = slugCounts.get(slug);
     if (existingCount) {
@@ -184,17 +302,108 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
     } else {
       slugCounts.set(slug, 1);
     }
+
     const category = inferCategory(content);
-    const description: Record<Locale, string> = {
-      en: collectDescriptionByLocale(lines, "en"),
-      pt: collectDescriptionByLocale(lines, "pt"),
-    };
     const priceCents = parsePrice(content);
     const abv = parseAbv(content);
     const volumeMl = parseVolume(content);
     const imageFilename = await discoverImageFilename(folderPath);
 
+    const linesForLocale = (locale: Locale) =>
+      sections[locale].length ? sections[locale] : rawLines;
+
+    const descriptionEn =
+      extractDescription(linesForLocale("en"), englishLabels.description) ||
+      extractDescription(linesForLocale("pt"), portugueseLabels.description);
+    const descriptionPt =
+      extractDescription(linesForLocale("pt"), portugueseLabels.description) ||
+      extractDescription(linesForLocale("en"), englishLabels.description) ||
+      descriptionEn;
+
+    const regionEn =
+      extractFieldValue(linesForLocale("en"), englishLabels.region) ||
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.region);
+    const regionPt =
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.region) || regionEn;
+
+    const baseEn =
+      extractFieldValue(linesForLocale("en"), englishLabels.base) ||
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.base);
+    const basePt =
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.base) || baseEn;
+
+    const typeEn =
+      extractFieldValue(linesForLocale("en"), englishLabels.type) ||
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.type);
+    const typePt =
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.type) || typeEn;
+
+    const bottleEn =
+      extractFieldValue(linesForLocale("en"), englishLabels.bottleSize) ||
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.bottleSize) ||
+      `${volumeMl} ml`;
+    const bottlePt =
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.bottleSize) ||
+      extractFieldValue(linesForLocale("en"), englishLabels.bottleSize) ||
+      `${volumeMl} ml`;
+
+    const servingEn =
+      extractFieldValue(linesForLocale("en"), englishLabels.servingTemperature) ||
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.servingTemperature);
+    const servingPt =
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.servingTemperature) ||
+      servingEn;
+
+    const alcoholEn =
+      extractFieldValue(linesForLocale("en"), englishLabels.alcoholContent) ||
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.alcoholContent) ||
+      `${abv}%`;
+    const alcoholPt =
+      extractFieldValue(linesForLocale("pt"), portugueseLabels.alcoholContent) ||
+      extractFieldValue(linesForLocale("en"), englishLabels.alcoholContent) ||
+      `${abv}%`;
+
+    const awardsEn = extractListValue(linesForLocale("en"), englishLabels.awards);
+    const awardsPt = extractListValue(linesForLocale("pt"), portugueseLabels.awards);
+
+    const description: Record<Locale, string> = {
+      en: descriptionEn,
+      pt: descriptionPt,
+    };
+
+    const details = {
+      region: {
+        en: regionEn ?? "",
+        pt: regionPt ?? "",
+      },
+      base: {
+        en: baseEn ?? "",
+        pt: basePt ?? "",
+      },
+      type: {
+        en: typeEn ?? "",
+        pt: typePt ?? "",
+      },
+      bottleSize: {
+        en: bottleEn,
+        pt: bottlePt,
+      },
+      servingTemperature: {
+        en: servingEn ?? "",
+        pt: servingPt ?? "",
+      },
+      alcoholContent: {
+        en: alcoholEn,
+        pt: alcoholPt,
+      },
+      awards: {
+        en: awardsEn.length ? awardsEn : awardsPt,
+        pt: awardsPt.length ? awardsPt : awardsEn,
+      },
+    } satisfies ParsedMockItem["details"];
+
     items.push({
+      id: items.length + 1,
       slug,
       name,
       description,
@@ -202,7 +411,8 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
       priceCents,
       abv,
       volumeMl,
-      imageFilename,
+      image: resolveImagePath(slug, imageFilename),
+      details,
     });
   }
 

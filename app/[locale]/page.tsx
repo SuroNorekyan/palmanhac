@@ -1,69 +1,90 @@
 import Image from "next/image";
 import Link from "next/link";
+import { HeroSection } from "@/components/home/HeroSection";
+import { FeaturedCarousel } from "@/components/product/FeaturedCarousel";
 import { ProductGrid } from "@/components/product/ProductGrid";
+import { ProductSortControl } from "@/components/product/ProductSortControl";
 import { Button } from "@/components/ui/button";
 import { navConfig } from "@/config/nav";
 import { extractLocale } from "@/config/site";
 import { getDictionary } from "@/lib/i18n/dictionaries";
-import { getFeaturedProducts } from "@/lib/server/products";
+import { getAllProducts, getFeaturedProducts } from "@/lib/server/products";
 import { withLocale } from "@/lib/utils/locale";
 
 const categoryImages: Record<string, string> = {
   licor: "/assets/palmanhac-licor-laranja.png",
   aguardente: "/assets/palmanhac-aguardente-morango.png",
-  "bebida-espiritosa": "/assets/palmanhac-spirit-cola.png",
 };
 
 const categorySlugMap: Record<string, string> = {
   licor: "licor",
   aguardente: "aguardente",
-  bebidaEspirituosa: "bebida-espiritosa",
 };
 
 export default async function HomePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ sort?: string }>;
 }) {
   const locale = await extractLocale(params);
+  const resolvedSearch = (await searchParams) ?? {};
   const dictionary = getDictionary(locale);
-  const featured = await getFeaturedProducts(locale, 6);
+  const sortParam = resolvedSearch.sort === "price-desc" ? "price-desc" : "price-asc";
+  const [products, featured] = await Promise.all([
+    getAllProducts(locale, { sort: sortParam }),
+    getFeaturedProducts(locale, 8),
+  ]);
 
   return (
     <div className="space-y-20">
-      <section className="grid gap-10 rounded-[2.5rem] bg-white p-10 shadow-[0px_30px_80px_rgba(15,23,42,0.08)] lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="flex flex-col justify-between gap-8">
-          <div className="space-y-6">
-            <span className="rounded-full bg-neutral-900 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-white">
-              Palmanhac Shop
+      <HeroSection
+        eyebrow={dictionary.home.heroEyebrow}
+        heading={dictionary.home.heroHeading}
+        subheading={dictionary.home.heroSubheading}
+        ctaLabel={dictionary.home.exploreCollections}
+        scrollTargetId="product-list"
+      />
+
+      <section id="product-list" className="space-y-10">
+        <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-4">
+            <span className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500">
+              {dictionary.home.allProductsEyebrow}
             </span>
-            <h1 className="text-4xl font-semibold leading-tight text-neutral-900 lg:text-5xl">
-              {dictionary.home.heroHeading}
-            </h1>
-            <p className="max-w-xl text-base text-neutral-600 lg:text-lg">
-              {dictionary.home.heroSubheading}
+            <h2 className="text-3xl font-semibold text-neutral-900 sm:text-4xl">
+              {dictionary.home.allProductsTitle}
+            </h2>
+            <p className="max-w-2xl text-neutral-600">
+              {dictionary.home.allProductsDescription}
             </p>
           </div>
-          <div className="flex flex-wrap gap-4">
-            <Button asChild size="lg">
-              <Link href={withLocale(locale, "/licor")}>{dictionary.home.shopNow}</Link>
-            </Button>
-            <Button variant="ghost" size="lg" asChild>
-              <Link href={withLocale(locale, "/about")}>
-                {dictionary.home.exploreCollections}
-              </Link>
-            </Button>
-          </div>
-        </div>
-        <div className="relative aspect-square overflow-hidden rounded-[2rem]">
-          <Image
-            src="/assets/palmanhac-aguardente-limao-reserva.png"
-            alt="Palmanhac hero"
-            fill
-            className="object-cover"
-            priority
+          <ProductSortControl
+            sortLabel={dictionary.catalog.sortLabel}
+            ascLabel={dictionary.catalog.priceSort.asc}
+            descLabel={dictionary.catalog.priceSort.desc}
+            initialSort={sortParam}
           />
+        </header>
+        <ProductGrid products={products} dictionary={dictionary} locale={locale} />
+      </section>
+
+      <section className="space-y-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-2">
+            <h2 className="text-3xl font-semibold text-neutral-900 sm:text-4xl">
+              {dictionary.home.featuredTitle}
+            </h2>
+            <p className="max-w-2xl text-neutral-600">
+              {dictionary.home.featuredDescription}
+            </p>
+          </div>
+          <Button asChild variant="ghost" className="self-start md:self-auto">
+            <Link href={withLocale(locale, "/licor")}>{dictionary.home.shopNow}</Link>
+          </Button>
         </div>
+        <FeaturedCarousel products={featured} dictionary={dictionary} locale={locale} />
       </section>
 
       <section className="space-y-8">
@@ -110,23 +131,6 @@ export default async function HomePage({
             );
           })}
         </div>
-      </section>
-
-      <section className="space-y-8">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-semibold text-neutral-900">
-              {dictionary.home.featuredTitle}
-            </h2>
-            <p className="mt-2 max-w-xl text-neutral-600">
-              {dictionary.home.featuredDescription}
-            </p>
-          </div>
-          <Button asChild variant="ghost" className="hidden sm:inline-flex">
-            <Link href={withLocale(locale, "/licor")}>{dictionary.home.shopNow}</Link>
-          </Button>
-        </div>
-        <ProductGrid products={featured} dictionary={dictionary} locale={locale} />
       </section>
     </div>
   );

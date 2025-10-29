@@ -1,18 +1,7 @@
-import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { parseMockItems } from "./mockItemParser.ts";
 
 const prisma = new PrismaClient();
-
-/**
- * Resolve image path under /public/assets.
- * If no specific filename is provided, assume <slug>.jpg
- */
-function resolveImagePath(slug: string, imageFilename?: string) {
-  if (!imageFilename) return `/assets/${slug}.jpg`;
-  const ext = path.extname(imageFilename) || ".jpg";
-  return `/assets/${slug}${ext.toLowerCase()}`;
-}
 
 export async function seedProducts() {
   // Parse the 10 items from /mock-items
@@ -28,7 +17,7 @@ export async function seedProducts() {
         category: item.category,
         name: item.name,
         priceCents: item.priceCents,
-        image: resolveImagePath(item.slug, item.imageFilename),
+        image: item.image,
         volumeMl: item.volumeMl,
         abv: item.abv,
         descriptionEn: item.description.en,

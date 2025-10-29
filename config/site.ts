@@ -12,7 +12,7 @@ type ContactInfo = {
 
 export const siteConfig = {
   name: "Palmanhac Shop",
-  domain: "palmanhacshop.pt",
+  domain: "palmanhac.pt",
   description:
     "Palmanhac Shop showcases premium Portuguese liqueurs, aguardente, and specialty spirits crafted in small batches.",
   defaultLocale,
@@ -20,9 +20,10 @@ export const siteConfig = {
   freeShippingThreshold: 50,
   currency: "EUR",
   contact: {
-    email: "hello@palmanhacshop.pt",
-    phone: "+351 910 000 000",
-    address: "Rua da Alegria 123, 1200-123 Lisboa, Portugal",
+    email: "info@palmanhac.pt",
+    phone: "+351 964 690 254",
+    address:
+      "Destilaria-Adega Rua de Mercúrio lote 38, Vale do Alecrim, Palmela, 2950-019, Portugal",
   } satisfies ContactInfo,
   social: {
     instagram: "https://instagram.com/palmanhac",

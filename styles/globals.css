@@ -14,6 +14,12 @@
   --radius-base: 0.75rem;
 }
 
+html,
+body {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
 * {
   font-feature-settings: "liga", "kern";
 }

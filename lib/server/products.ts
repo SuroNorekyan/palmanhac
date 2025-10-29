@@ -1,204 +1,153 @@
-import type { Prisma } from "@prisma/client";
+import { defaultLocale } from "@/config/site";
 import type { Locale } from "@/config/site";
-import type { Product, ProductListItem } from "@/types/product";
-import { prisma } from "./db";
-
-const productSelect = {
-  id: true,
-  slug: true,
-  category: true,
-  name: true,
-  image: true,
-  priceCents: true,
-  volumeMl: true,
-  abv: true,
-  descriptionEn: true,
-  descriptionPt: true,
-} satisfies Prisma.ProductSelect;
-
-type ProductEntity = Prisma.ProductGetPayload<{
-  select: typeof productSelect;
-}>;
-
-const toProduct = (product: ProductEntity | null): Product | null => {
-  if (!product) {
-    return null;
-  }
-
-  return {
-    id: product.id,
-    slug: product.slug,
-    category: product.category as Product["category"],
-    name: product.name,
-    priceCents: product.priceCents,
-    image: product.image,
-    volumeMl: product.volumeMl,
-    abv: product.abv,
-    description: {
-      en: product.descriptionEn,
-      pt: product.descriptionPt,
-    },
-  };
-};
-
-const toProductListItem = (product: ProductEntity, locale: Locale): ProductListItem => {
-  const descriptionRaw = locale === "pt" ? product.descriptionPt : product.descriptionEn;
-  const description =
-    descriptionRaw.split(/\n{2,}|\r?\n/).find((paragraph) => paragraph.trim().length) ??
-    descriptionRaw;
-
-  return {
-    id: product.id,
-    slug: product.slug,
-    category: product.category as Product["category"],
-    image: product.image,
-    priceCents: product.priceCents,
-    name: product.name,
-    description: description.replace(/\s+/g, " ").trim(),
-  };
-};
+import { parseMockItems, type ParsedMockItem } from "@/lib/data/mockItemParser";
+import type { Product, ProductCategorySlug, ProductListItem } from "@/types/product";
 
 type ProductFilters = {
-  category?: string;
+  category?: ProductCategorySlug;
   query?: string;
   sort?: "price-asc" | "price-desc";
 };
 
-const buildOrderBy = (sort?: ProductFilters["sort"]) => {
-  if (sort === "price-asc") {
-    return { priceCents: "asc" } as const;
+let cache: ParsedMockItem[] | null = null;
+
+const loadProducts = async (): Promise<ParsedMockItem[]> => {
+  if (cache) {
+    return cache;
   }
-  if (sort === "price-desc") {
-    return { priceCents: "desc" } as const;
-  }
-  return { createdAt: "asc" } as const;
+  cache = await parseMockItems();
+  return cache;
 };
 
-export const getAllProducts = async (locale: Locale, filters: ProductFilters = {}) => {
-  const { category, query, sort } = filters;
+const normalizeSearch = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
-  const products = await prisma.product.findMany({
-    where: {
-      category: category ?? undefined,
-      OR: query
-        ? [
-            { name: { contains: query, mode: "insensitive" } },
-            { descriptionEn: { contains: query, mode: "insensitive" } },
-            { descriptionPt: { contains: query, mode: "insensitive" } },
-          ]
-        : undefined,
-    },
-    orderBy: buildOrderBy(sort),
-    select: productSelect,
+const matchesQuery = (item: ParsedMockItem, query: string) => {
+  const normalized = normalizeSearch(query.trim());
+  if (!normalized.length) {
+    return true;
+  }
+
+  const haystacks = [item.name, item.description.en, item.description.pt].map((text) =>
+    normalizeSearch(text),
+  );
+
+  return haystacks.some((text) => text.includes(normalized));
+};
+
+const sortProducts = (
+  items: ParsedMockItem[],
+  sort: ProductFilters["sort"],
+): ParsedMockItem[] => {
+  const cloned = [...items];
+  if (sort === "price-asc") {
+    cloned.sort((a, b) => a.priceCents - b.priceCents);
+    return cloned;
+  }
+  if (sort === "price-desc") {
+    cloned.sort((a, b) => b.priceCents - a.priceCents);
+    return cloned;
+  }
+  cloned.sort((a, b) => a.name.localeCompare(b.name));
+  return cloned;
+};
+
+const summarizeDescription = (item: ParsedMockItem, locale: Locale) => {
+  const raw = item.description[locale] ?? item.description[defaultLocale];
+  const summary =
+    raw.split(/\n{2,}|\r?\n/).find((paragraph) => paragraph.trim().length) ?? raw;
+  return summary.replace(/\s+/g, " ").trim();
+};
+
+const toListItem = (item: ParsedMockItem, locale: Locale): ProductListItem => ({
+  id: item.id,
+  slug: item.slug,
+  category: item.category,
+  image: item.image,
+  priceCents: item.priceCents,
+  name: item.name,
+  description: summarizeDescription(item, locale),
+  volumeMl: item.volumeMl,
+  abv: item.abv,
+});
+
+const toProduct = (item: ParsedMockItem): Product => ({
+  id: item.id,
+  slug: item.slug,
+  category: item.category,
+  name: item.name,
+  priceCents: item.priceCents,
+  image: item.image,
+  volumeMl: item.volumeMl,
+  abv: item.abv,
+  description: item.description,
+  details: item.details,
+});
+
+export const getAllProducts = async (locale: Locale, filters: ProductFilters = {}) => {
+  const items = await loadProducts();
+  const filtered = items.filter((item) => {
+    if (filters.category && item.category !== filters.category) {
+      return false;
+    }
+    if (filters.query && !matchesQuery(item, filters.query)) {
+      return false;
+    }
+    return true;
   });
 
-  return products.map((product) => toProductListItem(product, locale));
+  return sortProducts(filtered, filters.sort).map((item) => toListItem(item, locale));
 };
 
 export const getProductsByIds = async (ids: number[]) => {
-  if (!ids.length) return [] as Product[];
-
-  const products = await prisma.product.findMany({
-    where: {
-      id: {
-        in: ids,
-      },
-    },
-    select: productSelect,
-  });
-
-  return products
-    .map((product) => toProduct(product))
-    .filter((product): product is Product => Boolean(product));
+  if (!ids.length) {
+    return [] as Product[];
+  }
+  const items = await loadProducts();
+  return items.filter((item) => ids.includes(item.id)).map(toProduct);
 };
 
 export const getProductSummariesByIds = async (ids: number[], locale: Locale) => {
-  if (!ids.length) return [] as ProductListItem[];
-  const products = await prisma.product.findMany({
-    where: {
-      id: {
-        in: ids,
-      },
-    },
-    select: productSelect,
-  });
-
-  return products.map((product) => toProductListItem(product, locale));
+  if (!ids.length) {
+    return [] as ProductListItem[];
+  }
+  const items = await loadProducts();
+  return items
+    .filter((item) => ids.includes(item.id))
+    .map((item) => toListItem(item, locale));
 };
 
 export const getAllProductSlugs = async () => {
-  const products = await prisma.product.findMany({
-    select: { slug: true },
-  });
-
-  return products.map((product) => product.slug);
+  const items = await loadProducts();
+  return items.map((item) => item.slug);
 };
 
 export const getProductBySlug = async (slug: string) => {
-  const product = await prisma.product.findUnique({
-    where: { slug },
-    select: productSelect,
-  });
-
-  const normalized = toProduct(product);
-  if (!normalized) {
-    return null;
-  }
-
-  return normalized;
+  const items = await loadProducts();
+  const match = items.find((item) => item.slug === slug);
+  return match ? toProduct(match) : null;
 };
 
 export const getRelatedProducts = async (slug: string, locale: Locale, limit = 4) => {
-  const current = await getProductBySlug(slug);
-
+  const items = await loadProducts();
+  const current = items.find((item) => item.slug === slug);
   if (!current) {
     return [];
   }
 
-  const related = await prisma.product.findMany({
-    where: {
-      category: current.category,
-      slug: {
-        not: slug,
-      },
-    },
-    select: {
-      id: true,
-      slug: true,
-      category: true,
-      name: true,
-      image: true,
-      priceCents: true,
-      volumeMl: true,
-      abv: true,
-      descriptionEn: true,
-      descriptionPt: true,
-    },
-    take: limit,
-  });
+  const related = items.filter(
+    (item) => item.slug !== slug && item.category === current.category,
+  );
 
-  return related.map((item) => toProductListItem(item, locale));
+  return related.slice(0, limit).map((item) => toListItem(item, locale));
 };
 
 export const getFeaturedProducts = async (locale: Locale, limit = 4) => {
-  const products = await prisma.product.findMany({
-    orderBy: {
-      createdAt: "asc",
-    },
-    take: limit,
-    select: {
-      id: true,
-      slug: true,
-      category: true,
-      name: true,
-      image: true,
-      priceCents: true,
-      volumeMl: true,
-      abv: true,
-      descriptionEn: true,
-      descriptionPt: true,
-    },
-  });
-
-  return products.map((product) => toProductListItem(product, locale));
+  const items = await loadProducts();
+  return sortProducts(items, undefined)
+    .slice(0, limit)
+    .map((item) => toListItem(item, locale));
 };

@@ -29,18 +29,55 @@ export function Footer({
               {site.description}
             </p>
           </div>
-          <div className="space-y-2 text-sm text-neutral-600">
-            <p>{site.contact.address}</p>
-            <p>
-              <Link href={`mailto:${site.contact.email}`} className="hover:underline">
-                {site.contact.email}
-              </Link>
-            </p>
-            <p>
-              <Link href={`tel:${site.contact.phone}`} className="hover:underline">
-                {site.contact.phone}
-              </Link>
-            </p>
+          <p className="text-sm text-neutral-600">{dictionary.footer.logisticsBlurb}</p>
+          <div className="space-y-2 text-sm text-neutral-700">
+            {dictionary.footer.addressLines.map((line, index) => {
+              const emailMatch = line.match(
+                /([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/,
+              );
+              const websiteMatch = line.match(/(www\.[^\s]+)/i);
+
+              if (emailMatch) {
+                const email = emailMatch[1] ?? "";
+                const prefix = line.replace(email, "").trim();
+                return (
+                  <p key={`${line}-${index}`}>
+                    {prefix ? `${prefix} ` : null}
+                    <Link href={`mailto:${email}`} className="hover:underline">
+                      {email}
+                    </Link>
+                  </p>
+                );
+              }
+
+              if (websiteMatch) {
+                const siteLabel = websiteMatch[1] ?? "";
+                const prefix = line.replace(siteLabel, "").trim();
+                return (
+                  <p key={`${line}-${index}`}>
+                    {prefix ? `${prefix} ` : null}
+                    <Link
+                      href={`https://${siteLabel}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="hover:underline"
+                    >
+                      {siteLabel}
+                    </Link>
+                  </p>
+                );
+              }
+
+              return <p key={`${line}-${index}`}>{line}</p>;
+            })}
+            <Link
+              href="https://www.livroreclamacoes.pt"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--primary))] hover:underline"
+            >
+              {dictionary.footer.complaintsBook}
+            </Link>
           </div>
           <div className="flex gap-4 text-sm font-medium text-neutral-700">
             <Link href={site.social.instagram} target="_blank" rel="noreferrer">
