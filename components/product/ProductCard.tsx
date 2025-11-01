@@ -85,7 +85,7 @@ export function ProductCard({ product, dictionary, locale }: ProductCardProps) {
 
         <div className="absolute left-4 top-4 flex gap-2">
           <Badge variant="muted" className="uppercase">
-            {product.category.replace("-", " ")}
+            {product?.category?.replace("-", " ")}
           </Badge>
         </div>
       </Link>

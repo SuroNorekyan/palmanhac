@@ -1,14 +1,11 @@
 import { PrismaClient, Role } from "@prisma/client";
-import bcrypt from "bcrypt";
+import { hashPassword } from "../security/password.ts";
 import { parseMockItems } from "./mockItemParser.ts";
 
 const prisma = new PrismaClient();
 
 export async function seedProducts() {
-  // Parse the 10 items from /mock-items
   const items = await parseMockItems();
-
-  // Clean slate, then insert ONLY the 10 curated items
   await prisma.product.deleteMany();
 
   for (const item of items) {
@@ -33,43 +30,33 @@ export async function seedProducts() {
 }
 
 async function seedAdminUser() {
-  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@palmanhac.pt";
-  const adminName = process.env.ADMIN_NAME ?? "Palmanhac Admin";
-  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@palmanhac.pt")
+    .trim()
+    .toLowerCase();
+  const adminName = (process.env.ADMIN_NAME ?? "Palmanhac Admin").trim();
+  const adminPassword = process.env.ADMIN_PASSWORD?.trim();
 
   if (!adminPassword) {
-    console.warn(
-      "⚠️  Skipping admin seed: ADMIN_PASSWORD environment variable is not set.",
-    );
+    console.warn("⚠️  Skipping admin seed: ADMIN_PASSWORD not set.");
     return;
   }
 
-  const passwordHash = await bcrypt.hash(adminPassword, 12);
+  const passwordHash = await hashPassword(adminPassword);
 
   await prisma.user.upsert({
     where: { email: adminEmail },
-    update: {
-      name: adminName,
-      passwordHash,
-      role: Role.ADMIN,
-    },
-    create: {
-      email: adminEmail,
-      name: adminName,
-      passwordHash,
-      role: Role.ADMIN,
-    },
+    update: { name: adminName, passwordHash, role: Role.ADMIN },
+    create: { email: adminEmail, name: adminName, passwordHash, role: Role.ADMIN },
   });
 
   console.info(`✅ Admin user ensured for ${adminEmail} (password hash stored).`);
 }
 
-// Always run when executed directly (Prisma's `db seed` runs the file)
 (async () => {
   try {
     await seedProducts();
     await seedAdminUser();
-    console.info("✅ Database seeded with mock items from /mock-items.");
+    console.info("✅ Database seeded successfully with mock items and admin user.");
   } catch (err) {
     console.error("❌ Failed to seed database:", err);
     process.exit(1);

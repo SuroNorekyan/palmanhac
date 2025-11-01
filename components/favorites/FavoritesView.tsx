@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -22,6 +22,7 @@ export function FavoritesView({
   locale: Locale;
 }) {
   const { data: session, status } = useSession();
+  const lastIdentityRef = useRef<string | null>(null);
   const ids = useFavoritesStore((state) => state.ids);
   const clearFavorites = useFavoritesStore((state) => state.clear);
   const setAllFavorites = useFavoritesStore((state) => state.setAll);
@@ -38,10 +39,30 @@ export function FavoritesView({
   }, [ids.length]);
 
   useEffect(() => {
+    const currentIdentity =
+      status === "authenticated" && session?.user?.id ? session.user.id : "anon";
+
+    if (lastIdentityRef.current === null) {
+      lastIdentityRef.current = currentIdentity;
+      return;
+    }
+
+    if (lastIdentityRef.current !== currentIdentity) {
+      useFavoritesStore.getState().clear();
+      useCartStore.getState().clear();
+      setProducts([]);
+      setHasSynced(false);
+    }
+
+    lastIdentityRef.current = currentIdentity;
+  }, [session?.user?.id, status]);
+
+  useEffect(() => {
     if (status !== "authenticated") {
+      setHasSynced(false);
       if (!ids.length) {
         setProducts([]);
-        return;
+        return undefined;
       }
       const controller = new AbortController();
       fetch(`/api/products?ids=${ids.join(",")}&locale=${locale}`, {
@@ -97,32 +118,16 @@ export function FavoritesView({
       return;
     }
 
-    if (hasSynced) {
-      void loadServerFavorites(false);
+    if (!hasSynced) {
+      (async () => {
+        await loadServerFavorites(false);
+        setHasSynced(true);
+      })();
       return;
     }
 
-    const syncFavorites = async () => {
-      try {
-        if (ids.length) {
-          await Promise.all(
-            ids.map((productId) =>
-              fetch("/api/favorites", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ productId }),
-              }).catch(() => undefined),
-            ),
-          );
-        }
-      } finally {
-        setHasSynced(true);
-        await loadServerFavorites(ids.length > 0);
-      }
-    };
-
-    void syncFavorites();
-  }, [status, session?.user?.id, ids.length]);
+    void loadServerFavorites(false);
+  }, [status, session?.user?.id, hasSynced]);
 
   const addAllToCart = () => {
     const sourceIds = products.map((product) => product.id);

@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import type { Locale } from "@/config/site";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { useCartStore } from "@/lib/store/cart";
+import { useFavoritesStore } from "@/lib/store/favorites";
 import { withLocale } from "@/lib/utils/locale";
 
 type DashboardProps = {
@@ -23,6 +25,8 @@ type DashboardProps = {
 
 export function AccountDashboard({ dictionary, locale, user }: DashboardProps) {
   const { toast } = useToast();
+  const clearCartStore = useCartStore((state) => state.clear);
+  const clearFavoritesStore = useFavoritesStore((state) => state.clear);
   const [form, setForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -77,6 +81,8 @@ export function AccountDashboard({ dictionary, locale, user }: DashboardProps) {
   };
 
   const handleSignOut = () => {
+    clearCartStore();
+    clearFavoritesStore();
     void signOut({ callbackUrl: withLocale(locale, "/") });
   };
 

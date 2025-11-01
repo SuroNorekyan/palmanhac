@@ -1,15 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { QuantitySelector } from "@/components/product/QuantitySelector";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import type { Locale } from "@/config/site";
+import {
+  ANON_CART_EXPIRES_KEY,
+  ANON_CART_FLAG_KEY,
+  ANON_CART_PAYLOAD_KEY,
+  useAnonCartImport,
+} from "@/lib/hooks/useAnonCartImport";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useCartStore } from "@/lib/store/cart";
 import { useFavoritesStore } from "@/lib/store/favorites";
+import { calculateCartTotals } from "@/lib/utils/cart-totals";
 import { formatCurrency, formatEuroAmount } from "@/lib/utils/currency";
 import { withLocale } from "@/lib/utils/locale";
 import type { ProductListItem } from "@/types/product";
@@ -28,6 +37,9 @@ export function CartView({
   locale: Locale;
 }) {
   const { toast } = useToast();
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const lastIdentityRef = useRef<string | null>(null);
   const items = useCartStore((state) => state.items);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const addItem = useCartStore((state) => state.addItem);
@@ -37,38 +49,29 @@ export function CartView({
   const [products, setProducts] = useState<CartProduct[]>([]);
   const [loading, setLoading] = useState(false);
 
+  useAnonCartImport({ status, userId: session?.user?.id });
+
+  useEffect(() => {
+    const currentIdentity =
+      status === "authenticated" && session?.user?.id ? session.user.id : "anon";
+
+    if (lastIdentityRef.current === null) {
+      lastIdentityRef.current = currentIdentity;
+      return;
+    }
+
+    if (lastIdentityRef.current !== currentIdentity) {
+      useCartStore.getState().clear();
+      useFavoritesStore.getState().clear();
+      setProducts([]);
+      setLoading(false);
+    }
+
+    lastIdentityRef.current = currentIdentity;
+  }, [session?.user?.id, status]);
+
   const { itemsSubtotalCents, discountCents, deliveryCents, totalCents, vatAmount } =
-    useMemo(() => {
-      let subtotal = 0;
-      let bottles = 0;
-
-      for (const item of items) {
-        const product = products.find((candidate) => candidate.id === item.productId);
-        if (!product) continue;
-        subtotal += product.priceCents * item.quantity;
-        bottles += item.quantity;
-      }
-
-      const discountApplied = bottles >= 10;
-      const discountValue = discountApplied ? Math.round(subtotal * 0.05) : 0;
-      const discountedSubtotal = subtotal - discountValue;
-
-      let delivery = 0;
-      if (discountedSubtotal < 5000) {
-        delivery = bottles <= 2 ? 600 : 800;
-      }
-
-      const total = discountedSubtotal + delivery;
-      const vat = total / 100 - total / (100 * 1.23);
-
-      return {
-        itemsSubtotalCents: subtotal,
-        discountCents: discountValue,
-        deliveryCents: delivery,
-        totalCents: total,
-        vatAmount: vat,
-      };
-    }, [items, products]);
+    useMemo(() => calculateCartTotals(items, products), [items, products]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -109,6 +112,38 @@ export function CartView({
       title: dictionary.cart.addAllFavorites,
       variant: "success",
     });
+  };
+
+  const handleCheckout = () => {
+    if (status !== "authenticated") {
+      if (typeof window !== "undefined" && items.length) {
+        try {
+          const payload = items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+          }));
+
+          window.sessionStorage.setItem(ANON_CART_FLAG_KEY, "1");
+          window.sessionStorage.setItem(ANON_CART_PAYLOAD_KEY, JSON.stringify(payload));
+          window.sessionStorage.setItem(
+            ANON_CART_EXPIRES_KEY,
+            String(Date.now() + 5 * 60 * 1000),
+          );
+        } catch (error) {
+          console.error("Failed to persist anonymous cart snapshot", error);
+        }
+      }
+
+      router.push(
+        withLocale(
+          locale,
+          `/account?callbackUrl=${encodeURIComponent(withLocale(locale, "/checkout"))}`,
+        ),
+      );
+      return;
+    }
+
+    router.push(withLocale(locale, "/checkout"));
   };
 
   if (!items.length) {
@@ -223,16 +258,7 @@ export function CartView({
             {dictionary.cart.vatIncluded} {formatEuroAmount(locale, vatAmount)}
           </p>
         </div>
-        <Button
-          size="lg"
-          className="w-full"
-          onClick={() =>
-            toast({
-              title: dictionary.cart.checkout,
-              description: "Checkout flow coming soon",
-            })
-          }
-        >
+        <Button size="lg" className="w-full" onClick={handleCheckout}>
           {dictionary.cart.checkout}
         </Button>
         <Button

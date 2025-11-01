@@ -1,0 +1,45 @@
+Palmanhac Admin Login Guide
+=================================
+
+1. Configure your environment
+   - Ensure the following variables exist in `.env` (update values as needed):
+
+```
+ADMIN_EMAIL="admin@palmanhac.pt"
+ADMIN_NAME="Palmanhac Admin"
+ADMIN_PASSWORD="change-me-strong-password"
+BCRYPT_COST="12"
+```
+
+2. Create or refresh the admin user
+   - Option A (during database seeding):
+
+```
+pnpm prisma migrate deploy
+pnpm prisma db seed
+```
+
+   - Option B (idempotent helper script):
+
+```
+pnpm make:admin
+```
+
+     • Override defaults at runtime if required:
+
+```
+pnpm make:admin -- --email=owner@example.com --password="Stronger#Pass123" --name="Store Owner"
+```
+
+3. Verify the admin record (optional)
+   - `pnpm prisma studio` → inspect the `User` table → confirm `role` is `ADMIN`.
+
+4. Sign in as admin
+   - Open `/en/account` (or localized variant) and choose **Login**.
+   - Enter `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+   - On success, the session contains `user.role = "ADMIN"`.
+
+5. Troubleshooting tips
+   - Password changes require rerunning `pnpm make:admin` (hashing honours `BCRYPT_COST`).
+   - If the email already exists from OAuth, the helper upgrades it to `ADMIN` and sets the password hash.
+   - Ensure environment variables have no surrounding whitespace and that migrations have been applied.

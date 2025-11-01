@@ -109,6 +109,33 @@ export type Dictionary = {
     cleared: string;
     clearButton: string;
   };
+  checkout: {
+    heading: string;
+    subheading: string;
+    contactInformation: string;
+    contactEmailLabel: string;
+    contactPhoneLabel: string;
+    shippingAddress: string;
+    shippingNameLabel: string;
+    shippingAddress1Label: string;
+    shippingAddress2Label: string;
+    shippingCityLabel: string;
+    shippingPostalCodeLabel: string;
+    shippingCountryLabel: string;
+    billingAddress: string;
+    billingSameAsShipping: string;
+    notesLabel: string;
+    notesPlaceholder: string;
+    paymentDetails: string;
+    paymentMethodDescription: string;
+    stripeNotConfigured: string;
+    initiatePaymentCta: string;
+    stripeSubmitCta: string;
+    stripeProcessing: string;
+    summary: string;
+    summaryItems: string;
+    summaryEmpty: string;
+  };
   favorites: {
     heading: string;
     empty: string;
@@ -331,6 +358,33 @@ const dictionaries: Record<Locale, Dictionary> = {
       remove: "Remove",
       cleared: "Cart cleared",
       clearButton: "Clear cart",
+    },
+    checkout: {
+      heading: "Checkout",
+      subheading: "Confirm your details and complete your Palmanhac order.",
+      contactInformation: "Contact information",
+      contactEmailLabel: "Email address",
+      contactPhoneLabel: "Phone (optional)",
+      shippingAddress: "Shipping address",
+      shippingNameLabel: "Full name",
+      shippingAddress1Label: "Address line 1",
+      shippingAddress2Label: "Address line 2 (optional)",
+      shippingCityLabel: "City",
+      shippingPostalCodeLabel: "Postal code",
+      shippingCountryLabel: "Country",
+      billingAddress: "Billing address",
+      billingSameAsShipping: "Use shipping address for billing",
+      notesLabel: "Order notes",
+      notesPlaceholder: "Share delivery preferences or gift messages.",
+      paymentDetails: "Payment",
+      paymentMethodDescription: "We securely process your card via Stripe.",
+      stripeNotConfigured: "Stripe is not configured. Add keys to enable payments.",
+      initiatePaymentCta: "Continue to payment",
+      stripeSubmitCta: "Place order",
+      stripeProcessing: "Processing payment...",
+      summary: "Order summary",
+      summaryItems: "Items",
+      summaryEmpty: "Your cart is empty. Add bottles to continue.",
     },
     favorites: {
       heading: "Favorites",
@@ -577,6 +631,35 @@ const dictionaries: Record<Locale, Dictionary> = {
       remove: "Remover",
       cleared: "Carrinho limpo",
       clearButton: "Limpar carrinho",
+    },
+    checkout: {
+      heading: "Checkout",
+      subheading: "Confirme os seus dados e finalize a encomenda Palmanhac.",
+      contactInformation: "Informações de contacto",
+      contactEmailLabel: "Email",
+      contactPhoneLabel: "Telefone (opcional)",
+      shippingAddress: "Morada de envio",
+      shippingNameLabel: "Nome completo",
+      shippingAddress1Label: "Morada linha 1",
+      shippingAddress2Label: "Morada linha 2 (opcional)",
+      shippingCityLabel: "Cidade",
+      shippingPostalCodeLabel: "Código postal",
+      shippingCountryLabel: "País",
+      billingAddress: "Morada de faturação",
+      billingSameAsShipping: "Usar morada de envio para faturação",
+      notesLabel: "Notas da encomenda",
+      notesPlaceholder: "Partilhe preferências de entrega ou mensagens de oferta.",
+      paymentDetails: "Pagamento",
+      paymentMethodDescription:
+        "Processamos o seu cartão com segurança através da Stripe.",
+      stripeNotConfigured:
+        "A Stripe não está configurada. Adicione as chaves para ativar os pagamentos.",
+      initiatePaymentCta: "Continuar para pagamento",
+      stripeSubmitCta: "Finalizar encomenda",
+      stripeProcessing: "A processar pagamento...",
+      summary: "Resumo da encomenda",
+      summaryItems: "Artigos",
+      summaryEmpty: "O carrinho está vazio. Adicione garrafas para continuar.",
     },
     favorites: {
       heading: "Favoritos",
