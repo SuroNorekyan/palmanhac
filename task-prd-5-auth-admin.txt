@@ -1,0 +1,245 @@
+Task PRD-5 — AuthN/AuthZ, Admin 2FA, and Payments Prep
+0) Read Me First (Project Analysis)
+
+Analyze the repository before coding:
+
+Prisma schema(s): models, relations, constraints, seed, where products live, how prices/stock are stored.
+
+API layer (Route Handlers / API routes / server actions): where to hook auth flows and admin CRUD.
+
+Current UI structure (app router, components) and locale system (EN/PT).
+
+Existing data loaders for products (seed + mock-items).
+
+Document assumptions (briefly) at the top of prd5-changes.txt, then proceed.
+
+Log all modified files to prd5-changes.txt in root using:
+
+[File]: relative/path
+[Summary]: what changed
+[Details]: short explanation
+---
+
+1) Authentication & Authorization (Modern + Secure)
+1.1 Auth Stack
+
+Use Auth.js (NextAuth) with Route Handlers.
+
+Providers:
+
+Email/password (credentials) with strong password policy, bcrypt hashing.
+
+Google OAuth (Provider).
+
+Sessions: secure cookies (HTTPOnly, SameSite=Lax or Strict where possible), short access token lifetime + rolling session.
+
+CSRF: use Auth.js’ built-ins.
+
+Rate limiting for sign-in attempts (e.g., middleware-level simple limiter).
+
+1.2 Prisma Models (extend/update)
+
+Add/adjust to include:
+
+User { id, email (unique), name, role ('USER' | 'ADMIN'), image?, passwordHash?, twoFAEnabled (bool), twoFASecret?, recoveryCodes? }
+
+Account, Session, VerificationToken (Auth.js standard models).
+
+Product (existing), Order, OrderItem, Favorite:
+
+Order { id, userId, status, totalAmount, paymentStatus, createdAt }
+
+OrderItem { id, orderId, productId, quantity, unitPrice }
+
+Favorite { id, userId, productId, createdAt } (unique compound index on userId+productId)
+
+Keep current project conventions; only add what’s missing. Run necessary Prisma migrations and minimal seed.
+
+1.3 Roles & Guards
+
+Role-based access control:
+
+USER: can manage account, view orders, add/remove favorites.
+
+ADMIN: full CRUD for catalog (products), and order management endpoints.
+
+API/route protection:
+
+Server-side guards on every admin route/handler (deny by default).
+
+Client-side redirect helper if not admin (defense in depth).
+
+Avoid leaking admin UI to non-admins (conditional render + server checks).
+
+2) Admin-Only Area (+ TOTP 2FA)
+2.1 Admin Credentials & Seeding
+
+Create a single seed admin with:
+
+role = 'ADMIN'
+
+A strong random password (store hash in DB; do not commit plaintext).
+
+Environment variables to override admin email on boot: ADMIN_EMAIL, ADMIN_NAME (optional).
+
+2.2 TOTP 2FA (Google Authenticator compatible)
+
+Use otplib (or speakeasy) to generate a TOTP secret for the admin only in this iteration.
+
+Store twoFASecret (encrypted at rest or at least base32 stored with care) and twoFAEnabled boolean.
+
+Enrollment flow (admin only):
+
+Visit /admin/2fa/setup (protected).
+
+Generate secret + otpauth:// URI; render QR (e.g., qrcode lib).
+
+Admin scans in Google Authenticator.
+
+Admin enters current 6-digit code → if valid, mark twoFAEnabled=true and persist secret.
+
+Show one-time recovery codes (store hashed; allow regeneration).
+
+Sign-in flow (admin):
+
+After password/OAuth success, if twoFAEnabled, present a second step for TOTP.
+
+Deny access to /admin without a valid second factor in the session.
+
+2.3 Step-by-Step: Connect Google Authenticator (for the Admin)
+
+Include the following guide in docs/admin-2fa-setup.md:
+
+Navigate to /admin/2fa/setup.
+
+Click Generate Secret, scan QR with Google Authenticator.
+
+Enter the 6-digit code to verify and enable 2FA.
+
+Save recovery codes securely; they can be used if the device is lost.
+
+Next sign-in will prompt for the TOTP code (or a recovery code).
+
+3) Admin CRUD (UI + API)
+3.1 New Frontend Route
+
+Create /admin (protected):
+
+Credentials form (email, password) if not authenticated; if admin + 2FA enabled, ask for TOTP code.
+
+After success, show an Admin Dashboard:
+
+Tabs or sections: Products, Orders (Users optional now).
+
+Products CRUD: list, search, create/edit/delete products (name, price, images, alcohol content, bottle size, base, region, type/color, awards?).
+
+Orders: list, status update (e.g., pending/paid/shipped).
+
+Clean, responsive UI using Tailwind; use existing design tokens/components.
+
+3.2 API Endpoints / Server Actions
+
+Implement secure admin endpoints (server-only) for products CRUD (and orders update).
+
+Ensure every admin action verifies role=ADMIN and 2FA verified in session.
+
+4) User Features (Account, Orders, Favorites)
+
+Registration/Login: email+password and Google OAuth.
+
+Account page: view profile, change password (re-auth required), see orders.
+
+Orders: show list and details with items.
+
+Favorites:
+
+Add/remove product as favorite (toggle on ProductCard and product detail).
+
+A /favorites page listing user’s favorites.
+
+5) Payments Prep (Visa/Mastercard + Multibanco)
+
+Do not integrate providers yet—just scaffold and make it easy to finish next.
+
+Add Payment models (minimal):
+
+PaymentIntent { id, orderId, provider ('STRIPE' | 'EUPAGO' | 'OTHER'), status, amount, currency, createdAt }
+
+Create webhook placeholders:
+
+/api/payments/stripe/webhook (empty verifier & TODO).
+
+/api/payments/multibanco/webhook (empty verifier & TODO).
+
+ENV placeholders (no values):
+STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, MULTIBANCO_API_KEY, MULTIBANCO_WEBHOOK_SECRET
+
+Client stubs:
+
+On checkout page, call POST /api/checkout → returns a mock paymentIntentId (no external call).
+
+Store relation to Order for future activation.
+
+6) Security Hardening
+
+Hash passwords with bcrypt (cost ~10–12).
+
+Use zod or similar to validate all payloads.
+
+Ensure no PII leaks in logs.
+
+Apply basic rate-limiting for auth endpoints.
+
+Helmet-like headers on API responses where applicable.
+
+Deny by default on admin routes; double-check server and client gates.
+
+Enforce unique (userId, productId) for Favorites.
+
+7) i18n (EN/PT)
+
+All new UI and validation messages must be EN/PT; reuse locale dictionaries.
+
+No Russian strings anywhere in new screens.
+
+8) Deliverables & Logs
+
+Working email+password and Google auth.
+
+Admin 2FA (TOTP) enforced for /admin.
+
+Admin CRUD UI & endpoints.
+
+User orders + favorites.
+
+Payments scaffolding.
+
+prd5-changes.txt updated for every touched file.
+
+docs/admin-2fa-setup.md created with the step-by-step guide.
+
+9) Acceptance Criteria (Quick)
+
+✅ Email+Google sign-in; sessions secure.
+
+✅ Admin seed exists; admin sees /admin, non-admin cannot.
+
+✅ Admin 2FA enrollment + challenge works; access is denied without TOTP.
+
+✅ Products CRUD works through protected API + UI.
+
+✅ Users can view orders and manage favorites.
+
+✅ Payments placeholders, models, envs, and webhooks stubs exist.
+
+✅ All changes logged to prd5-changes.txt; 2FA guide in docs/.
+
+Implementation Notes (Helpful Hints)
+
+Prefer Auth.js v5 (Route Handlers) with Prisma adapter.
+
+Use middleware.ts to gate /admin(.*) and short-circuit early.
+
+For QR: qrcode (data URL) + otplib/authenticator.keyuri(email, issuer, secret).
+
+Store recovery codes hashed (e.g., bcrypt) and show only once on generation.

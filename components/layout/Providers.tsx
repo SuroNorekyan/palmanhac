@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import { SessionProvider } from "next-auth/react";
 import { Toaster } from "@/components/ui/toaster";
 import { ToastProvider } from "@/components/ui/use-toast";
 import { useCartStore } from "@/lib/store/cart";
@@ -13,9 +14,11 @@ export function Providers({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ToastProvider>
-      {children}
-      <Toaster />
-    </ToastProvider>
+    <SessionProvider>
+      <ToastProvider>
+        {children}
+        <Toaster />
+      </ToastProvider>
+    </SessionProvider>
   );
 }

@@ -1,153 +1,236 @@
-import { defaultLocale } from "@/config/site";
+import type { Prisma, Product as PrismaProduct } from "@prisma/client";
 import type { Locale } from "@/config/site";
-import { parseMockItems, type ParsedMockItem } from "@/lib/data/mockItemParser";
-import type { Product, ProductCategorySlug, ProductListItem } from "@/types/product";
+import { prisma } from "@/lib/server/db";
+import type {
+  Product,
+  ProductCategorySlug,
+  ProductDetails,
+  ProductListItem,
+} from "@/types/product";
 
 type ProductFilters = {
-  category?: ProductCategorySlug;
+  category?: ProductCategorySlug | string;
   query?: string;
   sort?: "price-asc" | "price-desc";
+  includeInactive?: boolean;
 };
 
-let cache: ParsedMockItem[] | null = null;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
-const loadProducts = async (): Promise<ParsedMockItem[]> => {
-  if (cache) {
-    return cache;
-  }
-  cache = await parseMockItems();
-  return cache;
-};
-
-const normalizeSearch = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-const matchesQuery = (item: ParsedMockItem, query: string) => {
-  const normalized = normalizeSearch(query.trim());
-  if (!normalized.length) {
-    return true;
-  }
-
-  const haystacks = [item.name, item.description.en, item.description.pt].map((text) =>
-    normalizeSearch(text),
-  );
-
-  return haystacks.some((text) => text.includes(normalized));
-};
-
-const sortProducts = (
-  items: ParsedMockItem[],
-  sort: ProductFilters["sort"],
-): ParsedMockItem[] => {
-  const cloned = [...items];
-  if (sort === "price-asc") {
-    cloned.sort((a, b) => a.priceCents - b.priceCents);
-    return cloned;
-  }
-  if (sort === "price-desc") {
-    cloned.sort((a, b) => b.priceCents - a.priceCents);
-    return cloned;
-  }
-  cloned.sort((a, b) => a.name.localeCompare(b.name));
-  return cloned;
-};
-
-const summarizeDescription = (item: ParsedMockItem, locale: Locale) => {
-  const raw = item.description[locale] ?? item.description[defaultLocale];
-  const summary =
-    raw.split(/\n{2,}|\r?\n/).find((paragraph) => paragraph.trim().length) ?? raw;
-  return summary.replace(/\s+/g, " ").trim();
-};
-
-const toListItem = (item: ParsedMockItem, locale: Locale): ProductListItem => ({
-  id: item.id,
-  slug: item.slug,
-  category: item.category,
-  image: item.image,
-  priceCents: item.priceCents,
-  name: item.name,
-  description: summarizeDescription(item, locale),
-  volumeMl: item.volumeMl,
-  abv: item.abv,
+const defaultDetails = (): ProductDetails => ({
+  region: { en: "", pt: "" },
+  base: { en: "", pt: "" },
+  type: { en: "", pt: "" },
+  bottleSize: { en: "", pt: "" },
+  servingTemperature: { en: "", pt: "" },
+  alcoholContent: { en: "", pt: "" },
+  awards: { en: [], pt: [] },
 });
 
-const toProduct = (item: ParsedMockItem): Product => ({
-  id: item.id,
-  slug: item.slug,
-  category: item.category,
-  name: item.name,
-  priceCents: item.priceCents,
-  image: item.image,
-  volumeMl: item.volumeMl,
-  abv: item.abv,
-  description: item.description,
-  details: item.details,
+const toLocaleStringRecord = (value: unknown, fallback = ""): Record<Locale, string> => {
+  if (!isRecord(value)) {
+    return { en: fallback, pt: fallback };
+  }
+  return {
+    en: typeof value.en === "string" ? value.en : fallback,
+    pt: typeof value.pt === "string" ? value.pt : fallback,
+  };
+};
+
+const toLocaleStringArrayRecord = (value: unknown): Record<Locale, string[]> => {
+  if (!isRecord(value)) {
+    return { en: [], pt: [] };
+  }
+  const normalize = (input: unknown) =>
+    Array.isArray(input)
+      ? input.filter((item): item is string => typeof item === "string")
+      : [];
+
+  return {
+    en: normalize(value.en),
+    pt: normalize(value.pt),
+  };
+};
+
+const deserializeDetails = (value: Prisma.JsonValue | null): ProductDetails => {
+  if (!isRecord(value)) {
+    return defaultDetails();
+  }
+  return {
+    region: toLocaleStringRecord(value.region, ""),
+    base: toLocaleStringRecord(value.base, ""),
+    type: toLocaleStringRecord(value.type, ""),
+    bottleSize: toLocaleStringRecord(value.bottleSize, ""),
+    servingTemperature: toLocaleStringRecord(value.servingTemperature, ""),
+    alcoholContent: toLocaleStringRecord(value.alcoholContent, ""),
+    awards: toLocaleStringArrayRecord(value.awards),
+  };
+};
+
+const summarizeDescription = (raw: string): string => {
+  const summary = raw
+    .split(/\n{2,}|\r?\n/)
+    .find((paragraph) => paragraph.trim().length > 0);
+
+  return (summary ?? raw).replace(/\s+/g, " ").trim();
+};
+
+const pickLocalized = (enValue: string, ptValue: string, locale: Locale) => {
+  if (locale === "pt") {
+    return ptValue?.trim().length ? ptValue : enValue;
+  }
+
+  return enValue?.trim().length ? enValue : ptValue;
+};
+
+const toListItem = (product: PrismaProduct, locale: Locale): ProductListItem => {
+  const description = pickLocalized(product.descriptionEn, product.descriptionPt, locale);
+
+  return {
+    id: product.id,
+    slug: product.slug,
+    category: product.category as ProductCategorySlug,
+    image: product.image,
+    galleryImages: product.galleryImages,
+    priceCents: product.priceCents,
+    name: product.name,
+    description: summarizeDescription(description),
+    volumeMl: product.volumeMl,
+    abv: product.abv,
+    isActive: product.isActive,
+  };
+};
+
+const toProduct = (product: PrismaProduct): Product => ({
+  id: product.id,
+  slug: product.slug,
+  category: product.category as ProductCategorySlug,
+  name: product.name,
+  priceCents: product.priceCents,
+  image: product.image,
+  galleryImages: product.galleryImages,
+  volumeMl: product.volumeMl,
+  abv: product.abv,
+  stock: product.stock,
+  isActive: product.isActive,
+  description: {
+    en: product.descriptionEn,
+    pt: product.descriptionPt,
+  },
+  tastingNotes: {
+    en: product.tastingNotesEn ?? null,
+    pt: product.tastingNotesPt ?? null,
+  },
+  details: deserializeDetails(product.details),
 });
 
 export const getAllProducts = async (locale: Locale, filters: ProductFilters = {}) => {
-  const items = await loadProducts();
-  const filtered = items.filter((item) => {
-    if (filters.category && item.category !== filters.category) {
-      return false;
-    }
-    if (filters.query && !matchesQuery(item, filters.query)) {
-      return false;
-    }
-    return true;
+  const where: Prisma.ProductWhereInput = {
+    ...(filters.includeInactive ? {} : { isActive: true }),
+    ...(filters.category
+      ? {
+          category: filters.category,
+        }
+      : {}),
+    ...(filters.query
+      ? {
+          OR: [
+            { name: { contains: filters.query, mode: "insensitive" } },
+            { descriptionEn: { contains: filters.query, mode: "insensitive" } },
+            { descriptionPt: { contains: filters.query, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  const orderBy =
+    filters.sort === "price-asc"
+      ? { priceCents: "asc" as const }
+      : filters.sort === "price-desc"
+        ? { priceCents: "desc" as const }
+        : { name: "asc" as const };
+
+  const products = await prisma.product.findMany({
+    where,
+    orderBy,
   });
 
-  return sortProducts(filtered, filters.sort).map((item) => toListItem(item, locale));
+  return products.map((product) => toListItem(product, locale));
 };
 
 export const getProductsByIds = async (ids: number[]) => {
   if (!ids.length) {
     return [] as Product[];
   }
-  const items = await loadProducts();
-  return items.filter((item) => ids.includes(item.id)).map(toProduct);
+  const products = await prisma.product.findMany({
+    where: { id: { in: ids } },
+  });
+  return products.map(toProduct);
 };
 
 export const getProductSummariesByIds = async (ids: number[], locale: Locale) => {
   if (!ids.length) {
     return [] as ProductListItem[];
   }
-  const items = await loadProducts();
-  return items
-    .filter((item) => ids.includes(item.id))
-    .map((item) => toListItem(item, locale));
+  const products = await prisma.product.findMany({
+    where: { id: { in: ids } },
+  });
+  return products.map((product) => toListItem(product, locale));
 };
 
 export const getAllProductSlugs = async () => {
-  const items = await loadProducts();
-  return items.map((item) => item.slug);
+  const products = await prisma.product.findMany({
+    select: { slug: true },
+    where: { isActive: true },
+  });
+  return products.map((product) => product.slug);
 };
 
 export const getProductBySlug = async (slug: string) => {
-  const items = await loadProducts();
-  const match = items.find((item) => item.slug === slug);
-  return match ? toProduct(match) : null;
+  const product = await prisma.product.findUnique({
+    where: { slug },
+  });
+  return product ? toProduct(product) : null;
 };
 
 export const getRelatedProducts = async (slug: string, locale: Locale, limit = 4) => {
-  const items = await loadProducts();
-  const current = items.find((item) => item.slug === slug);
+  const current = await prisma.product.findUnique({
+    where: { slug },
+  });
+
   if (!current) {
     return [];
   }
 
-  const related = items.filter(
-    (item) => item.slug !== slug && item.category === current.category,
-  );
+  const products = await prisma.product.findMany({
+    where: {
+      id: { not: current.id },
+      category: current.category,
+      isActive: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
 
-  return related.slice(0, limit).map((item) => toListItem(item, locale));
+  return products.map((product) => toListItem(product, locale));
 };
 
 export const getFeaturedProducts = async (locale: Locale, limit = 4) => {
-  const items = await loadProducts();
-  return sortProducts(items, undefined)
-    .slice(0, limit)
-    .map((item) => toListItem(item, locale));
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+
+  if (!products.length) {
+    const fallback = await prisma.product.findMany({
+      where: { isActive: true },
+      take: limit,
+      orderBy: { name: "asc" },
+    });
+    return fallback.map((product) => toListItem(product, locale));
+  }
+
+  return products.map((product) => toListItem(product, locale));
 };

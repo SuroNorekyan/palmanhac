@@ -1,0 +1,230 @@
+Assumptions:
+- Postgres remains the primary data source; new migrations expect the database to be migrated before running the app.
+- The ADMIN_PASSWORD environment variable will be provided during seeding and never committed in plaintext.
+- Two-factor secrets are encrypted with AES-256-GCM using TOTP_ENCRYPTION_KEY; loss of this key invalidates stored secrets.
+- Rate limiting is in-memory for now and should be backed by a shared store if we scale horizontally.
+- Payment endpoints are mock placeholders and perform no external network calls.
+
+[File]: .gitignore
+[Summary]: Ignore pnpm store cache
+[Details]: Added .pnpm-store to keep local package cache out of VCS.
+
+[File]: .npmrc
+[Summary]: Allow bcrypt native build
+[Details]: Configured pnpm to permit bcrypt postinstall scripts inside the workspace sandbox.
+
+[File]: .env.example
+[Summary]: Document required environment variables
+[Details]: Added placeholders for auth secrets, admin seed overrides, payment scaffolding, and hashing configuration.
+
+[File]: .env
+[Summary]: Provide minimal local defaults
+[Details]: Commented optional OAuth and payment keys so only required secrets load during local dev.
+
+[File]: .env.local
+[Summary]: Mirror minimal runtime variables
+[Details]: Matches .env defaults without enabling optional providers until credentials are supplied.
+
+[File]: app/[locale]/account/page.tsx
+[Summary]: Replace static form with authenticated account experience
+[Details]: Added server-side session check, renders new auth panel for guests and dashboard with change-password and quick links for signed-in users.
+
+[File]: app/[locale]/orders/page.tsx
+[Summary]: New localized orders history page
+[Details]: Fetches user orders via server utilities, displays bilingual metadata, and prompts unauthenticated visitors to log in.
+
+[File]: app/admin/layout.tsx
+[Summary]: Provide admin-specific layout shell
+[Details]: Wraps admin pages with global providers and consistent padding/background styling.
+
+[File]: app/admin/page.tsx
+[Summary]: Implement admin dashboard landing page
+[Details]: Ensures 2FA completion, shows bilingual status summary, and renders product/order management widgets.
+
+[File]: app/admin/2fa/challenge/page.tsx
+[Summary]: Two-factor challenge route
+[Details]: Guards against unauthorized access and mounts the bilingual TOTP/recovery verification form.
+
+[File]: app/admin/2fa/setup/page.tsx
+[Summary]: Two-factor enrollment route
+[Details]: Exposes QR generation and verification workflow enabling TOTP with recovery codes.
+
+[File]: app/api/account/password/route.ts
+[Summary]: Secure password update endpoint
+[Details]: Validates payload with zod, verifies current password, hashes new secret, and applies rate limiting.
+
+[File]: app/api/admin/orders/route.ts
+[Summary]: Admin orders listing API
+[Details]: Returns enriched order data with optional status filters, restricted to fully authenticated admins.
+
+[File]: app/api/admin/orders/[id]/route.ts
+[Summary]: Admin order detail and mutation API
+[Details]: Enables status/payment updates with validation and includes defensive error handling for missing records.
+
+[File]: app/api/admin/products/route.ts
+[Summary]: Admin product collection API
+[Details]: Supports filtered listing and product creation with schema validation, slug collision checks, and gallery handling.
+
+[File]: app/api/admin/products/[id]/route.ts
+[Summary]: Admin product detail API
+[Details]: Adds fetch, update, and delete operations with granular validation plus FK constraint messaging.
+
+[File]: app/api/admin/2fa/setup/route.ts
+[Summary]: Generate admin TOTP secret
+[Details]: Applies rate limiting, encrypts secrets, persists seed data, and returns QR/manual pairing.
+
+[File]: app/api/admin/2fa/verify/route.ts
+[Summary]: Confirm admin TOTP enrollment
+[Details]: Validates codes, issues recovery hashes, updates session verification timestamp, and returns recovery codes.
+
+[File]: app/api/admin/2fa/challenge/route.ts
+[Summary]: Validate runtime 2FA challenges
+[Details]: Accepts TOTP or recovery codes, rate limits attempts, prunes used recovery hashes, and stamps session verification.
+
+[File]: app/api/auth/[...nextauth]/route.ts
+[Summary]: Wire Auth.js route handlers
+[Details]: Exposes NextAuth GET/POST handlers using centralized auth.ts configuration.
+
+[File]: app/api/auth/register/route.ts
+[Summary]: User registration endpoint
+[Details]: Validates strong passwords, enforces unique emails, hashes secrets, and rate limits new account attempts.
+
+[File]: app/api/checkout/route.ts
+[Summary]: Mock checkout workflow
+[Details]: Creates orders, order items, and a placeholder payment intent while returning mock identifiers.
+
+[File]: app/api/favorites/route.ts
+[Summary]: Authenticated favorites API
+[Details]: Provides CRUD operations for wishlists, returning enriched product payloads for signed-in users.
+
+[File]: app/api/orders/route.ts
+[Summary]: User orders listing API
+[Details]: Supplies authenticated users with their order history including line items and payment intent metadata.
+
+[File]: app/api/orders/[id]/route.ts
+[Summary]: User order detail API
+[Details]: Restricts access to the owner and returns itemized order information on demand.
+
+[File]: app/api/payments/stripe/webhook/route.ts
+[Summary]: Stripe webhook scaffold
+[Details]: Stubbed handler that acknowledges requests while marking the integration TODO.
+
+[File]: app/api/payments/multibanco/webhook/route.ts
+[Summary]: Multibanco webhook scaffold
+[Details]: Placeholder endpoint consuming payloads and responding with accepted status.
+
+[File]: auth.ts
+[Summary]: Configure Auth.js with Prisma and providers
+[Details]: Added credentials + Google auth, session hardening, role/2FA propagation, secure cookies, and sign-in rate limiting.
+
+[File]: components/account/AccountAuthPanel.tsx
+[Summary]: Client auth panel with bilingual copy
+[Details]: Implements login, Google sign-in, registration, and password guidance with toast feedback.
+
+[File]: components/account/AccountDashboard.tsx
+[Summary]: Logged-in account dashboard
+[Details]: Shows bilingual greetings, quick links, password update form, and sign-out handling.
+
+[File]: components/admin/AdminProductManager.tsx
+[Summary]: Admin product CRUD UI
+[Details]: Fetches catalog, supports create/update/delete with bilingual labels, and syncs with admin APIs.
+
+[File]: components/admin/AdminOrdersManager.tsx
+[Summary]: Admin orders management UI
+[Details]: Lists orders with bilingual status controls, updates backend via PATCH, and exposes refresh controls.
+
+[File]: components/admin/AdminTwoFactorChallenge.tsx
+[Summary]: Bilingual 2FA challenge form
+[Details]: Handles TOTP/recovery submissions, displays dual-language messaging, and redirects on success.
+
+[File]: components/admin/AdminTwoFactorSetup.tsx
+[Summary]: Bilingual 2FA enrollment widget
+[Details]: Generates QR/manual codes, verifies tokens, surfaces recovery codes, and issues toast feedback.
+
+[File]: components/favorites/FavoritesView.tsx
+[Summary]: Sync favorites with backend
+[Details]: Integrates session-aware syncing, API-backed mutations, bilingual toasts, and guest fallback behaviour.
+
+[File]: components/layout/Providers.tsx
+[Summary]: Include NextAuth SessionProvider
+[Details]: Wrapped app providers with SessionProvider to make auth state available client-side.
+
+[File]: components/product/ProductCard.tsx
+[Summary]: Persist favorites for authenticated users
+[Details]: Added session-aware API calls when toggling favorites and improved toast messaging.
+
+[File]: docs/admin-2fa-setup.md
+[Summary]: Document admin 2FA onboarding
+[Details]: Added bilingual step-by-step instructions covering QR generation, verification, and recovery codes.
+
+[File]: lib/auth/guards.ts
+[Summary]: Centralize admin session checks
+[Details]: Implemented helper to require admin role and verified 2FA before performing privileged actions.
+
+[File]: lib/auth/utils.ts
+[Summary]: Session token extraction helper
+[Details]: Added utility to read session tokens from cookies for session mutation endpoints.
+
+[File]: lib/data/seed.ts
+[Summary]: Seed admin account and enrich products
+[Details]: Hashes admin password from environment, sets default gallery/details fields, and logs helpful output.
+
+[File]: lib/i18n/dictionaries.ts
+[Summary]: Extend dictionaries for new UX copy
+[Details]: Added bilingual strings for auth flows, orders, favorites, and 2FA interactions, updating type definitions accordingly.
+
+[File]: lib/security/password.ts
+[Summary]: Centralize password policy and hashing
+[Details]: Added zod schema for strength validation plus helpers to hash/verify passwords with configurable cost.
+
+[File]: lib/security/rate-limit.ts
+[Summary]: Provide reusable in-memory rate limiter
+[Details]: Implemented keyed LRU-based limiter returning metadata for use across APIs.
+
+[File]: lib/security/totp.ts
+[Summary]: TOTP helpers with encryption
+[Details]: Added secret encryption/decryption, QR code generation, recovery code hashing, and verification utilities.
+
+[File]: lib/server/orders.ts
+[Summary]: Server-side order accessors
+[Details]: Added helpers to fetch orders for a user including related items and payment intents.
+
+[File]: lib/server/products.ts
+[Summary]: Migrate product queries to Prisma
+[Details]: Replaced mock data loaders with database access, added new serialization helpers, and preserved localization support.
+
+[File]: lib/store/favorites.ts
+[Summary]: Support backend synced favorites
+[Details]: Added replace helper to align persisted IDs with server state while keeping existing toggle behaviour.
+
+[File]: middleware.ts
+[Summary]: Handle locale redirects and lightweight admin pre-check
+[Details]: Normalizes locale prefixes and redirects admin requests without a session cookie before letting server-side guards enforce full checks.
+
+[File]: package.json
+[Summary]: Declare new dependencies and overrides
+[Details]: Added Auth.js, security libraries, typings, and pnpm override for @auth/core alignment.
+
+[File]: pnpm-lock.yaml
+[Summary]: Lock dependency graph updates
+[Details]: Captured new runtime and dev dependencies for auth, security, and typings.
+
+[File]: prisma/schema.prisma
+[Summary]: Expand schema for auth, orders, favorites, payments
+[Details]: Added enums, user/session/account models, order and payment tables, and new product fields for admin control.
+
+[File]: prisma/migrations/20250309000100_prd5_auth_admin/migration.sql
+[Summary]: Database migration for PRD-5
+[Details]: Creates auth-related tables, orders/favorites/payment schemas, and extends products with new metadata columns.
+
+[File]: types/auth-adapter.d.ts
+[Summary]: Extend Auth.js adapter user typing
+[Details]: Augmented adapter user interface with role and 2FA flags to match Prisma schema.
+
+[File]: types/next-auth.d.ts
+[Summary]: Extend NextAuth session typing
+[Details]: Added role, 2FA, and verification fields to session and token types for TypeScript awareness.
+
+[File]: types/product.ts
+[Summary]: Reflect new product shape
+[Details]: Added gallery, stock, active status, and tasting notes fields to shared product types.

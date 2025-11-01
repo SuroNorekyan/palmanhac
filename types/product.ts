@@ -19,9 +19,13 @@ export type Product = {
   name: string;
   priceCents: number;
   image: string;
+  galleryImages: string[];
   volumeMl: number;
   abv: number;
+  stock: number;
+  isActive: boolean;
   description: Record<Locale, string>;
+  tastingNotes?: Record<Locale, string | null>;
   details: ProductDetails;
 };
 
@@ -30,9 +34,11 @@ export type ProductListItem = {
   slug: string;
   category: ProductCategorySlug;
   image: string;
+  galleryImages: string[];
   priceCents: number;
   name: string;
   description: string;
   volumeMl: number;
   abv: number;
+  isActive: boolean;
 };

@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Role } from "@prisma/client";
+import bcrypt from "bcrypt";
 import { parseMockItems } from "./mockItemParser.ts";
 
 const prisma = new PrismaClient();
@@ -18,19 +19,56 @@ export async function seedProducts() {
         name: item.name,
         priceCents: item.priceCents,
         image: item.image,
+        galleryImages: [item.image],
         volumeMl: item.volumeMl,
         abv: item.abv,
         descriptionEn: item.description.en,
         descriptionPt: item.description.pt,
+        details: item.details,
+        stock: 100,
+        isActive: true,
       },
     });
   }
+}
+
+async function seedAdminUser() {
+  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@palmanhac.pt";
+  const adminName = process.env.ADMIN_NAME ?? "Palmanhac Admin";
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    console.warn(
+      "⚠️  Skipping admin seed: ADMIN_PASSWORD environment variable is not set.",
+    );
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
+
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: {
+      name: adminName,
+      passwordHash,
+      role: Role.ADMIN,
+    },
+    create: {
+      email: adminEmail,
+      name: adminName,
+      passwordHash,
+      role: Role.ADMIN,
+    },
+  });
+
+  console.info(`✅ Admin user ensured for ${adminEmail} (password hash stored).`);
 }
 
 // Always run when executed directly (Prisma's `db seed` runs the file)
 (async () => {
   try {
     await seedProducts();
+    await seedAdminUser();
     console.info("✅ Database seeded with mock items from /mock-items.");
   } catch (err) {
     console.error("❌ Failed to seed database:", err);

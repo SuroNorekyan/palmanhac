@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Heart } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { IconButton } from "@/components/common/IconButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function ProductCard({ product, dictionary, locale }: ProductCardProps) {
   const toggleFavorite = useFavoritesStore((state) => state.toggle);
   const isFavorite = useFavoritesStore((state) => state.has(product.id));
   const { toast } = useToast();
+  const { status } = useSession();
 
   const handleAddToCart = () => {
     addToCart(product.id, 1);
@@ -38,7 +40,23 @@ export function ProductCard({ product, dictionary, locale }: ProductCardProps) {
     });
   };
 
-  const handleToggleFavorite = () => {
+  const handleToggleFavorite = async () => {
+    if (status === "authenticated") {
+      const response = await fetch("/api/favorites", {
+        method: isFavorite ? "DELETE" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: product.id }),
+      });
+      if (!response.ok) {
+        toast({
+          title: dictionary.favorites.error,
+          description: product.name,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     toggleFavorite(product.id);
     toast({
       title: isFavorite
@@ -54,15 +72,17 @@ export function ProductCard({ product, dictionary, locale }: ProductCardProps) {
         href={withLocale(locale, `/product/${product.slug}`)}
         className="relative block overflow-hidden"
       >
-        <div className="relative flex h-56 items-center justify-center bg-neutral-50 px-6 pb-6 pt-10 transition duration-500 group-hover:bg-neutral-100 sm:h-60">
+        <div className="relative h-56 sm:h-60 bg-neutral-50 px-6 pb-6 pt-10 transition duration-500 group-hover:bg-neutral-100">
           <Image
             src={product.image}
             alt={product.name}
-            width={360}
-            height={480}
-            className="h-full w-auto object-contain transition duration-500 group-hover:scale-105"
+            fill
+            className="object-contain scale-90 sm:scale-95 transition duration-500"
+            sizes="(min-width: 640px) 15rem, 14rem"
+            priority={false}
           />
         </div>
+
         <div className="absolute left-4 top-4 flex gap-2">
           <Badge variant="muted" className="uppercase">
             {product.category.replace("-", " ")}

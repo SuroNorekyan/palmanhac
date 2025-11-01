@@ -8,6 +8,7 @@ type FavoritesStore = {
   remove: (productId: number) => void;
   clear: () => void;
   has: (productId: number) => boolean;
+  setAll: (ids: number[]) => void;
 };
 
 const storageFactory = (): StateStorage => {
@@ -44,6 +45,10 @@ export const useFavoritesStore = create<FavoritesStore>()(
         })),
       clear: () => set({ ids: [] }),
       has: (productId) => get().ids.includes(productId),
+      setAll: (incoming) =>
+        set({
+          ids: Array.from(new Set(incoming)).filter((value) => Number.isFinite(value)),
+        }),
     }),
     {
       name: "palmanhac-favorites",

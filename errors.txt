@@ -1,0 +1,25 @@
+Cannot read properties of undefined (reading 'modules')
+Call Stack
+10
+
+Hide 10 ignore-listed frame(s)
+module evaluation
+node_modules/.pnpm/node-gyp-build@4.8.4/node_modules/node-gyp-build/node-gyp-build.js (10:28)
+<unknown>
+[turbopack]/browser/runtime/base/dev-base.ts (244:7)
+runModuleExecutionHooks
+[turbopack]/browser/runtime/base/dev-base.ts (291:5)
+instantiateModule
+[turbopack]/browser/runtime/base/dev-base.ts (238:5)
+getOrInstantiateModuleFromParent
+[turbopack]/browser/runtime/base/dev-base.ts (162:10)
+DevContext.commonJsRequire [as r]
+[turbopack]/shared/runtime-utils.ts (389:10)
+module evaluation
+node_modules/.pnpm/node-gyp-build@4.8.4/node_modules/node-gyp-build/index.js (5:17)
+<unknown>
+[turbopack]/browser/runtime/base/dev-base.ts (244:7)
+runModuleExecutionHooks
+[turbopack]/browser/runtime/base/dev-base.ts (291:5)
+instantiateModule
+[turbopack]/browser/runtime/base/dev-base.ts (238:5)

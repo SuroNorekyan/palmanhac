@@ -13,24 +13,34 @@
     "export-structure": "node --experimental-modules exportStructure.js"
   },
   "dependencies": {
+    "@auth/core": "0.41.1",
+    "@auth/prisma-adapter": "^2.11.1",
     "@prisma/client": "^5.19.0",
     "@radix-ui/react-dialog": "^1.1.1",
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-toast": "^1.1.6",
+    "bcrypt": "^6.0.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.3.30",
+    "lru-cache": "^11.2.2",
     "lucide-react": "^0.461.0",
     "nanoid": "^5.0.7",
     "next": "16.0.0",
+    "next-auth": "5.0.0-beta.30",
+    "otplib": "^12.0.1",
+    "qrcode": "^1.5.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "tailwind-merge": "^2.5.3",
+    "zod": "^4.1.12",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.3.0",
     "@tailwindcss/postcss": "^4",
+    "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "husky": "^9.1.6",
@@ -50,5 +60,10 @@
     "*.{ts,tsx,js,jsx,json,md,css,scss}": [
       "prettier --write"
     ]
+  },
+  "pnpm": {
+    "overrides": {
+      "@auth/core": "0.41.1"
+    }
   }
 }

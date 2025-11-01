@@ -63,9 +63,36 @@ export type Dictionary = {
     heading: string;
     subheading: string;
     email: string;
+    name: string;
     password: string;
+    confirmPassword: string;
     login: string;
     createAccount: string;
+    logout: string;
+    googleSignIn: string;
+    noAccountCta: string;
+    hasAccountCta: string;
+    passwordHint: string;
+    alerts: {
+      loginFailed: string;
+      registrationSuccess: string;
+      registrationFailed: string;
+      passwordUpdated: string;
+      passwordMismatch: string;
+    };
+    dashboard: {
+      greeting: string;
+      manageAccount: string;
+      viewOrders: string;
+      viewFavorites: string;
+      changePassword: string;
+      changePasswordDescription: string;
+      currentPassword: string;
+      newPassword: string;
+      confirmPassword: string;
+      submit: string;
+      success: string;
+    };
   };
   cart: {
     heading: string;
@@ -87,6 +114,41 @@ export type Dictionary = {
     empty: string;
     moveToCart: string;
     clear: string;
+    removed: string;
+    synced: string;
+    error: string;
+  };
+  orders: {
+    heading: string;
+    empty: string;
+    placedOn: string;
+    total: string;
+    items: string;
+    itemCount: string;
+    noItems: string;
+    status: Record<
+      "PENDING" | "PROCESSING" | "SHIPPED" | "COMPLETED" | "CANCELLED",
+      string
+    >;
+    paymentStatus: Record<"UNPAID" | "PENDING" | "PAID" | "FAILED" | "REFUNDED", string>;
+    viewDetails: string;
+  };
+  twoFactor: {
+    setupTitle: string;
+    setupDescription: string;
+    generateSecret: string;
+    qrLabel: string;
+    manualCodeLabel: string;
+    verificationLabel: string;
+    verifyButton: string;
+    recoveryCodesTitle: string;
+    recoveryCodesDescription: string;
+    challengeTitle: string;
+    challengeDescription: string;
+    recoveryCodeLabel: string;
+    submitButton: string;
+    success: string;
+    error: string;
   };
   footer: {
     newsletterTitle: string;
@@ -219,11 +281,41 @@ const dictionaries: Record<Locale, Dictionary> = {
     account: {
       heading: "Personal Account",
       subheading:
-        "Sign in to manage your orders, saved items, and preferences. Account features arrive soon.",
+        "Sign in to manage orders, saved items, and security preferences for your Palmanhac profile.",
       email: "Email",
+      name: "Full Name",
       password: "Password",
+      confirmPassword: "Confirm Password",
       login: "Sign In",
       createAccount: "Create Account",
+      logout: "Sign Out",
+      googleSignIn: "Continue with Google",
+      noAccountCta: "Don't have an account?",
+      hasAccountCta: "Already have an account?",
+      passwordHint:
+        "Passwords must be at least 12 characters and include uppercase, lowercase, numbers, and symbols.",
+      alerts: {
+        loginFailed: "Unable to sign in with those credentials.",
+        registrationSuccess: "Account created successfully. You can sign in now.",
+        registrationFailed:
+          "Registration failed. Please review the details and try again.",
+        passwordUpdated: "Password updated successfully.",
+        passwordMismatch: "Passwords must match before continuing.",
+      },
+      dashboard: {
+        greeting: "Hello",
+        manageAccount: "Manage your Palmanhac account",
+        viewOrders: "View Orders",
+        viewFavorites: "View Favorites",
+        changePassword: "Update Password",
+        changePasswordDescription:
+          "Enter your current password to set a new, secure password.",
+        currentPassword: "Current Password",
+        newPassword: "New Password",
+        confirmPassword: "Confirm New Password",
+        submit: "Save Password",
+        success: "Password updated successfully.",
+      },
     },
     cart: {
       heading: "Your Cart",
@@ -245,6 +337,53 @@ const dictionaries: Record<Locale, Dictionary> = {
       empty: "You have not saved any items yet.",
       moveToCart: "Add all to cart",
       clear: "Clear favorites",
+      removed: "Removed from favorites",
+      synced: "Favorites synced with your account.",
+      error: "Unable to update favorites. Please try again.",
+    },
+    orders: {
+      heading: "Orders",
+      empty: "You have not placed any orders yet.",
+      placedOn: "Placed on",
+      total: "Total",
+      items: "Items",
+      itemCount: "{count} items",
+      noItems: "No items in this order.",
+      status: {
+        PENDING: "Pending",
+        PROCESSING: "Processing",
+        SHIPPED: "Shipped",
+        COMPLETED: "Completed",
+        CANCELLED: "Cancelled",
+      },
+      paymentStatus: {
+        UNPAID: "Unpaid",
+        PENDING: "Payment pending",
+        PAID: "Paid",
+        FAILED: "Payment failed",
+        REFUNDED: "Refunded",
+      },
+      viewDetails: "View details",
+    },
+    twoFactor: {
+      setupTitle: "Secure Admin Access",
+      setupDescription:
+        "Protect the Palmanhac admin area with Google Authenticator compatible two-factor authentication.",
+      generateSecret: "Generate Setup QR Code",
+      qrLabel: "Scan this QR code with Google Authenticator",
+      manualCodeLabel: "Or enter this code manually",
+      verificationLabel: "Enter the 6-digit code",
+      verifyButton: "Activate 2FA",
+      recoveryCodesTitle: "Recovery Codes",
+      recoveryCodesDescription:
+        "Store these codes in a secure place. Each code can only be used once if you lose your device.",
+      challengeTitle: "Two-Factor Challenge",
+      challengeDescription:
+        "Enter your current 6-digit verification code or apply a recovery code to continue.",
+      recoveryCodeLabel: "Recovery code",
+      submitButton: "Verify Access",
+      success: "Two-factor authentication verified successfully.",
+      error: "Code verification failed. Please try again.",
     },
     footer: {
       newsletterTitle: "Join the Palmanhac circle",
@@ -387,11 +526,41 @@ const dictionaries: Record<Locale, Dictionary> = {
     account: {
       heading: "Conta Pessoal",
       subheading:
-        "Inicie sessão para gerir encomendas, itens guardados e preferências. Em breve haverá mais funcionalidades.",
+        "Inicie sessão para gerir encomendas, favoritos e a segurança do seu perfil Palmanhac.",
       email: "Email",
+      name: "Nome completo",
       password: "Palavra-passe",
+      confirmPassword: "Confirmar palavra-passe",
       login: "Entrar",
       createAccount: "Criar Conta",
+      logout: "Terminar sessão",
+      googleSignIn: "Continuar com Google",
+      noAccountCta: "Ainda não tem conta?",
+      hasAccountCta: "Já tem conta?",
+      passwordHint:
+        "A palavra-passe deve ter pelo menos 12 caracteres e incluir maiúsculas, minúsculas, números e símbolos.",
+      alerts: {
+        loginFailed: "Não foi possível iniciar sessão com essas credenciais.",
+        registrationSuccess: "Conta criada com sucesso. Já pode iniciar sessão.",
+        registrationFailed:
+          "Não foi possível concluir o registo. Verifique os dados e tente novamente.",
+        passwordUpdated: "Palavra-passe atualizada com sucesso.",
+        passwordMismatch: "As palavras-passe devem ser iguais antes de continuar.",
+      },
+      dashboard: {
+        greeting: "Olá",
+        manageAccount: "Gerir a sua conta Palmanhac",
+        viewOrders: "Ver encomendas",
+        viewFavorites: "Ver favoritos",
+        changePassword: "Atualizar palavra-passe",
+        changePasswordDescription:
+          "Introduza a palavra-passe atual para definir uma nova palavra-passe segura.",
+        currentPassword: "Palavra-passe atual",
+        newPassword: "Nova palavra-passe",
+        confirmPassword: "Confirmar nova palavra-passe",
+        submit: "Guardar palavra-passe",
+        success: "Palavra-passe atualizada com sucesso.",
+      },
     },
     cart: {
       heading: "O Seu Carrinho",
@@ -414,6 +583,53 @@ const dictionaries: Record<Locale, Dictionary> = {
       empty: "Ainda não guardou itens.",
       moveToCart: "Adicionar tudo ao carrinho",
       clear: "Limpar favoritos",
+      removed: "Removido dos favoritos",
+      synced: "Favoritos sincronizados com a sua conta.",
+      error: "Não foi possível atualizar os favoritos. Tente novamente.",
+    },
+    orders: {
+      heading: "Encomendas",
+      empty: "Ainda não realizou nenhuma encomenda.",
+      placedOn: "Data da encomenda",
+      total: "Total",
+      items: "Artigos",
+      itemCount: "{count} artigos",
+      noItems: "Sem artigos nesta encomenda.",
+      status: {
+        PENDING: "Pendente",
+        PROCESSING: "Em processamento",
+        SHIPPED: "Enviada",
+        COMPLETED: "Concluída",
+        CANCELLED: "Cancelada",
+      },
+      paymentStatus: {
+        UNPAID: "Por pagar",
+        PENDING: "Pagamento pendente",
+        PAID: "Pago",
+        FAILED: "Pagamento falhou",
+        REFUNDED: "Reembolsado",
+      },
+      viewDetails: "Ver detalhes",
+    },
+    twoFactor: {
+      setupTitle: "Proteger acesso de administrador",
+      setupDescription:
+        "Proteja a área de administração da Palmanhac com autenticação de dois fatores compatível com o Google Authenticator.",
+      generateSecret: "Gerar código QR de configuração",
+      qrLabel: "Digitalize este QR code com o Google Authenticator",
+      manualCodeLabel: "Ou introduza este código manualmente",
+      verificationLabel: "Introduza o código de 6 dígitos",
+      verifyButton: "Ativar 2FA",
+      recoveryCodesTitle: "Códigos de recuperação",
+      recoveryCodesDescription:
+        "Guarde estes códigos num local seguro. Cada código só pode ser usado uma vez caso perca o dispositivo.",
+      challengeTitle: "Desafio de dois fatores",
+      challengeDescription:
+        "Introduza o código de verificação de 6 dígitos ou utilize um código de recuperação para continuar.",
+      recoveryCodeLabel: "Código de recuperação",
+      submitButton: "Verificar acesso",
+      success: "Autenticação de dois fatores verificada com sucesso.",
+      error: "Falha na verificação do código. Tente novamente.",
     },
     footer: {
       newsletterTitle: "Entre no círculo Palmanhac",

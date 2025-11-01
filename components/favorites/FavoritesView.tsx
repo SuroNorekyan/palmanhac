@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -20,11 +21,15 @@ export function FavoritesView({
   dictionary: Dictionary;
   locale: Locale;
 }) {
+  const { data: session, status } = useSession();
   const ids = useFavoritesStore((state) => state.ids);
   const clearFavorites = useFavoritesStore((state) => state.clear);
+  const setAllFavorites = useFavoritesStore((state) => state.setAll);
   const { toast } = useToast();
   const addItem = useCartStore((state) => state.addItem);
   const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasSynced, setHasSynced] = useState(false);
 
   useEffect(() => {
     if (ids.length === 0) {
@@ -33,35 +38,119 @@ export function FavoritesView({
   }, [ids.length]);
 
   useEffect(() => {
-    if (!ids.length) {
+    if (status !== "authenticated") {
+      if (!ids.length) {
+        setProducts([]);
+        return;
+      }
+      const controller = new AbortController();
+      fetch(`/api/products?ids=${ids.join(",")}&locale=${locale}`, {
+        signal: controller.signal,
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            throw new Error("Failed to load favorites");
+          }
+          const data = (await res.json()) as { products: ProductListItem[] };
+          setProducts(data.products);
+        })
+        .catch((error) => {
+          if (error.name !== "AbortError") {
+            console.error(error);
+          }
+        });
+
+      return () => controller.abort();
+    }
+    return undefined;
+  }, [ids, locale, status]);
+
+  const loadServerFavorites = async (showToast = false) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/favorites", { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("Failed to load favorites");
+      }
+      const payload = (await response.json()) as {
+        favorites: {
+          id: string;
+          product: ProductListItem;
+        }[];
+      };
+      const list = payload.favorites.map((item) => item.product);
+      setProducts(list);
+      setAllFavorites(list.map((item) => item.id));
+      if (showToast) {
+        toast({ title: dictionary.favorites.synced, variant: "success" });
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (status !== "authenticated" || !session?.user?.id) {
+      setHasSynced(false);
       return;
     }
-    const controller = new AbortController();
-    fetch(`/api/products?ids=${ids.join(",")}&locale=${locale}`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Failed to load favorites");
-        }
-        const data = (await res.json()) as { products: ProductListItem[] };
-        setProducts(data.products);
-      })
-      .catch((error) => {
-        if (error.name !== "AbortError") {
-          console.error(error);
-        }
-      });
 
-    return () => controller.abort();
-  }, [ids, locale]);
+    if (hasSynced) {
+      void loadServerFavorites(false);
+      return;
+    }
+
+    const syncFavorites = async () => {
+      try {
+        if (ids.length) {
+          await Promise.all(
+            ids.map((productId) =>
+              fetch("/api/favorites", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ productId }),
+              }).catch(() => undefined),
+            ),
+          );
+        }
+      } finally {
+        setHasSynced(true);
+        await loadServerFavorites(ids.length > 0);
+      }
+    };
+
+    void syncFavorites();
+  }, [status, session?.user?.id, ids.length]);
 
   const addAllToCart = () => {
-    ids.forEach((id) => addItem(id, 1));
+    const sourceIds = products.map((product) => product.id);
+    sourceIds.forEach((id) => addItem(id, 1));
     toast({ title: dictionary.favorites.moveToCart, variant: "success" });
   };
 
-  if (!ids.length) {
+  const handleClear = async () => {
+    if (status === "authenticated") {
+      await Promise.all(
+        products.map((product) =>
+          fetch("/api/favorites", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productId: product.id }),
+          }).catch(() => undefined),
+        ),
+      );
+      await loadServerFavorites(false);
+    }
+    clearFavorites();
+    setProducts([]);
+  };
+
+  const emptyState =
+    !isLoading && !products.length && (status !== "authenticated" ? !ids.length : true);
+
+  if (emptyState) {
     return (
       <div className="flex min-h-[30vh] flex-col items-center justify-center gap-4 text-center">
         <Image
@@ -88,7 +177,7 @@ export function FavoritesView({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <Button onClick={addAllToCart}>{dictionary.favorites.moveToCart}</Button>
-        <Button variant="ghost" onClick={clearFavorites}>
+        <Button variant="ghost" onClick={handleClear} disabled={isLoading}>
           {dictionary.favorites.clear}
         </Button>
       </div>
