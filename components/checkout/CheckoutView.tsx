@@ -1,14 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Elements,
-  PaymentElement,
-  useElements,
-  useStripe,
-} from "@stripe/react-stripe-js";
-import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +23,67 @@ import { calculateCartTotals } from "@/lib/utils/cart-totals";
 import { formatCurrency } from "@/lib/utils/currency";
 import { withLocale } from "@/lib/utils/locale";
 
+const localeFormatMap = {
+  en: "en-GB",
+  pt: "pt-PT",
+} as const;
+
+const formatDateTime = (locale: Locale, value?: string) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return new Intl.DateTimeFormat(localeFormatMap[locale], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+};
+
+const DEFAULT_COUNTRY = "Portugal";
+
+type PaymentMethodOption = "multibanco" | "mbway" | "card";
+
+type EuPagoBaseResponse = {
+  orderId: string;
+  method: PaymentMethodOption;
+  totalCents: number;
+  currency: string;
+};
+
+type EuPagoMultibancoResponse = EuPagoBaseResponse & {
+  method: "multibanco";
+  entity: string;
+  reference: string;
+  providerAmount?: number;
+  expiresAt?: string;
+};
+
+type EuPagoMBWayResponse = EuPagoBaseResponse & {
+  method: "mbway";
+  transactionId: string;
+  statusUrl?: string;
+};
+
+type EuPagoCardResponse = EuPagoBaseResponse & {
+  method: "card";
+  paymentUrl: string;
+  transactionId: string;
+};
+
+type EuPagoCreateResponse =
+  | EuPagoMultibancoResponse
+  | EuPagoMBWayResponse
+  | EuPagoCardResponse;
+
+type EuPagoStatusResponse = {
+  status: {
+    status: string;
+    paidAt?: string;
+    error?: string;
+  };
+};
+
 type CheckoutProduct = {
   id: number;
   slug: string;
@@ -46,7 +101,7 @@ type AddressState = {
   country: string;
 };
 
-const DEFAULT_COUNTRY = "Portugal";
+const paymentOptions: PaymentMethodOption[] = ["multibanco", "mbway", "card"];
 
 export function CheckoutView({
   dictionary,
@@ -61,14 +116,16 @@ export function CheckoutView({
 
   const items = useCartStore((state) => state.items);
   const clearCart = useCartStore((state) => state.clear);
+
   const [products, setProducts] = useState<CheckoutProduct[]>([]);
   const [isFetchingProducts, setIsFetchingProducts] = useState(false);
 
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodOption>("multibanco");
   const [contact, setContact] = useState({
     email: session?.user?.email ?? "",
     phone: "",
+    name: session?.user?.name ?? "",
   });
-
   const [shipping, setShipping] = useState<AddressState>({
     name: session?.user?.name ?? "",
     line1: "",
@@ -77,7 +134,6 @@ export function CheckoutView({
     postalCode: "",
     country: DEFAULT_COUNTRY,
   });
-
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
   const [billing, setBilling] = useState<AddressState>({
     name: session?.user?.name ?? "",
@@ -87,14 +143,19 @@ export function CheckoutView({
     postalCode: "",
     country: DEFAULT_COUNTRY,
   });
-
   const [notes, setNotes] = useState("");
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [mbwayPhone, setMbwayPhone] = useState("");
+  const [paymentResult, setPaymentResult] = useState<EuPagoCreateResponse | null>(null);
+  const [mbwayStatus, setMbwayStatus] = useState<string | null>(null);
+  const [pollingState, setPollingState] = useState<
+    "idle" | "polling" | "complete" | "failed"
+  >("idle");
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingAttemptsRef = useRef(0);
+  const hasClearedCartRef = useRef(false);
+
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const confirmPaymentRef = useRef<(() => Promise<boolean>) | null>(null);
-
-  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
   useEffect(() => {
     if (session?.user?.email) {
@@ -103,6 +164,9 @@ export function CheckoutView({
       );
     }
     if (session?.user?.name) {
+      setContact((prev) =>
+        prev.name ? prev : { ...prev, name: session.user?.name ?? "" },
+      );
       setShipping((prev) =>
         prev.name ? prev : { ...prev, name: session.user?.name ?? "" },
       );
@@ -160,13 +224,109 @@ export function CheckoutView({
     return () => controller.abort();
   }, [items, locale]);
 
-  const totals = useMemo(() => calculateCartTotals(items, products), [items, products]);
+  useEffect(() => {
+    if (paymentResult?.method !== "mbway") {
+      setMbwayStatus(null);
+    }
+  }, [paymentResult?.method]);
 
   useEffect(() => {
-    if (!clientSecret) {
-      confirmPaymentRef.current = null;
+    if (!mbwayPhone && contact.phone) {
+      setMbwayPhone(contact.phone);
     }
-  }, [clientSecret]);
+  }, [contact.phone, mbwayPhone]);
+
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const totals = useMemo(() => calculateCartTotals(items, products), [items, products]);
+
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
+
+  const clearCartOnce = () => {
+    if (!hasClearedCartRef.current) {
+      clearCart();
+      hasClearedCartRef.current = true;
+    }
+  };
+
+  const startMbWayPolling = (transactionId: string) => {
+    stopPolling();
+    pollingAttemptsRef.current = 0;
+    setPollingState("polling");
+    setMbwayStatus(dictionary.checkout.mbwayAwaiting);
+
+    const poll = async () => {
+      pollingAttemptsRef.current += 1;
+      try {
+        const response = await fetch(
+          `/api/payments/eupago/status?transactionId=${encodeURIComponent(transactionId)}`,
+          { cache: "no-store" },
+        );
+        const result = (await response.json()) as EuPagoStatusResponse & {
+          error?: string;
+          requiresConfiguration?: boolean;
+        };
+
+        if (!response.ok) {
+          stopPolling();
+          setPollingState("failed");
+          setServerError(result.error ?? dictionary.checkout.paymentServiceUnavailable);
+          return;
+        }
+
+        const rawStatus = result.status.status.toLowerCase();
+        if (rawStatus.includes("paid") || rawStatus === "ok" || rawStatus === "success") {
+          stopPolling();
+          setPollingState("complete");
+          clearCartOnce();
+          router.push(withLocale(locale, "/orders"));
+          return;
+        }
+
+        if (rawStatus.includes("fail") || rawStatus.includes("error")) {
+          stopPolling();
+          setPollingState("failed");
+          setServerError(dictionary.checkout.statusFailed);
+          return;
+        }
+
+        setMbwayStatus(rawStatus);
+      } catch (error) {
+        console.error("[EuPago] MB WAY status error", error);
+        stopPolling();
+        setPollingState("failed");
+        setServerError(dictionary.checkout.paymentServiceUnavailable);
+      }
+
+      if (pollingAttemptsRef.current >= 24) {
+        stopPolling();
+        setPollingState("idle");
+        setMbwayStatus(dictionary.checkout.statusPollingTimedOut);
+      }
+    };
+
+    poll();
+    pollingIntervalRef.current = setInterval(poll, 5000);
+  };
+
+  const resetPaymentState = () => {
+    stopPolling();
+    setPaymentResult(null);
+    setMbwayStatus(null);
+    setPollingState("idle");
+    hasClearedCartRef.current = false;
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -177,104 +337,266 @@ export function CheckoutView({
       return;
     }
 
-    if (!publishableKey) {
-      setServerError(dictionary.checkout.stripeNotConfigured);
-      return;
-    }
-
-    if (!clientSecret) {
-      setIsSubmitting(true);
-      try {
-        const payload = {
-          items: items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-          })),
-          contact: {
-            email: contact.email.trim(),
-            phone: contact.phone.trim() || undefined,
-          },
-          shipping: {
-            name: shipping.name.trim(),
-            line1: shipping.line1.trim(),
-            line2: shipping.line2.trim() || undefined,
-            city: shipping.city.trim(),
-            postalCode: shipping.postalCode.trim(),
-            country: shipping.country.trim(),
-          },
-          billing: {
-            name: (billingSameAsShipping ? shipping.name : billing.name).trim(),
-            line1: (billingSameAsShipping ? shipping.line1 : billing.line1).trim(),
-            line2:
-              (billingSameAsShipping ? shipping.line2 : billing.line2).trim() ||
-              undefined,
-            city: (billingSameAsShipping ? shipping.city : billing.city).trim(),
-            postalCode: (billingSameAsShipping
-              ? shipping.postalCode
-              : billing.postalCode
-            ).trim(),
-            country: (billingSameAsShipping ? shipping.country : billing.country).trim(),
-          },
-          notes: notes.trim() || undefined,
-          currency: "EUR",
-          locale,
-        };
-
-        const response = await fetch("/api/checkout/create-payment-intent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const result = (await response.json().catch(() => ({}))) as {
-          clientSecret?: string;
-          error?: string;
-          requiresConfiguration?: boolean;
-        };
-
-        if (!response.ok || result.requiresConfiguration) {
-          setServerError(result.error ?? dictionary.checkout.stripeNotConfigured);
-          return;
-        }
-
-        if (!result.clientSecret) {
-          setServerError("Unable to initialize payment intent.");
-          return;
-        }
-
-        setClientSecret(result.clientSecret);
-      } catch (error) {
-        setServerError(
-          error instanceof Error ? error.message : "Unable to start checkout.",
-        );
-      } finally {
-        setIsSubmitting(false);
+    if (selectedMethod === "mbway") {
+      const phoneNumber = mbwayPhone.trim() || contact.phone.trim();
+      if (!phoneNumber) {
+        setServerError(dictionary.checkout.mbwayPhoneRequired);
+        return;
       }
-      return;
-    }
-
-    if (!confirmPaymentRef.current) {
-      setServerError("Payment form is not ready yet.");
-      return;
     }
 
     setIsSubmitting(true);
+    resetPaymentState();
+
     try {
-      const completed = await confirmPaymentRef.current();
-      if (completed) {
-        clearCart();
-        router.push(withLocale(locale, "/orders"));
+      const payload = {
+        method: selectedMethod,
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+        contact: {
+          email: contact.email.trim(),
+          phone: contact.phone.trim() || undefined,
+          name: contact.name.trim() || undefined,
+        },
+        shipping: {
+          name: shipping.name.trim(),
+          line1: shipping.line1.trim(),
+          line2: shipping.line2.trim() || undefined,
+          city: shipping.city.trim(),
+          postalCode: shipping.postalCode.trim(),
+          country: shipping.country.trim(),
+        },
+        billing: {
+          name: (billingSameAsShipping ? shipping.name : billing.name).trim(),
+          line1: (billingSameAsShipping ? shipping.line1 : billing.line1).trim(),
+          line2:
+            (billingSameAsShipping ? shipping.line2 : billing.line2).trim() || undefined,
+          city: (billingSameAsShipping ? shipping.city : billing.city).trim(),
+          postalCode: (billingSameAsShipping
+            ? shipping.postalCode
+            : billing.postalCode
+          ).trim(),
+          country: (billingSameAsShipping ? shipping.country : billing.country).trim(),
+        },
+        notes: notes.trim() || undefined,
+        currency: "EUR",
+        locale,
+        mbwayPhone:
+          selectedMethod === "mbway"
+            ? mbwayPhone.trim() || contact.phone.trim() || undefined
+            : undefined,
+      };
+
+      const response = await fetch("/api/payments/eupago/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = (await response.json()) as EuPagoCreateResponse & {
+        error?: string;
+        requiresConfiguration?: boolean;
+      };
+
+      if (!response.ok) {
+        setServerError(result.error ?? dictionary.checkout.paymentServiceUnavailable);
+        return;
+      }
+
+      setPaymentResult(result);
+
+      if (result.method === "multibanco") {
+        setTimeout(() => clearCartOnce(), 300);
+      }
+
+      if (result.method === "mbway") {
+        if (result.transactionId) {
+          startMbWayPolling(result.transactionId);
+        }
+        return;
+      }
+
+      if (result.method === "card") {
+        clearCartOnce();
+        if (typeof window !== "undefined") {
+          setTimeout(() => {
+            window.location.href = result.paymentUrl;
+          }, 400);
+        }
       }
     } catch (error) {
-      setServerError(error instanceof Error ? error.message : "Payment failed.");
+      console.error("[EuPago] Checkout error", error);
+      setServerError(dictionary.checkout.paymentServiceUnavailable);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const buttonLabel = !clientSecret
-    ? dictionary.checkout.initiatePaymentCta
-    : dictionary.checkout.stripeSubmitCta;
+  const paymentMethodCards = paymentOptions.map((option) => {
+    const isActive = selectedMethod === option;
+    const titles = dictionary.checkout.methods;
+    const descriptions = dictionary.checkout.methodDescriptions;
+    return (
+      <label
+        key={option}
+        className={`flex cursor-pointer flex-col gap-2 rounded-2xl border p-4 transition ${
+          isActive
+            ? "border-neutral-900 bg-neutral-50"
+            : "border-neutral-200 bg-white hover:border-neutral-400"
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <input
+            className="mt-1 h-4 w-4"
+            type="radio"
+            name="payment-method"
+            value={option}
+            checked={isActive}
+            onChange={() => {
+              setSelectedMethod(option);
+              resetPaymentState();
+            }}
+          />
+          <div>
+            <p className="font-semibold text-neutral-900">{titles[option]}</p>
+            <p className="text-sm text-neutral-600">{descriptions[option]}</p>
+          </div>
+        </div>
+      </label>
+    );
+  });
+
+  const renderPaymentResult = () => {
+    if (!paymentResult) {
+      return null;
+    }
+
+    if (paymentResult.method === "multibanco") {
+      const amountEuros =
+        typeof paymentResult.providerAmount === "number"
+          ? paymentResult.providerAmount
+          : paymentResult.totalCents / 100;
+      const amountCents = Math.round(amountEuros * 100);
+      const expiresLabel = formatDateTime(locale, paymentResult.expiresAt);
+      return (
+        <Card className="border border-neutral-200 bg-neutral-50">
+          <CardHeader>
+            <CardTitle>{dictionary.checkout.resultHeading}</CardTitle>
+            <CardDescription>
+              {dictionary.checkout.resultInstructions.multibanco}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 text-sm text-neutral-700">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-neutral-500">
+                  {dictionary.checkout.resultFields.entity}
+                </p>
+                <p className="font-semibold text-neutral-900">{paymentResult.entity}</p>
+              </div>
+              <div>
+                <p className="text-neutral-500">
+                  {dictionary.checkout.resultFields.reference}
+                </p>
+                <p className="font-semibold text-neutral-900">
+                  {paymentResult.reference}
+                </p>
+              </div>
+              <div>
+                <p className="text-neutral-500">
+                  {dictionary.checkout.resultFields.amount}
+                </p>
+                <p className="font-semibold text-neutral-900">
+                  {formatCurrency(locale, amountCents)}
+                </p>
+              </div>
+              {expiresLabel ? (
+                <div>
+                  <p className="text-neutral-500">
+                    {dictionary.checkout.resultFields.expiresAt}
+                  </p>
+                  <p className="font-semibold text-neutral-900">{expiresLabel}</p>
+                </div>
+              ) : null}
+            </div>
+            <p className="rounded-lg bg-white p-3 text-xs text-neutral-600">
+              {dictionary.checkout.multibancoReminder}
+            </p>
+            <Link
+              href={withLocale(locale, "/orders")}
+              className="text-xs font-semibold text-neutral-900 underline-offset-4 hover:underline"
+            >
+              {dictionary.checkout.viewOrdersCta}
+            </Link>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (paymentResult.method === "mbway") {
+      return (
+        <Card className="border border-neutral-200 bg-neutral-50">
+          <CardHeader>
+            <CardTitle>{dictionary.checkout.resultHeading}</CardTitle>
+            <CardDescription>
+              {dictionary.checkout.resultInstructions.mbway}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-neutral-700">
+            <p className="rounded-lg bg-white p-3 text-neutral-600">
+              {dictionary.checkout.mbwayPrompt}
+            </p>
+            {mbwayStatus ? (
+              <p className="text-xs uppercase tracking-wide text-neutral-500">
+                {`${dictionary.checkout.statusLabel}: ${mbwayStatus}`}
+              </p>
+            ) : null}
+            {pollingState === "polling" ? (
+              <p className="text-xs text-neutral-500">
+                {dictionary.checkout.statusCheckInProgress}
+              </p>
+            ) : null}
+            {pollingState === "failed" ? (
+              <p className="text-xs text-red-600">{dictionary.checkout.statusFailed}</p>
+            ) : null}
+            {pollingState === "complete" ? (
+              <p className="text-xs text-neutral-600">{dictionary.checkout.statusPaid}</p>
+            ) : null}
+            {paymentResult.statusUrl ? (
+              <a
+                href={paymentResult.statusUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-semibold text-neutral-900 underline-offset-4 hover:underline"
+              >
+                {dictionary.checkout.mbwayStatusLink}
+              </a>
+            ) : null}
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <Card className="border border-neutral-200 bg-neutral-50">
+        <CardHeader>
+          <CardTitle>{dictionary.checkout.resultHeading}</CardTitle>
+          <CardDescription>{dictionary.checkout.resultInstructions.card}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-neutral-700">
+          <p className="rounded-lg bg-white p-3 text-neutral-600">
+            {dictionary.checkout.cardRedirectMessage}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const buttonLabel = isSubmitting
+    ? dictionary.checkout.processingPayment
+    : dictionary.checkout.startPaymentCta;
 
   return (
     <div className="space-y-10">
@@ -429,21 +751,18 @@ export function CheckoutView({
               <CardHeader>
                 <CardTitle>{dictionary.checkout.billingAddress}</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2 flex items-center gap-3">
+              <CardContent className="space-y-4">
+                <label className="flex items-center gap-2 text-sm text-neutral-700">
                   <input
-                    id="billing-same-shipping"
                     type="checkbox"
-                    className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900"
                     checked={billingSameAsShipping}
                     onChange={(event) => setBillingSameAsShipping(event.target.checked)}
+                    className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
                   />
-                  <Label htmlFor="billing-same-shipping" className="cursor-pointer">
-                    {dictionary.checkout.billingSameAsShipping}
-                  </Label>
-                </div>
-                {!billingSameAsShipping && (
-                  <>
+                  {dictionary.checkout.billingSameAsShipping}
+                </label>
+                {!billingSameAsShipping ? (
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div className="md:col-span-2">
                       <Label htmlFor="billing-name">
                         {dictionary.checkout.shippingNameLabel}
@@ -524,27 +843,8 @@ export function CheckoutView({
                         }
                       />
                     </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{dictionary.checkout.notesLabel}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Label htmlFor="checkout-notes" className="sr-only">
-                  {dictionary.checkout.notesLabel}
-                </Label>
-                <Textarea
-                  id="checkout-notes"
-                  placeholder={dictionary.checkout.notesPlaceholder}
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  rows={4}
-                  className="resize-none"
-                />
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 
@@ -556,219 +856,110 @@ export function CheckoutView({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <PaymentSection
-                  clientSecret={clientSecret}
-                  publishableKey={publishableKey || null}
-                  locale={locale}
-                  dictionary={dictionary}
-                  isSubmitting={isSubmitting}
-                  onReady={(handler) => {
-                    confirmPaymentRef.current = handler;
-                  }}
-                />
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={isSubmitting || status !== "authenticated"}
-                >
-                  {isSubmitting ? dictionary.checkout.stripeProcessing : buttonLabel}
-                </Button>
-                {serverError ? (
-                  <p className="text-sm text-rose-600">{serverError}</p>
+                <div className="space-y-2">
+                  <Label>{dictionary.checkout.paymentMethodLabel}</Label>
+                  <div className="space-y-2">{paymentMethodCards}</div>
+                </div>
+                {selectedMethod === "mbway" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="mbway-phone">
+                      {dictionary.checkout.mbwayPhoneLabel}
+                    </Label>
+                    <Input
+                      id="mbway-phone"
+                      type="tel"
+                      placeholder={dictionary.checkout.mbwayPhonePlaceholder}
+                      value={mbwayPhone}
+                      onChange={(event) => setMbwayPhone(event.target.value)}
+                    />
+                  </div>
                 ) : null}
+                <div className="space-y-2">
+                  <Label htmlFor="checkout-notes">{dictionary.checkout.notesLabel}</Label>
+                  <Textarea
+                    id="checkout-notes"
+                    rows={3}
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    placeholder={dictionary.checkout.notesPlaceholder}
+                  />
+                </div>
+                {serverError ? (
+                  <p className="text-sm text-red-600">{serverError}</p>
+                ) : null}
+                <Button type="submit" disabled={isSubmitting} className="w-full">
+                  {buttonLabel}
+                </Button>
               </CardContent>
             </Card>
+
+            {renderPaymentResult()}
           </div>
 
-          <aside className="space-y-6">
+          <div className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>{dictionary.checkout.summary}</CardTitle>
                 <CardDescription>
-                  {isFetchingProducts
-                    ? "Loading cart items..."
-                    : `${dictionary.checkout.summaryItems}: ${items.reduce(
-                        (total, item) => total + item.quantity,
-                        0,
-                      )}`}
+                  {dictionary.checkout.summaryItems.replace(
+                    "{count}",
+                    items.length.toString(),
+                  )}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {products.map((product) => {
-                    const quantity =
-                      items.find((item) => item.productId === product.id)?.quantity ?? 0;
-                    return (
-                      <div key={product.id} className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-neutral-900">{product.name}</p>
-                          <p className="text-sm text-neutral-500">
-                            ×{quantity} · {formatCurrency(locale, product.priceCents)}
-                          </p>
-                        </div>
-                        <p className="font-semibold text-neutral-900">
-                          {formatCurrency(locale, product.priceCents * quantity)}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="space-y-2 text-sm font-medium">
-                  <div className="flex items-center justify-between">
-                    <span>{dictionary.cart.subtotal}</span>
+              <CardContent className="space-y-3 text-sm text-neutral-700">
+                {isFetchingProducts ? (
+                  <p className="text-neutral-500">Loading…</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {items.map((item) => {
+                      const product = products.find((p) => p.id === item.productId);
+                      if (!product) {
+                        return null;
+                      }
+                      return (
+                        <li key={item.productId} className="flex justify-between gap-3">
+                          <span>
+                            {product.name} × {item.quantity}
+                          </span>
+                          <span className="font-medium text-neutral-900">
+                            {formatCurrency(locale, product.priceCents * item.quantity)}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <div className="border-t border-dashed border-neutral-200 pt-3 text-sm">
+                  <div className="flex justify-between">
+                    <span>{dictionary.checkout.subtotalLabel}</span>
                     <span>{formatCurrency(locale, totals.itemsSubtotalCents)}</span>
                   </div>
-                  {totals.discountCents > 0 ? (
-                    <div className="flex items-center justify-between text-emerald-600">
-                      <span>{dictionary.cart.discount}</span>
-                      <span>-{formatCurrency(locale, totals.discountCents)}</span>
-                    </div>
-                  ) : null}
-                  <div className="flex items-center justify-between">
-                    <span>{dictionary.cart.delivery}</span>
+                  <div className="flex justify-between">
+                    <span>{dictionary.checkout.discountLabel}</span>
+                    <span>
+                      {totals.discountCents
+                        ? `- ${formatCurrency(locale, totals.discountCents)}`
+                        : formatCurrency(locale, 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>{dictionary.checkout.deliveryLabel}</span>
                     <span>{formatCurrency(locale, totals.deliveryCents)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-base font-semibold">
-                    <span>{dictionary.cart.total}</span>
-                    <span>{formatCurrency(locale, totals.totalCents)}</span>
-                  </div>
                 </div>
+                <div className="flex justify-between border-t border-neutral-200 pt-3 text-base font-semibold text-neutral-900">
+                  <span>{dictionary.checkout.total}</span>
+                  <span>{formatCurrency(locale, totals.totalCents)}</span>
+                </div>
+                <p className="text-xs text-neutral-500">
+                  {dictionary.checkout.vatIncluded}
+                </p>
               </CardContent>
             </Card>
-          </aside>
+          </div>
         </form>
       )}
-    </div>
-  );
-}
-
-type PaymentSectionProps = {
-  clientSecret: string | null;
-  publishableKey: string | null;
-  locale: Locale;
-  dictionary: Dictionary;
-  onReady: (handler: (() => Promise<boolean>) | null) => void;
-  isSubmitting: boolean;
-};
-
-function PaymentSection({
-  clientSecret,
-  publishableKey,
-  locale,
-  dictionary,
-  onReady,
-  isSubmitting,
-}: PaymentSectionProps) {
-  const stripePromiseRef = useRef<Promise<Stripe | null> | null>(null);
-
-  if (!stripePromiseRef.current && publishableKey) {
-    stripePromiseRef.current = loadStripe(publishableKey);
-  }
-
-  useEffect(() => {
-    if (!clientSecret) {
-      onReady(null);
-    }
-  }, [clientSecret, onReady]);
-
-  if (!publishableKey) {
-    return (
-      <p className="text-sm text-neutral-500">
-        {dictionary.checkout.stripeNotConfigured}
-      </p>
-    );
-  }
-
-  if (!clientSecret) {
-    return (
-      <p className="text-sm text-neutral-500">{dictionary.checkout.initiatePaymentCta}</p>
-    );
-  }
-
-  if (!stripePromiseRef.current) {
-    return (
-      <p className="text-sm text-neutral-500">{dictionary.checkout.stripeProcessing}</p>
-    );
-  }
-
-  return (
-    <Elements
-      key={clientSecret}
-      stripe={stripePromiseRef.current}
-      options={{
-        clientSecret,
-        appearance: { theme: "stripe" },
-        locale,
-      }}
-    >
-      <StripePaymentElement
-        locale={locale}
-        dictionary={dictionary}
-        onReady={onReady}
-        isSubmitting={isSubmitting}
-      />
-    </Elements>
-  );
-}
-
-type StripePaymentElementProps = {
-  locale: Locale;
-  dictionary: Dictionary;
-  onReady: (handler: (() => Promise<boolean>) | null) => void;
-  isSubmitting: boolean;
-};
-
-function StripePaymentElement({
-  locale,
-  dictionary,
-  onReady,
-  isSubmitting,
-}: StripePaymentElementProps) {
-  const stripe = useStripe();
-  const elements = useElements();
-
-  useEffect(() => {
-    if (!stripe || !elements) {
-      onReady(null);
-      return;
-    }
-
-    const handler = async () => {
-      if (!stripe || !elements) {
-        throw new Error("Stripe is not ready yet.");
-      }
-
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}${withLocale(locale, "/orders")}`,
-        },
-        redirect: "if_required",
-      });
-
-      if (error) {
-        throw new Error(error.message ?? "Payment confirmation failed.");
-      }
-
-      return paymentIntent?.status === "succeeded";
-    };
-
-    onReady(handler);
-    return () => {
-      onReady(null);
-    };
-  }, [stripe, elements, locale, onReady]);
-
-  return (
-    <div className="space-y-3">
-      <PaymentElement
-        options={{
-          layout: "tabs",
-        }}
-      />
-      {isSubmitting ? (
-        <p className="text-sm text-neutral-500">{dictionary.checkout.stripeProcessing}</p>
-      ) : null}
     </div>
   );
 }

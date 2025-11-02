@@ -50,7 +50,6 @@ export async function GET(
             },
           },
         },
-        intent: true,
       },
     });
 
@@ -101,7 +100,6 @@ export async function PATCH(
             },
           },
         },
-        intent: true,
       },
     });
 

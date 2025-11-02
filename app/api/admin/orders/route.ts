@@ -60,7 +60,6 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        intent: true,
       },
       orderBy: { createdAt: "desc" },
     });

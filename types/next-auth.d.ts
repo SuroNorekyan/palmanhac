@@ -1,3 +1,4 @@
+// lib/types/next-auth.d.ts
 import type { Role } from "@prisma/client";
 import type { DefaultSession } from "next-auth";
 
@@ -8,7 +9,7 @@ declare module "next-auth" {
       role: Role;
       twoFAEnabled: boolean;
     };
-    twoFAVerified: boolean;
+    twoFAVerified: boolean; // top-level flag used by admin gating
   }
 
   interface User {

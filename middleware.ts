@@ -1,21 +1,56 @@
+// middleware.ts
 import { NextResponse, type NextRequest } from "next/server";
+import { auth } from "@/auth";
 import { defaultLocale, locales } from "@/config/site";
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export async function middleware(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
 
+  // Bypass for assets and API (except we DO protect /admin in this file)
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.includes(".")
+    pathname.includes(".") ||
+    pathname.startsWith("/api")
   ) {
     return NextResponse.next();
   }
 
+  // ---- ADMIN GATE ----
   if (pathname.startsWith("/admin")) {
-    return handleAdmin(request);
+    const session = await auth();
+
+    // Not signed in -> send to localized account with callback
+    if (!session?.user) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/${defaultLocale}/account`;
+      url.searchParams.set("callbackUrl", pathname + (search || ""));
+      return NextResponse.redirect(url);
+    }
+
+    // Not admin -> send home (or /403 if you add one)
+    if (session.user.role !== "ADMIN") {
+      const url = request.nextUrl.clone();
+      url.pathname = `/${defaultLocale}`;
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+
+    // 2FA required but not verified -> force challenge (unless already there)
+    if (
+      session.user.twoFAEnabled &&
+      !(session as any).twoFAVerified &&
+      !pathname.startsWith("/admin/2fa")
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/2fa/challenge";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+
+    return NextResponse.next();
   }
 
+  // ---- LOCALE REDIRECT FOR NON-ADMIN PAGES ----
   const hasLocale = locales.some(
     (locale) => pathname === `/${locale}` || pathname.startsWith(`/${locale}/`),
   );
@@ -29,41 +64,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-const buildLoginRedirect = (request: NextRequest) => {
-  const loginUrl = request.nextUrl.clone();
-  loginUrl.pathname = `/${defaultLocale}/account`;
-  loginUrl.searchParams.set(
-    "callbackUrl",
-    request.nextUrl.pathname + request.nextUrl.search,
-  );
-  return loginUrl;
-};
-
-const SESSION_COOKIE_NAMES = [
-  "__Host-palmanhac.session-token",
-  "palmanhac.session-token",
-  "__Secure-next-auth.session-token",
-  "next-auth.session-token",
-];
-
-const hasSessionCookie = (request: NextRequest) => {
-  return SESSION_COOKIE_NAMES.some((name) => request.cookies.has(name));
-};
-
-const ADMIN_ALLOWED_PATHS = ["/admin/2fa/setup", "/admin/2fa/challenge"];
-
-const handleAdmin = (request: NextRequest) => {
-  if (
-    !hasSessionCookie(request) &&
-    !ADMIN_ALLOWED_PATHS.some((path) => request.nextUrl.pathname.startsWith(path))
-  ) {
-    const loginUrl = buildLoginRedirect(request);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return NextResponse.next();
-};
-
+// Match everything except static assets and API (admin is handled explicitly)
 export const config = {
   matcher: ["/:path*"],
 };

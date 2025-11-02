@@ -25,7 +25,6 @@ export async function GET() {
           },
         },
       },
-      intent: true,
     },
     orderBy: { createdAt: "desc" },
   });

@@ -1,0 +1,174 @@
+# task_prd7.txt
+
+Goal
+-----
+Migrate the project from Stripe to EuPago (Multibanco, MB WAY, and Cards), keep the existing /checkout route, remove all Stripe code and envs, add a production-ready EuPago foundation (server routes + webhooks + UI), fix the admin area so it’s accessible and secure, implement Products CRUD and an Orders overview in admin, and add email notifications to ADMIN_EMAIL on order creation and on successful payment.
+
+Constraints & Style
+-------------------
+- Keep current tech stack, folders, i18n, and Dictionary usage.
+- Do NOT change the /checkout URL; only replace payment provider.
+- TypeScript strict, production-ready error handling and logs.
+- Preserve existing auth + RBAC; only admins can access admin UI and admin APIs.
+- Update docs and .env files accordingly.
+
+1) Remove Stripe completely
+---------------------------
+Packages to remove:
+- @stripe/react-stripe-js
+- @stripe/stripe-js
+- stripe
+
+Code cleanup:
+- Remove Stripe Elements/PaymentElement/contexts and any Stripe providers/helpers.
+- Delete /api/checkout/create-payment-intent and any Stripe-specific server logic.
+- Replace dictionary.checkout.stripe* strings with EuPago-generic keys/messages.
+
+Env cleanup:
+- Remove NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET from .env, .env.local, .env.example and all references.
+
+2) Add EuPago foundation (server + UI)
+--------------------------------------
+ENV (update .env, .env.local, .env.example):
+
+EuPago
+
+EUPAGO_API_BASE="https://sandbox.eupago.pt
+"
+EUPAGO_API_KEY=""
+EUPAGO_WEBHOOK_SHARED_SECRET=""
+EUPAGO_CARD_RETURN_URL="http://localhost:3000
+"
+
+Email (SMTP for Nodemailer)
+
+SMTP_HOST=""
+SMTP_PORT="587"
+SMTP_USER=""
+SMTP_PASS=""
+EMAIL_FROM="no-reply@palmanhac.local
+"
+
+Existing
+
+ADMIN_EMAIL=""
+
+
+
+Provider module:
+- Create lib/payments/eupago.ts with:
+  - createMultibanco(orderInput) -> { entity, reference, amount, deadline? }
+  - createMBWay(orderInput, phone) -> { transactionId, statusUrl? }
+  - createCard(orderInput) -> { paymentUrl, transactionId }
+  - getStatus(transactionId) -> { status, paidAt?, error? } (optional)
+
+API routes (App Router, runtime=nodejs where needed):
+- app/api/payments/eupago/create/route.ts
+  - Accepts payload: { method: "multibanco" | "mbway" | "card", items, contact, shipping, billing, notes, currency, locale, mbwayPhone? }
+  - Compute totals via existing calculateCartTotals.
+  - Create Order in DB with PaymentStatus.PENDING, store provider metadata (method, reference/transactionId).
+  - Call relevant EuPago function and return:
+    - Multibanco: { method:"multibanco", entity, reference, amount, expiresAt? }
+    - MB WAY: { method:"mbway", transactionId }
+    - Cards: { method:"card", paymentUrl }
+
+- app/api/payments/eupago/webhook/route.ts
+  - Verify callback (shared secret param or best-available verification).
+  - On success: find Order by providerRef, set PaymentStatus.PAID, set paidAt, persist raw payload in order events (JSON or table).
+  - Be idempotent; safely ignore duplicates.
+
+Checkout UI (keep /checkout page):
+- Modify components/checkout/CheckoutView.tsx:
+  - Remove Stripe UI.
+  - Add method selector: Multibanco / MB WAY / Card.
+  - Multibanco: after server response, show Entity/Reference/Amount + instructions; link to /orders; status will flip on webhook.
+  - MB WAY: require phone; show “check your MB WAY app”; optionally poll status until webhook confirms, then route to /orders.
+  - Cards: redirect to returned paymentUrl; on return, show /orders; webhook marks as PAID.
+  - On PAID: clear cart; /orders reflects status.
+
+Data model:
+- Reuse Order/OrderItem. If needed, add fields:
+  - paymentProvider: "EUPAGO"
+  - paymentMethod: "MULTIBANCO" | "MBWAY" | "CARD"
+  - providerRef: string
+  - paidAt: Date
+  - events: JSON (or order_events table)
+
+Docs:
+- Generate eupago-guide.txt at repo root describing:
+  - Removed Stripe assets and packages.
+  - New env variables and where to get them in EuPago backoffice.
+  - Sandbox vs Production base URLs and how to switch.
+  - Flows for each method and how webhooks update orders.
+  - Test instructions and acceptance checklist.
+
+3) Admin dashboard (fix 404 + features)
+---------------------------------------
+Access:
+- Implement app/admin/page.tsx or app/[locale]/admin/page.tsx.
+- SSR/session check; enforce admin role; non-admin → redirect to /account (or 404 with message).
+- Optionally add an Admin link for admins in the user menu.
+
+Features:
+- Products CRUD:
+  - /admin/products: list (id, name, price, stock, visibility, createdAt/updatedAt).
+  - /admin/products/new and /admin/products/[id]: create/update with zod validation aligned to Prisma schema.
+  - Delete with confirmation.
+  - Use existing DB schema fields.
+
+- Orders overview:
+  - /admin/orders: list all orders with Order ID, status, total, createdAt, customer name/email, provider/method, paidAt.
+  - /admin/orders/[id]: detail view with items (name, qty, price), addresses, notes, provider metadata, audit events.
+  - Read-only for paid orders.
+
+Security:
+- Lock all /api/admin/* routes to admins with guards/middleware.
+- Add pagination and use Prisma include/select to avoid N+1.
+
+Docs:
+- In eupago-guide.txt add “Admin access”:
+  - How admin is seeded (seed script path/command).
+  - How to log in as admin.
+  - Paths: /admin, /admin/products, /admin/orders.
+
+4) Email notification on orders
+-------------------------------
+- Add lib/email/mailer.ts (Nodemailer + SMTP env vars).
+- On order creation: send email to ADMIN_EMAIL with { order id, user name/email, items count, total, method }.
+- On payment success (webhook → PAID): send a second email to ADMIN_EMAIL with { order id, amount, method, paidAt }.
+- Keep emails simple (text or minimal HTML). Handle failures with logs; do not block main flow.
+
+5) Acceptance criteria
+----------------------
+- Build passes; Stripe deps removed; TS types OK.
+- .env.example contains only EuPago + email vars (and existing project vars).
+- Checkout:
+  - Multibanco: returns reference; UI shows Entity/Reference/Amount; webhook → PAID; /orders shows PAID.
+  - MB WAY: phone triggers request; webhook → PAID; /orders shows PAID.
+  - Card: redirect to hosted page; return to /orders; webhook → PAID.
+- Webhook is idempotent and secure; duplicate events do not break state.
+- Admin:
+  - /admin accessible for admins only; not 404.
+  - Products CRUD works end-to-end.
+  - Orders list shows user name/email, order id, totals, provider/method, status.
+- Email:
+  - Admin receives email on order creation and on payment success (use a dev inbox or sandbox SMTP).
+- Docs:
+  - eupago-guide.txt exists and covers env, flows, admin access, and sandbox→prod switch.
+
+6) Deliverables
+---------------
+- Updated codebase with EuPago integration and Stripe removed.
+- New code:
+  - lib/payments/eupago.ts
+  - lib/email/mailer.ts
+  - app/api/payments/eupago/create/route.ts
+  - app/api/payments/eupago/webhook/route.ts
+  - Admin pages: /admin, /admin/products, /admin/products/new, /admin/products/[id], /admin/orders, /admin/orders/[id]
+- Updated /checkout UI (no Stripe).
+- eupago-guide.txt at repo root.
+- CHANGELOG_eupago.txt summarizing code + env changes.
+
+
+
+

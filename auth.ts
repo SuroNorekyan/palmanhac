@@ -28,19 +28,29 @@ const providers: Provider[] = [
 
       const user = await prisma.user.findUnique({
         where: { email: email.toLowerCase() },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          passwordHash: true,
+          role: true,
+          twoFAEnabled: true,
+          emailVerified: true,
+        },
       });
       if (!user?.passwordHash) return null;
 
       const valid = await verifyPassword(password, user.passwordHash);
       if (!valid) return null;
 
-      // Return minimal fields; we'll copy these into the JWT
+      // Return minimal fields; we'll move them to the JWT
       return {
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
         twoFAEnabled: user.twoFAEnabled,
+        emailVerified: user.emailVerified,
       };
     },
   }),
@@ -66,33 +76,36 @@ export const {
 } = NextAuth({
   adapter: PrismaAdapter(prisma),
 
-  // ✅ Switch to JWT sessions to enable Credentials
+  // ✅ JWT sessions so Credentials work and we can carry admin fields
   session: {
     strategy: "jwt",
     maxAge: ONE_HOUR * 4,
     updateAge: 15 * 60,
   },
 
+  // ✅ Send framework sign-in redirects to a localized page (dev default = en)
+  pages: {
+    signIn: "/en/account",
+  },
+
   trustHost: true,
   providers,
 
-  // ✅ Use JWT to carry role / 2FA flags
   callbacks: {
     async jwt({ token, user, trigger, session }) {
-      // On initial sign-in, merge user fields onto the token
+      // On first sign in, enrich token
       if (user) {
-        token.userId = user.id as string;
-        token.role = (user as any).role;
-        token.twoFAEnabled = (user as any).twoFAEnabled ?? false;
-
-        // Optionally, set 2FA verified false on initial sign-in
-        token.twoFAVerified = false;
+        token.sub = (user as any).id ?? token.sub;
+        (token as any).role = (user as any).role ?? "USER";
+        (token as any).twoFAEnabled = Boolean((user as any).twoFAEnabled);
+        // New session is not 2FA-verified until challenge passes
+        (token as any).twoFAVerified = false;
       }
 
-      // Optional: allow explicit updates (e.g., after a successful 2FA challenge)
+      // Allow explicit updates (e.g., after 2FA verify)
       if (trigger === "update" && session) {
-        if (typeof session.twoFAVerified === "boolean") {
-          token.twoFAVerified = session.twoFAVerified;
+        if (typeof (session as any).twoFAVerified === "boolean") {
+          (token as any).twoFAVerified = (session as any).twoFAVerified;
         }
       }
 
@@ -102,18 +115,17 @@ export const {
     async session({ session, token }) {
       if (!session.user) return session;
 
-      // Copy JWT fields to the session object
-      session.user.id = (token as any).userId as string;
-      (session.user as any).role = (token as any).role;
-      (session.user as any).twoFAEnabled = (token as any).twoFAEnabled ?? false;
-
-      // Expose a top-level flag if you used it previously
-      (session as any).twoFAVerified = (token as any).twoFAVerified ?? false;
+      // Expose token fields to session
+      session.user.id = token.sub as string;
+      (session.user as any).role = (token as any).role ?? "USER";
+      (session.user as any).twoFAEnabled = Boolean((token as any).twoFAEnabled);
+      (session as any).twoFAVerified = Boolean((token as any).twoFAVerified);
 
       return session;
     },
 
     async signIn({ user, account }) {
+      // Mark Google users verified on first login (optional)
       if (
         account?.provider === "google" &&
         "emailVerified" in user &&
@@ -127,9 +139,6 @@ export const {
       return true;
     },
   },
-
-  // ❌ Remove sessionToken cookie override (only applies to database sessions)
-  // cookies: { ... }  <-- delete this whole block
 
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
 });

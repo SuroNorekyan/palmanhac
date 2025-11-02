@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { PaymentIntentStatus, PaymentProvider } from "@prisma/client";
+import { PaymentMethod, PaymentProvider, PaymentStatus } from "@prisma/client";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/server/db";
@@ -59,6 +59,23 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         totalAmount,
         notes,
+        paymentStatus: PaymentStatus.PENDING,
+        currency,
+        paymentProvider: provider,
+        paymentMethod: provider === PaymentProvider.EUPAGO ? PaymentMethod.CARD : null,
+        providerRef: `mock-${Date.now()}`,
+        providerMetadata: {
+          source: "mock-checkout",
+        },
+        events: [
+          {
+            type: "mock_payment_created",
+            provider,
+            currency,
+            amount: totalAmount,
+            createdAt: new Date().toISOString(),
+          },
+        ],
       },
     });
 
@@ -71,28 +88,14 @@ export async function POST(request: NextRequest) {
       })),
     });
 
-    const paymentIntent = await tx.paymentIntent.create({
-      data: {
-        orderId: createdOrder.id,
-        provider,
-        status: PaymentIntentStatus.PROCESSING,
-        amount: totalAmount,
-        currency,
-        metadata: {
-          mock: true,
-        },
-      },
-    });
-
-    return { createdOrder, paymentIntent };
+    return createdOrder;
   });
 
   return NextResponse.json({
-    orderId: order.createdOrder.id,
-    paymentIntentId: order.paymentIntent.id,
+    orderId: order.id,
     amount: totalAmount,
     currency,
     provider,
-    status: order.paymentIntent.status,
+    status: order.paymentStatus,
   });
 }

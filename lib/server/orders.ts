@@ -18,7 +18,6 @@ export const getOrdersForUser = async (userId: string) => {
           },
         },
       },
-      intent: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -42,7 +41,6 @@ export const getOrderForUser = async (userId: string, orderId: string) => {
           },
         },
       },
-      intent: true,
     },
   });
 };

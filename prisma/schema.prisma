@@ -34,14 +34,6 @@ enum PaymentProvider {
   OTHER
 }
 
-enum PaymentIntentStatus {
-  REQUIRES_ACTION
-  PROCESSING
-  SUCCEEDED
-  FAILED
-  CANCELED
-}
-
 model Product {
   id             Int          @id @default(autoincrement())
   slug           String       @unique
@@ -130,12 +122,23 @@ model Order {
   totalAmount   Int
   paymentStatus PaymentStatus  @default(UNPAID)
   notes         String?
+  currency      String         @default("EUR")
+  paymentProvider PaymentProvider @default(EUPAGO)
+  paymentMethod PaymentMethod?
+  providerRef   String?        @unique
+  providerMetadata Json?
+  contactEmail  String?
+  contactPhone  String?
+  shippingAddress Json?
+  billingAddress Json?
+  locale        String?
+  paidAt        DateTime?
+  events        Json?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   items      OrderItem[]
-  intent     PaymentIntent?
 }
 
 model OrderItem {
@@ -161,16 +164,8 @@ model Favorite {
   @@unique([userId, productId])
 }
 
-model PaymentIntent {
-  id        String              @id @default(cuid())
-  orderId   String              @unique
-  provider  PaymentProvider
-  status    PaymentIntentStatus @default(REQUIRES_ACTION)
-  amount    Int
-  currency  String              @default("EUR")
-  createdAt DateTime            @default(now())
-  updatedAt DateTime            @updatedAt
-  metadata  Json?
-
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+enum PaymentMethod {
+  MULTIBANCO
+  MBWAY
+  CARD
 }

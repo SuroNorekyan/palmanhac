@@ -32,7 +32,6 @@ export async function GET(
           },
         },
       },
-      intent: true,
     },
   });
 

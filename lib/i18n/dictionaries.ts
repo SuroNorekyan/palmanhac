@@ -128,13 +128,46 @@ export type Dictionary = {
     notesPlaceholder: string;
     paymentDetails: string;
     paymentMethodDescription: string;
-    stripeNotConfigured: string;
-    initiatePaymentCta: string;
-    stripeSubmitCta: string;
-    stripeProcessing: string;
+    paymentMethodLabel: string;
+    paymentServiceUnavailable: string;
+    startPaymentCta: string;
+    processingPayment: string;
+    mbwayPhoneLabel: string;
+    mbwayPhonePlaceholder: string;
+    mbwayPhoneRequired: string;
+    methods: Record<"multibanco" | "mbway" | "card", string>;
+    methodDescriptions: Record<"multibanco" | "mbway" | "card", string>;
+    resultHeading: string;
+    resultInstructions: {
+      multibanco: string;
+      mbway: string;
+      card: string;
+    };
+    resultFields: {
+      entity: string;
+      reference: string;
+      amount: string;
+      expiresAt: string;
+    };
+    multibancoReminder: string;
+    mbwayPrompt: string;
+    mbwayAwaiting: string;
+    mbwayStatusLink: string;
+    statusLabel: string;
+    statusCheckInProgress: string;
+    statusFailed: string;
+    statusPaid: string;
+    statusPollingTimedOut: string;
+    cardRedirectMessage: string;
+    viewOrdersCta: string;
     summary: string;
     summaryItems: string;
     summaryEmpty: string;
+    subtotalLabel: string;
+    discountLabel: string;
+    deliveryLabel: string;
+    total: string;
+    vatIncluded: string;
   };
   favorites: {
     heading: string;
@@ -377,14 +410,63 @@ const dictionaries: Record<Locale, Dictionary> = {
       notesLabel: "Order notes",
       notesPlaceholder: "Share delivery preferences or gift messages.",
       paymentDetails: "Payment",
-      paymentMethodDescription: "We securely process your card via Stripe.",
-      stripeNotConfigured: "Stripe is not configured. Add keys to enable payments.",
-      initiatePaymentCta: "Continue to payment",
-      stripeSubmitCta: "Place order",
-      stripeProcessing: "Processing payment...",
+      paymentMethodDescription:
+        "Pay securely with EuPago (Multibanco, MB WAY, or Cards).",
+      paymentMethodLabel: "Choose a payment method",
+      paymentServiceUnavailable:
+        "Payments are unavailable right now. Please try again shortly.",
+      startPaymentCta: "Place order",
+      processingPayment: "Processing payment...",
+      mbwayPhoneLabel: "MB WAY phone number",
+      mbwayPhonePlaceholder: "e.g. 912345678",
+      mbwayPhoneRequired: "Please provide a phone number for MB WAY.",
+      methods: {
+        multibanco: "Multibanco",
+        mbway: "MB WAY",
+        card: "Card",
+      },
+      methodDescriptions: {
+        multibanco:
+          "Pay later at an ATM or online banking using the generated reference.",
+        mbway: "Approve the request in your MB WAY app to complete the order instantly.",
+        card: "Secure card payment via EuPago’s hosted checkout.",
+      },
+      resultHeading: "Payment instructions",
+      resultInstructions: {
+        multibanco: "Use these references to complete the payment via Multibanco.",
+        mbway: "Approve the payment in your MB WAY app to confirm your order.",
+        card: "You will be redirected to EuPago’s secure card checkout.",
+      },
+      resultFields: {
+        entity: "Entity",
+        reference: "Reference",
+        amount: "Amount",
+        expiresAt: "Expires",
+      },
+      multibancoReminder:
+        "After you complete the payment, your order will update automatically. You can monitor the status from the Orders page.",
+      mbwayPrompt:
+        "Approve the payment in your MB WAY app. We’ll refresh the status automatically once it’s confirmed.",
+      mbwayAwaiting: "Awaiting approval",
+      mbwayStatusLink: "View live status",
+      statusLabel: "Status",
+      statusCheckInProgress: "Checking payment status…",
+      statusFailed:
+        "The payment was not approved. You can try again or choose another method.",
+      statusPaid: "Payment confirmed. Redirecting to your orders…",
+      statusPollingTimedOut:
+        "We could not confirm the payment automatically. Please review the Orders page for the latest status.",
+      cardRedirectMessage:
+        "You’ll be redirected to EuPago’s secure card page to finish the payment.",
+      viewOrdersCta: "Go to Orders",
       summary: "Order summary",
-      summaryItems: "Items",
+      summaryItems: "{count} items",
       summaryEmpty: "Your cart is empty. Add bottles to continue.",
+      subtotalLabel: "Subtotal",
+      discountLabel: "Discount",
+      deliveryLabel: "Delivery",
+      total: "Total",
+      vatIncluded: "VAT included",
     },
     favorites: {
       heading: "Favorites",
@@ -651,15 +733,62 @@ const dictionaries: Record<Locale, Dictionary> = {
       notesPlaceholder: "Partilhe preferências de entrega ou mensagens de oferta.",
       paymentDetails: "Pagamento",
       paymentMethodDescription:
-        "Processamos o seu cartão com segurança através da Stripe.",
-      stripeNotConfigured:
-        "A Stripe não está configurada. Adicione as chaves para ativar os pagamentos.",
-      initiatePaymentCta: "Continuar para pagamento",
-      stripeSubmitCta: "Finalizar encomenda",
-      stripeProcessing: "A processar pagamento...",
+        "Pague com segurança através da EuPago (Multibanco, MB WAY ou Cartões).",
+      paymentMethodLabel: "Escolha o método de pagamento",
+      paymentServiceUnavailable:
+        "Os pagamentos não estão disponíveis neste momento. Tente novamente em breve.",
+      startPaymentCta: "Finalizar encomenda",
+      processingPayment: "A processar pagamento...",
+      mbwayPhoneLabel: "Telemóvel MB WAY",
+      mbwayPhonePlaceholder: "ex.: 912345678",
+      mbwayPhoneRequired: "Indique um número de telefone para MB WAY.",
+      methods: {
+        multibanco: "Multibanco",
+        mbway: "MB WAY",
+        card: "Cartão",
+      },
+      methodDescriptions: {
+        multibanco:
+          "Pague mais tarde no Multibanco ou homebanking com a referência gerada.",
+        mbway: "Aprove o pedido na app MB WAY para confirmar de imediato.",
+        card: "Pagamento seguro com cartão através da EuPago.",
+      },
+      resultHeading: "Instruções de pagamento",
+      resultInstructions: {
+        multibanco: "Use estes dados para concluir o pagamento via Multibanco.",
+        mbway: "Aprove o pagamento na app MB WAY para confirmar a encomenda.",
+        card: "Será redirecionado para o checkout seguro da EuPago.",
+      },
+      resultFields: {
+        entity: "Entidade",
+        reference: "Referência",
+        amount: "Montante",
+        expiresAt: "Expira",
+      },
+      multibancoReminder:
+        "Depois de efetuar o pagamento, a encomenda atualiza automaticamente. Acompanhe o estado na página de Encomendas.",
+      mbwayPrompt:
+        "Aprove o pagamento na app MB WAY. Atualizamos o estado assim que for confirmado.",
+      mbwayAwaiting: "A aguardar aprovação",
+      mbwayStatusLink: "Ver estado em tempo real",
+      statusLabel: "Estado",
+      statusCheckInProgress: "A verificar o estado do pagamento...",
+      statusFailed:
+        "O pagamento não foi aprovado. Tente novamente ou escolha outro método.",
+      statusPaid: "Pagamento confirmado. A redirecionar para as suas encomendas...",
+      statusPollingTimedOut:
+        "Não foi possível confirmar automaticamente. Consulte a página de Encomendas para o estado atual.",
+      cardRedirectMessage:
+        "Será redirecionado para a página segura da EuPago para concluir o pagamento.",
+      viewOrdersCta: "Ir para Encomendas",
       summary: "Resumo da encomenda",
-      summaryItems: "Artigos",
+      summaryItems: "{count} artigos",
       summaryEmpty: "O carrinho está vazio. Adicione garrafas para continuar.",
+      subtotalLabel: "Subtotal",
+      discountLabel: "Desconto",
+      deliveryLabel: "Entrega",
+      total: "Total",
+      vatIncluded: "Inclui IVA",
     },
     favorites: {
       heading: "Favoritos",

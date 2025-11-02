@@ -1,0 +1,24 @@
+EuPago Migration Changelog
+--------------------------
+
+Code changes
+- Removed Stripe SDKs, API routes, and PaymentIntent persistence; introduced EuPago provider helpers (`lib/payments/eupago.ts`).
+- Added Prisma enum/column updates for orders (payment method/provider metadata, paidAt, events) and dropped the legacy `PaymentIntent` table.
+- Implemented EuPago API endpoints:
+  * `POST /api/payments/eupago/create` – creates orders, calls EuPago, returns payment details.
+  * `POST /api/payments/eupago/webhook` – verifies signatures, marks orders paid/failed, records audit events.
+  * `GET /api/payments/eupago/status` – polls provider status for MB WAY browser UX.
+- Rebuilt `/checkout` to support Multibanco, MB WAY, and card flows without Stripe Elements, including status polling and cart handling.
+- Added reusable email sender (`lib/email/mailer.ts`) and hooked order creation/payment success notifications to `ADMIN_EMAIL`.
+- Expanded admin area:
+  * New layout/navigation (`components/admin/AdminNav.tsx`).
+  * Product CRUD pages (`/admin/products`, `/new`, `/[id]`) with zod validation and API integration.
+  * Orders table (`/admin/orders`) and detail view (`/admin/orders/[id]`) with provider metadata, events, and guarded status updates.
+- Updated translations for checkout (EuPago messaging, method labels, status copy).
+
+Environment & tooling
+- Added EuPago env vars (`EUPAGO_API_BASE`, `EUPAGO_API_KEY`, `EUPAGO_WEBHOOK_SHARED_SECRET`, `EUPAGO_CARD_RETURN_URL`).
+- Added SMTP configuration vars (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`) and ensured `ADMIN_EMAIL` is used for alerts.
+- Introduced migration `20250322000100_task_prd7_eupago` reflecting the order schema changes.
+- Added `nodemailer` and `@types/nodemailer` dependencies.
+- Updated `.env`, `.env.local`, `.env.example` to remove Stripe keys and document EuPago/SMTP settings.

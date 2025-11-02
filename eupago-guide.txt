@@ -1,0 +1,88 @@
+EuPago Integration Guide
+========================
+
+Overview
+--------
+- Stripe dependencies, env vars, and API routes were removed in favour of EuPago.
+- All checkout flows now call `POST /api/payments/eupago/create` and webhook notifications are handled by `POST /api/payments/eupago/webhook`.
+- Orders store EuPago metadata (provider ref, method, events) and the admin area includes dedicated pages for Products and Orders.
+
+Environment Variables
+---------------------
+Define the following keys in `.env`, `.env.local`, or the deployment environment:
+
+```
+EUPAGO_API_BASE="https://sandbox.eupago.pt/api"   # Sandbox base URL (see below for production)
+EUPAGO_API_KEY=""                                  # API key from EuPago backoffice
+EUPAGO_WEBHOOK_SHARED_SECRET=""                   # Shared secret used to sign incoming webhooks
+EUPAGO_CARD_RETURN_URL="http://localhost:3000/orders" # URL EuPago redirects card payments to after completion
+
+SMTP_HOST=""
+SMTP_PORT="587"
+SMTP_USER=""
+SMTP_PASS=""
+EMAIL_FROM="no-reply@palmanhac.local"
+ADMIN_EMAIL="admin@palmanhac.pt" # Notification recipient
+```
+
+All other existing project variables remain unchanged (database, Auth, Google, etc.).
+
+Where to get credentials
+------------------------
+1. Log in to the EuPago backoffice (sandbox: https://sandbox.eupago.pt backoffice).
+2. Create or locate the API key and copy it into `EUPAGO_API_KEY`.
+3. Create a webhook integration in EuPago pointing to `<your-domain>/api/payments/eupago/webhook` and copy the shared secret into `EUPAGO_WEBHOOK_SHARED_SECRET`.
+4. For card payments, configure the return/success URL inside EuPago to match `EUPAGO_CARD_RETURN_URL` (the app defaults to `/orders`).
+5. When moving to production, switch `EUPAGO_API_BASE` to `https://eupago.pt/api` and replace the API key & webhook secret with the production values.
+
+Payment flows
+-------------
+- Multibanco
+  * Checkout returns the entity, reference, amount, and expiry to the shopper.
+  * The order stays in `PENDING` status until EuPago notifies via webhook; once paid the webhook marks the order as `PAID` and records an event.
+- MB WAY
+  * The shopper provides/confirm a mobile number and approves the prompt in the MB WAY app.
+  * The UI polls `GET /api/payments/eupago/status?transactionId=…` until the webhook confirms payment (or times out with guidance to check Orders).
+- Cards
+  * The shopper is redirected to EuPago’s hosted checkout; after completion EuPago returns to `EUPAGO_CARD_RETURN_URL` and the webhook closes the order.
+- Every order stores `paymentMethod`, `providerRef`, `providerMetadata`, and a chronological `events` JSON log for auditing.
+- Emails are sent to `ADMIN_EMAIL` when an order is created and when a payment transitions to `PAID`.
+
+Testing checklist
+-----------------
+1. Multibanco (sandbox)
+   - Trigger a checkout with Multibanco.
+   - Verify the reference is shown on `/checkout` and the order appears in `/orders` as payment pending.
+   - Simulate a webhook (`POST /api/payments/eupago/webhook`) with the sandbox payload including the shared secret.
+   - Confirm the order switches to `PAID`, the event log updates, and an email is sent.
+2. MB WAY (sandbox)
+   - Use a test MB WAY number; confirm the UI displays “awaiting approval”.
+   - Approve the payment (or simulate via webhook) and ensure the cart clears, the status flips to PAID, and the admin receives the success email.
+3. Card
+   - Complete the redirect flow in the EuPago sandbox checkout.
+   - Ensure you land on `/orders` after the provider redirect and that the webhook updates the order.
+4. Webhooks
+   - Use the shared secret to sign requests; duplicate deliveries are handled idempotently.
+5. Admin area
+   - Log in as an admin and visit `/admin`, `/admin/products`, `/admin/orders`, `/admin/orders/<id>`.
+   - Verify product CRUD (create, edit, delete) and order detail views, including read-only behaviour for paid orders.
+
+Admin access & seeding
+----------------------
+- Create an admin user locally with `pnpm make:admin` (script uses the values in `.env`).
+- Sign in via `/account` and visit `/admin`. Non-admin users are redirected away.
+- Admin navigation links:
+  * `/admin` – dashboard overview
+  * `/admin/products`, `/admin/products/new`, `/admin/products/[id]`
+  * `/admin/orders`, `/admin/orders/[id]`
+  * `/admin/2fa/setup` and `/admin/2fa/challenge`
+- Ensure two-factor authentication is verified to access protected pages (the app redirects to the challenge if required).
+
+Switching to production
+-----------------------
+1. Replace the sandbox API base/keys/secrets with production values.
+2. Update `EUPAGO_CARD_RETURN_URL` to the live domain (e.g. `https://shop.palmanhac.pt/orders`).
+3. Update SMTP credentials to a production mail provider and set a verified `EMAIL_FROM` address.
+4. Reconfigure the EuPago webhook endpoint to point at the production host and use the new secret.
+5. Redeploy and verify each payment method end-to-end.
+
