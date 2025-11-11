@@ -1,0 +1,297 @@
+Currently, I have an About page, located in app/[locale]/about/page.tsx, and a Footer page, located in components/layout/Footer.tsx. I want to modify the footer to include a Dropdown with questions, and users can click on that dropdown and open
+the answer to the desired question, as described in the DESIRED ABOUT PAGE section. This should be a well designed, beautiful and responsive component with the dropdown for each question with a open/close options. 
+Additionally, I want to modify my about us page to be more beautiful, and also contain content from the DESIRED ABOUT PAGE section + the SHIPPING AND RETURNS section, but not in a form of a dropdown, but still 
+with some beatifully designed, responsive and good looking idea. 
+
+Please implement these tweaks, your goal is to have a redesigned about us page and a dropdown for a footer. You can add new components. Make sure that the result is visually appealing and responsive. also use the dictionaries.ts 
+for adding new entries.
+
+__DESIRED ABOUT PAGE__
+FAQ
+1. General Information
+What is the Palmanhac online store?
+The Palmanhac online store belongs to KARMUXILON LDA, a family-run company founded in 2020, combining tradition and innovation.
+Customers can purchase handcrafted liqueurs and brandies, internationally recognized for their quality and authenticity.
+
+How can I contact you?
+You can contact us by email at info@palmanhac.pt or by phone/WhatsApp at (+351) 964 690 254, Monday to Friday, from 9:00 AM to 6:00 PM.
+
+Do prices include VAT?
+Yes. All prices are shown in euros (€) and include VAT at the legal rate in force, as well as the corresponding excise duty (IEC).
+
+2. Account and Personal Data
+Do I need to create an account to make a purchase?
+No, creating an account is not mandatory. However, registration makes future purchases faster and allows you to easily track your orders.
+
+How can I edit or delete my account?
+To delete your account, please send an email to info@palmanhac.pt from your registered address requesting deletion.
+To update your details or password, access your personal area (“My Account”) and edit the desired information.
+
+Are my personal data safe?
+Yes. Protecting your data is a top priority for Palmanhac.
+Our database is properly registered with the Comissão Nacional de Proteção de Dados (CNPD), and all communication between your device and our website uses HTTPS and SSL security standards to ensure confidentiality and protection.
+
+3. Orders and Payments
+How can I place an order on the Palmanhac online store?
+It’s very simple:
+
+Add your desired products to the cart.
+
+Review your cart by clicking the icon at the top right.
+
+On the “Cart” page, select “Checkout.”
+
+Fill in your billing and shipping details.
+
+Choose your preferred payment method and complete the order.
+After the payment is confirmed, you’ll receive an email with order confirmation, and your package will be processed and shipped.
+
+Can I change or cancel my order?
+Yes. To change or cancel an order, please contact us by email (palmanhac@gmail.com) or phone/WhatsApp (964 690 254) on business days between 9:00 AM and 6:00 PM.
+Orders can only be canceled if they have not yet been shipped.
+
+Can I send an order as a gift?
+Yes. At checkout, select the option “Ship to a different address” and provide the recipient’s details.
+The gift will be sent without an invoice and without price tags.
+
+Which payment methods are accepted?
+We accept credit and debit cards (Visa, MasterCard, Maestro), MB Way, MultiBanco and bank transfer.
+If you choose bank transfer, you will receive the necessary bank details by email.
+
+Are there any additional fees?
+No. The total amount includes the product price and shipping costs (if applicable).
+
+How are refunds handled in case of returns?
+In accordance with Decree-Law No. 24/2014, customers may return products within 14 days of receipt.
+Please contact us by email (palmanhac@gmail.com) to start the return process.
+Products must be returned in perfect condition and in their original packaging.
+Refunds are processed within 30 days after the returned items are received and verified.
+
+4. Shipping and Delivery
+Which countries do you ship to?
+Currently, we ship to mainland Portugal, Madeira, and Spain.
+For other international orders, please contact us at info@palmanhac.pt to check the possibility of shipping.
+
+Which courier companies do you work with?
+We work with GLS, ensuring safe and reliable deliveries.
+
+What is the average delivery time?
+The usual delivery time is 1 to 4 business days after payment confirmation.
+Deliveries to Madeira and Spain may take slightly longer depending on logistics and customs handling.
+Delays may occur due to courier issues or external factors beyond Palmanhac’s control.
+
+What are the shipping costs?
+
+€6.00 — 1 to 2 bottles
+
+€8.00 — 3 or more bottles
+
+Free shipping — for orders over €50.00
+
+When will my order be shipped?
+Orders are shipped after payment confirmation.
+Processing and dispatch generally take 1 business day.
+
+What should I do if the package is damaged or wet?
+If you notice damage at the time of delivery, please refuse the package and contact us immediately.
+Send an email to palmanhac@gmail.com or call 964 690 254 (business days, 9:00 AM – 6:00 PM).
+
+What happens if a bottle breaks during transport?
+If breakage occurs before delivery, a replacement order will be sent at no extra cost.
+If you notice damage after delivery, contact us immediately to arrange a replacement.
+
+Perguntas Frequentes
+1. Informações Gerais
+O que é a loja online Palmanhac?
+A loja online Palmanhac pertence à KARMUXILON LDA, uma empresa familiar fundada em 2020, que combina tradição e inovação.
+Os clientes podem adquirir licores e aguardentes artesanais, reconhecidos internacionalmente pela sua qualidade e autenticidade.
+
+Como posso entrar em contacto convosco?
+Pode contactar-nos por e-mail através de info@palmanhac.pt ou por telefone/WhatsApp pelo (+351) 964 690 254, de segunda a sexta-feira, das 9h00 às 18h00.
+
+Os preços incluem IVA?
+Sim. Todos os preços estão indicados em euros (€) e incluem IVA à taxa legal em vigor, bem como o imposto especial correspondente (IEC).
+
+2. Conta e Dados Pessoais
+É necessário criar uma conta para efetuar uma compra?
+Não, criar uma conta não é obrigatório. No entanto, o registo facilita futuras encomendas e permite acompanhar os pedidos de forma mais rápida.
+
+Como posso alterar ou eliminar a minha conta?
+Para eliminar a sua conta, envie um e-mail para info@palmanhac.pt a partir do endereço registado, solicitando a eliminação.
+Para atualizar os seus dados ou palavra-passe, aceda à sua área pessoal (“Minha Conta”) e edite as informações desejadas.
+
+Os meus dados pessoais estão seguros?
+Sim. A proteção dos seus dados é uma prioridade para a Palmanhac.
+A nossa base de dados está devidamente registada na Comissão Nacional de Proteção de Dados (CNPD), e toda a comunicação entre o seu dispositivo e o nosso site utiliza HTTPS e SSL, garantindo confidencialidade e segurança.
+
+3. Encomendas e Pagamentos
+Como posso fazer uma encomenda na loja online Palmanhac?
+É muito simples:
+
+Adicione os produtos desejados ao carrinho.
+
+Verifique o carrinho clicando no ícone no canto superior direito.
+
+Na página “Carrinho”, selecione Finalizar Compra.
+
+Preencha os dados de faturação e envio.
+
+Escolha o método de pagamento preferido e conclua a encomenda.
+
+Após confirmação do pagamento, receberá um e-mail de confirmação e a sua encomenda será processada e enviada.
+
+Posso alterar ou cancelar a minha encomenda?
+Sim. Para alterar ou cancelar uma encomenda, contacte-nos por e-mail (palmanhac@gmail.com) ou por telefone/WhatsApp (964 690 254) em dias úteis, das 9h00 às 18h00.
+As encomendas só podem ser canceladas se ainda não tiverem sido enviadas.
+
+Posso enviar uma encomenda como presente?
+Sim. No momento da finalização da compra, selecione a opção “Enviar para outro endereço” e indique os dados do destinatário.
+O presente será enviado sem fatura e sem etiquetas de preço.
+
+Quais os métodos de pagamento aceites?
+Aceitamos cartões de crédito e débito (Visa, MasterCard, Maestro), MB Way, MultiBanco e transferência bancária.
+
+Em caso de transferência, receberá os dados bancários necessários por e-mail.
+
+Existem taxas adicionais?
+Não. O valor total inclui apenas o preço dos produtos e os custos de envio (quando aplicável).
+
+Como funcionam os reembolsos em caso de devolução?
+De acordo com o Decreto-Lei nº 24/2014, os clientes podem devolver produtos até 14 dias após a receção.
+Contacte-nos por e-mail (palmanhac@gmail.com) para iniciar o processo de devolução.
+Os produtos devem ser devolvidos em perfeito estado e na embalagem original.
+Os reembolsos são processados no prazo máximo de 30 dias após receção e verificação dos artigos devolvidos.
+
+4. Envio e Entrega
+Para que países enviam encomendas?
+Atualmente, enviamos para Portugal Continental, Madeira e Espanha.
+Para outros destinos internacionais, contacte-nos através de info@palmanhac.pt para verificar a possibilidade de envio.
+
+Com que transportadoras trabalham?
+Trabalhamos com a GLS, garantindo entregas seguras e fiáveis.
+
+Qual é o prazo médio de entrega?
+O prazo habitual é de 1 a 4 dias úteis após a confirmação do pagamento.
+As entregas para Madeira e Espanha podem demorar um pouco mais, dependendo da logística e do tratamento aduaneiro.
+Podem ocorrer atrasos devido a problemas da transportadora ou fatores externos fora do controlo da Palmanhac.
+
+Quais são os custos de envio?
+
+6,00 € — 1 a 2 garrafas
+
+8,00 € — 3 ou mais garrafas
+
+Grátis — para encomendas superiores a 50,00 €
+
+Quando será enviada a minha encomenda?
+As encomendas são enviadas após a confirmação do pagamento.
+O processamento e expedição geralmente demoram 1 dia útil.
+
+O que devo fazer se a embalagem estiver danificada ou molhada?
+Se notar danos no momento da entrega, recuse a encomenda e contacte-nos imediatamente.
+Envie um e-mail para palmanhac@gmail.com ou ligue para 964 690 254 (dias úteis, das 9h00 às 18h00).
+
+O que acontece se uma garrafa partir durante o transporte?
+Se a quebra ocorrer antes da entrega, será enviada uma nova encomenda sem custos adicionais.
+Se detetar danos após a entrega, contacte-nos imediatamente para providenciar a substituição.
+
+__SHIPPING AND RETURNS__
+
+Shipping & Returns
+
+Shipping
+
+Deliveries are made between 8:00 AM and 6:00 PM on business days only.
+
+Delivery times may vary due to weekends, public holidays, weather conditions, or national holidays.
+
+If the courier attempts delivery and the customer is unavailable, a new delivery attempt will be scheduled.
+
+After the purchase is confirmed, the customer will receive a confirmation email with the details of the items purchased and a tracking number to monitor the delivery status.
+
+The average delivery time within mainland Portugal is 24 to 48 hours after dispatch.
+
+💰 Delivery costs:
+
+€6 for 1 or 2 bottles
+
+€8 for 3 or more bottles
+
+Free delivery for orders over €50
+
+Palmanhac uses secure, custom packaging designed to ensure the integrity of products during transit.
+
+Returns
+
+In accordance with Decree-Law No. 24/2014, dated February 14, customers have the right to return products within 14 days from the date of receipt.
+
+Bottles must be returned in the same condition in which they were received — unopened, undamaged, and in the original packaging.
+Palmanhac reserves the right to refuse products that do not meet these conditions.
+
+Exceptions
+
+Returns are not accepted for:
+
+Opened products or products with broken security seals
+
+Alcoholic beverages considered perishable
+
+However, if the product is defective, damaged during shipping, or sent incorrectly, Palmanhac will provide a full replacement or refund.
+
+Return requests should be sent to:
+📧 info@palmanhac.pt
+or
+☎️ +351 964 690 254 (business days, 9:00 AM – 6:00 PM).
+
+Refunds will be processed within a maximum of 30 days after receipt and verification of the returned item.
+
+If the order arrives in unsuitable condition, the customer should photograph the item and the back label (where the seal is visible) and send the images by email.
+
+Palmanhac will review the situation and may schedule collection and replacement of the product.
+Entregas e Devoluções
+Entregas
+As entregas são efetuadas entre as 8h00 e as 18h00, apenas em dias úteis.
+
+Os prazos de entrega podem variar em função de feriados, fins de semana, condições meteorológicas ou feriados nacionais.
+
+Caso o estafeta tente entregar a encomenda e o cliente não esteja disponível, será agendada uma nova tentativa de entrega.
+
+Após a confirmação da compra, o cliente receberá um e-mail de confirmação com os detalhes dos artigos adquiridos e um número de seguimento, permitindo acompanhar o estado da entrega.
+
+O tempo médio de entrega, após expedição, para Portugal Continental é de 24 a 48 horas.
+
+💰 Custos de entrega:
+
+6€ para 1 ou 2 garrafas
+
+8€ para 3 ou mais garrafas
+
+Entrega gratuita para encomendas superiores a 50€
+
+A Palmanhac utiliza embalagens seguras e personalizadas, concebidas para garantir a integridade dos produtos durante o transporte.
+
+Devoluções
+De acordo com o Decreto-Lei n.º 24/2014, de 14 de fevereiro, o cliente tem o direito de devolver os produtos no prazo máximo de 14 dias a contar da data de receção da encomenda.
+
+As garrafas devem ser devolvidas nas mesmas condições em que foram recebidas — sem danos, fechadas e na embalagem original.
+A Palmanhac reserva-se o direito de recusar produtos que não cumpram estas condições.
+
+Exceções
+Não são aceites devoluções de:
+
+produtos abertos ou com selos de segurança violados;
+
+bebidas alcoólicas consideradas perecíveis.
+
+No entanto, se o produto estiver defeituoso, danificado durante o transporte ou se houver erro no envio, a Palmanhac procederá à substituição ou reembolso total.
+
+O pedido de devolução deve ser enviado para:
+📧 info@palmanhac.pt
+ou
+☎️ +351 964 690 254 (dias úteis, das 9h00 às 18h00).
+
+Os reembolsos serão processados no prazo máximo de 30 dias após a receção e verificação do artigo devolvido.
+
+Caso a encomenda chegue em condições inadequadas, o cliente deverá fotografar o artigo e a etiqueta traseira (onde o selo é visível) e enviar as imagens por e-mail.
+A Palmanhac analisará a situação e poderá agendar a recolha e substituição do produto.
+

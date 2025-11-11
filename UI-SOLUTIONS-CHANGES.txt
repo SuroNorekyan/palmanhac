@@ -1,0 +1,13 @@
+app/[locale]/layout.tsx - Wrapped banner + header in a fixed shell, added generous top padding, and surfaced the new scroll-to-top control for a persistent navigation experience.
+components/layout/Header.tsx - Tuned styling to match the fixed layout with a subtle shadow and backdrop blur.
+components/common/ScrollToTopButton.tsx - New floating action button that fades in on scroll and animates the page back to the top.
+components/home/HeroSection.tsx - Replaced the video hero with a full-width carousel cycling mainCarousel images, overlaying localized copy, controls, and CTA.
+components/ui/button.tsx - Added an outlineInverted variant used by the hero CTA for a transparent button with a white border.
+app/[locale]/page.tsx - Registered the Bebida Espirituosa collection in the category tiles with dedicated imagery.
+app/[locale]/bebida-espirituosa/page.tsx - Added a full catalog view (filters, sorting, grid) sourcing the new spirit drink products.
+config/nav.ts - Introduced the Bebida Espirituosa entry to the primary navigation in every locale.
+lib/i18n/dictionaries.ts - Extended home categories to translate the new section label.
+types/product.ts - Expanded the product category union to include bebida-espirituosa.
+lib/data/mockItemParser.ts - Taught the mock parser to classify fortified/spirit drinks into the new category.
+app/api/products/route.ts - Allowed the new category slug through the public products API filter.
+lib/data/seed.ts - Clears dependent data, copies mock item assets, and seeds all products including Bebida Espirituosa into Prisma.

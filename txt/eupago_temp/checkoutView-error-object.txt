@@ -1,0 +1,49 @@
+{
+    "status": 502,
+    "payload": {
+        "method": "card",
+        "items": [
+            {
+                "productId": 29,
+                "quantity": 6
+            },
+            {
+                "productId": 30,
+                "quantity": 1
+            },
+            {
+                "productId": 27,
+                "quantity": 1
+            }
+        ],
+        "contact": {
+            "email": "suren.norekyan123@gmail.com",
+            "name": "Palmanhac Admin"
+        },
+        "shipping": {
+            "name": "Palmanhac Admin",
+            "line1": "Nairi Zaryan 2/18",
+            "city": "Yerevan",
+            "postalCode": "0012",
+            "country": "Portugal"
+        },
+        "billing": {
+            "name": "Palmanhac Admin",
+            "line1": "Nairi Zaryan 2/18",
+            "city": "Yerevan",
+            "postalCode": "0012",
+            "country": "Portugal"
+        },
+        "currency": "EUR",
+        "locale": "en",
+        "totals": {
+            "itemsSubtotalCents": 6649,
+            "deliveryCents": 0,
+            "discountCents": 0,
+            "totalCents": 6649
+        }
+    },
+    "result": {
+        "error": "Unable to initialize EuPago payment. Please try again."
+    }
+}

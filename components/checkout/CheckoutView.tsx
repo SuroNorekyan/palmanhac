@@ -246,6 +246,84 @@ export function CheckoutView({
 
   const totals = useMemo(() => calculateCartTotals(items, products), [items, products]);
 
+  const normalisedItems = useMemo(
+    () =>
+      items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+      })),
+    [items],
+  );
+
+  const normalisedContact = useMemo(
+    () => ({
+      email: contact.email.trim(),
+      phone: contact.phone.trim() || undefined,
+      name: contact.name.trim() || undefined,
+    }),
+    [contact.email, contact.phone, contact.name],
+  );
+
+  const normalisedShipping = useMemo(
+    () => ({
+      name: shipping.name.trim(),
+      line1: shipping.line1.trim(),
+      line2: shipping.line2.trim() || undefined,
+      city: shipping.city.trim(),
+      postalCode: shipping.postalCode.trim(),
+      country: shipping.country.trim(),
+    }),
+    [
+      shipping.name,
+      shipping.line1,
+      shipping.line2,
+      shipping.city,
+      shipping.postalCode,
+      shipping.country,
+    ],
+  );
+
+  const normalisedBilling = useMemo(() => {
+    const source = billingSameAsShipping ? shipping : billing;
+    return {
+      name: source.name.trim(),
+      line1: source.line1.trim(),
+      line2: source.line2.trim() || undefined,
+      city: source.city.trim(),
+      postalCode: source.postalCode.trim(),
+      country: source.country.trim(),
+    };
+  }, [billingSameAsShipping, billing, shipping]);
+
+  const buildCheckoutPayload = () => {
+    const base = {
+      method: selectedMethod,
+      items: normalisedItems,
+      contact: normalisedContact,
+      shipping: normalisedShipping,
+      billing: normalisedBilling,
+      notes: notes.trim() || undefined,
+      currency: "EUR" as const,
+      locale,
+      totals: {
+        itemsSubtotalCents: totals.itemsSubtotalCents,
+        deliveryCents: totals.deliveryCents,
+        discountCents: totals.discountCents,
+        totalCents: totals.totalCents,
+      },
+    };
+
+    if (selectedMethod === "mbway") {
+      const normalizedPhone = mbwayPhone.trim() || contact.phone.trim() || undefined;
+      return {
+        ...base,
+        mbwayPhone: normalizedPhone,
+      };
+    }
+
+    return base;
+  };
+
   const stopPolling = () => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
@@ -349,45 +427,11 @@ export function CheckoutView({
     resetPaymentState();
 
     try {
-      const payload = {
-        method: selectedMethod,
-        items: items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        })),
-        contact: {
-          email: contact.email.trim(),
-          phone: contact.phone.trim() || undefined,
-          name: contact.name.trim() || undefined,
-        },
-        shipping: {
-          name: shipping.name.trim(),
-          line1: shipping.line1.trim(),
-          line2: shipping.line2.trim() || undefined,
-          city: shipping.city.trim(),
-          postalCode: shipping.postalCode.trim(),
-          country: shipping.country.trim(),
-        },
-        billing: {
-          name: (billingSameAsShipping ? shipping.name : billing.name).trim(),
-          line1: (billingSameAsShipping ? shipping.line1 : billing.line1).trim(),
-          line2:
-            (billingSameAsShipping ? shipping.line2 : billing.line2).trim() || undefined,
-          city: (billingSameAsShipping ? shipping.city : billing.city).trim(),
-          postalCode: (billingSameAsShipping
-            ? shipping.postalCode
-            : billing.postalCode
-          ).trim(),
-          country: (billingSameAsShipping ? shipping.country : billing.country).trim(),
-        },
-        notes: notes.trim() || undefined,
-        currency: "EUR",
-        locale,
-        mbwayPhone:
-          selectedMethod === "mbway"
-            ? mbwayPhone.trim() || contact.phone.trim() || undefined
-            : undefined,
-      };
+      const payload = buildCheckoutPayload();
+
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[Checkout] Submitting payload", payload);
+      }
 
       const response = await fetch("/api/payments/eupago/create", {
         method: "POST",
@@ -401,6 +445,13 @@ export function CheckoutView({
       };
 
       if (!response.ok) {
+        const diagnostic = {
+          status: response.status,
+          payload,
+          result,
+          responseText: await response.text().catch(() => undefined),
+        };
+        console.error("[Checkout] Create payment failed", diagnostic);
         setServerError(result.error ?? dictionary.checkout.paymentServiceUnavailable);
         return;
       }

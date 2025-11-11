@@ -11,6 +11,13 @@ import { normaliseProviderReference } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { appendOrderEvent } from "@/lib/utils/order-events";
 
+/**
+ * EuPago sandbox setup:
+ * - Configure Webhooks 2.0 endpoint to
+ *   https://send-surgery-arrives-regular.trycloudflare.com/api/payments/eupago/webhook
+ * - Use the generated Cryptographic Key as EUPAGO_WEBHOOK_SHARED_SECRET.
+ */
+
 const getSignature = (request: NextRequest) => {
   const header =
     request.headers.get("x-eupago-signature") ??

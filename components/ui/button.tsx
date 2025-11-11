@@ -4,7 +4,14 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils/format";
 
-type ButtonVariant = "default" | "outline" | "ghost" | "secondary" | "link" | "pill";
+type ButtonVariant =
+  | "default"
+  | "outline"
+  | "ghost"
+  | "secondary"
+  | "link"
+  | "pill"
+  | "outlineInverted";
 
 type ButtonSize = "default" | "sm" | "lg" | "icon";
 
@@ -17,6 +24,8 @@ const variantClasses: Record<ButtonVariant, string> = {
   secondary: "bg-neutral-900 text-white hover:bg-neutral-800",
   link: "text-[rgb(var(--primary))] underline-offset-4 hover:underline",
   pill: "rounded-full bg-[rgb(var(--accent))] px-6 text-[rgb(var(--accent-foreground))] hover:bg-[rgb(var(--accent))]/90",
+  outlineInverted:
+    "border border-white/80 bg-transparent text-white hover:border-white hover:bg-white/10",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

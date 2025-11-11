@@ -1,0 +1,4 @@
+app/[locale]/about/page.tsx - Rebuilt the About page with a new hero, story highlights, rich FAQ layout, and shipping/returns guidance fed by localized content.
+components/layout/Footer.tsx - Added an FAQ accordion so visitors can open answers from any section directly in the footer.
+lib/i18n/dictionaries.ts - Extended the About translations for English and Portuguese to cover the new hero text, FAQs, and shipping/returns copy.
+lib/utils/faq.ts - Introduced a shared formatter to render FAQ answers as paragraphs and bullet lists.

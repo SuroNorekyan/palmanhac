@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
   const idsParam = searchParams.get("ids");
   const query = searchParams.get("q") ?? undefined;
   const categoryParam = searchParams.get("category") ?? undefined;
-  const category = (["licor", "aguardente"] as ProductCategorySlug[]).includes(
-    categoryParam as ProductCategorySlug,
-  )
+  const category = (
+    ["licor", "aguardente", "bebida-espirituosa"] as ProductCategorySlug[]
+  ).includes(categoryParam as ProductCategorySlug)
     ? (categoryParam as ProductCategorySlug)
     : undefined;
   const sortParam = searchParams.get("sort") ?? undefined;

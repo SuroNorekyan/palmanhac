@@ -1,0 +1,58 @@
+// devtools
+
+CheckoutView.tsx:392 
+ POST http://localhost:3000/api/payments/eupago/create 502 (Bad Gateway)
+handleSubmit	@	CheckoutView.tsx:392
+<form>		
+CheckoutView	@	CheckoutView.tsx:625
+"use client"		
+CheckoutPage	@	page.tsx:26
+<CheckoutPage>		
+Promise.all	@	VM3880 <anonymous>:1
+Promise.all	@	VM3880 <anonymous>:1
+Promise.all	@	VM3880 <anonymous>:1
+
+
+// terminal
+
+prisma:query SELECT 1
+prisma:query SELECT "public"."Product"."id", "public"."Product"."priceCents", "public"."Product"."name" FROM "public"."Product" WHERE "public"."Product"."id" IN ($1,$2,$3) OFFSET $4
+[Checkout] Creating EuPago payment {
+  method: 'card',
+  orderId: '864b30d7-6584-40cf-8dc7-57635456e7bc',
+  totalCents: 6649,
+  currency: 'EUR'
+}
+[Checkout] Card payload {
+  orderId: '864b30d7-6584-40cf-8dc7-57635456e7bc',
+  amount: 66.49,
+  customer: {
+    email: 'suren.norekyan123@gmail.com',
+    name: 'Palmanhac Admin',
+    phone: undefined
+  },
+  returnUrl: 'http://localhost:3000/orders',
+  locale: 'en'
+}
+[EuPago] Headers {
+  Accept: 'application/json',
+  'User-Agent': 'palmanhac-payments-adapter',
+  'Content-Type': 'application/json'
+}
+[EuPago] POST https://sandbox.eupago.pt/api/v1.02/creditcard/create {
+  id: '864b30d7-6584-40cf-8dc7-57635456e7bc',
+  value: 66.49,
+  currency: 'EUR',
+  description: 'Order 864b30d7-6584-40cf-8dc7-57635456e7bc',
+  return_url: 'http://localhost:3000/orders',
+  customer_email: 'suren.norekyan123@gmail.com',
+  customer_name: 'Palmanhac Admin',
+  locale: 'en',
+  apiKey: '<redacted>'
+}
+[EuPago] API error: EuPago request failed with status 401. {
+  transactionStatus: 'Rejected',
+  code: 'APIKEY_MISSING',
+  text: 'API Key was not available in the request'
+}
+ POST /api/payments/eupago/create 502 in 254ms (compile: 4ms, proxy.ts: 5ms, render: 245ms)

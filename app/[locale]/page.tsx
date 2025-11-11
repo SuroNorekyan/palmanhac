@@ -14,11 +14,13 @@ import { withLocale } from "@/lib/utils/locale";
 const categoryImages: Record<string, string> = {
   licor: "/assets/palmanhac-licor-laranja.png",
   aguardente: "/assets/palmanhac-aguardente-morango.png",
+  "bebida-espirituosa": "/assets/palmanhac-spirit-cola.png",
 };
 
 const categorySlugMap: Record<string, string> = {
   licor: "licor",
   aguardente: "aguardente",
+  bebidaEspirituosa: "bebida-espirituosa",
 };
 
 export default async function HomePage({

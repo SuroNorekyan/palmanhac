@@ -1,0 +1,185 @@
+Title: Fix persistent EuPago “AMOUNT_MISSING” and payload schema issues (Task 8.2)
+
+Context:
+After multiple Codex runs, the project still fails to initialize EuPago Card payments, returning:
+
+{
+  "transactionStatus": "Rejected",
+  "code": "AMOUNT_MISSING",
+  "text": "Amount was not available in the request"
+}
+
+Despite the `EUPAGO_API_KEY` being valid, the sandbox endpoint (`/api/v1.02/creditcard/create`) continues to reject requests. The console log shows payloads such as:
+
+{
+  apiKey: "<redacted>",
+  id: "...",
+  amount: "66.49",
+  value: "66.49",
+  currency: "EUR",
+  description: "...",
+  returnUrl: "http://localhost:3000/orders",
+  email: "...",
+  name: "..."
+}
+
+This proves that:
+1. The wrong key names (`returnUrl`, `email`, `name`) are being sent instead of `return_url`, `customer_email`, and `customer_name`.
+2. Both `amount` and `value` are being sent together — the EuPago API ignores this, expecting only one of them (specifically `value` for card/MBWay, and `valor` for Multibanco).
+3. The current code adds `apiKey` in both headers and body, sometimes combined with `Authorization` and `X-Api-Key`, which EuPago’s sandbox rejects.
+4. There are likely duplicate or outdated files (multiple `eupago.ts` or alternate import paths) — so Codex updates may have modified a version not actually used at runtime.
+
+Goal:
+Ensure EuPago integration sends *exactly* the minimal, correct payloads and uses the correct authentication mode per payment type.
+
+---
+
+Required Actions for Codex:
+
+### 1. Remove duplicate files and unify imports
+- Search the repository for any duplicates of `lib/payments/eupago.ts` or similar paths (`lib/payment/eupago.ts`, `lib/payments/eupago/index.ts`, etc.).
+- Keep only **one canonical file** at `src/lib/payments/eupago.ts`.
+- Ensure all imports point to this exact file:
+  ```ts
+  import { createCard, createMBWay, createMultibanco } from "@/lib/payments/eupago";
+
+
+2. Fix authentication logic
+
+In euPagoFetch():
+
+For "header" mode, send only:
+
+headers.ApiKey = apiKey;
+
+
+Remove:
+
+headers.Authorization = `ApiKey ${apiKey}`;
+headers["X-Api-Key"] = apiKey;
+
+
+For "body" mode, include apiKey in the body, not in headers.
+
+Update:
+
+const includeBodyApiKey = options.includeBodyApiKey ?? (authMode === "body");
+
+3. Fix payload schemas for all payment types
+
+Card (/api/v1.02/creditcard/create)
+
+Must use header authentication.
+
+Body should contain:
+
+{
+  id: string,
+  value: number,                // e.g., 66.49
+  currency: "EUR",
+  description: string,
+  return_url: string,
+  customer_email: string,
+  customer_name: string,
+  locale?: string
+}
+
+
+No amount, valor, returnUrl, email, name, or metadata.
+
+No apiKey in body for header-auth.
+
+MB WAY (/api/v1.02/mbway/create)
+
+Same auth mode and format:
+
+{
+  id: string,
+  value: number,
+  currency: "EUR",
+  description: string,
+  customer_email: string,
+  customer_name: string,
+  alias: string,        // phone
+  locale?: string
+}
+
+
+Multibanco (/clientes/rest_api/multibanco/create)
+
+Uses body authentication (authMode: "body") and form encoding.
+
+Body must include:
+
+{
+  apiKey: string,
+  id: string,
+  valor: string,         // e.g., "66.49"
+  descricao: string,
+  email?: string,
+  currency?: string
+}
+
+
+No nested objects, metadata, or duplicate amount keys.
+
+4. Fix form encoding and JSON formatting
+
+Card and MB WAY: application/json with header auth.
+
+Multibanco: application/x-www-form-urlencoded with body auth.
+
+5. Clean up field naming & casing
+
+Replace all camelCase names (returnUrl, email, name) with snake_case forms (return_url, customer_email, customer_name) in payloads.
+
+Remove all amount fields for card/MB WAY. Use value instead.
+
+6. Clear build caches and verify runtime
+
+After applying fixes, Codex must ensure:
+
+.next, .turbo, and .pnpm-store caches are cleared.
+
+The server restarts fully (so updated eupago.ts is the one used).
+
+7. Verify success via debug output
+
+For a Card transaction, the console log must show:
+
+{
+  id: "uuid",
+  value: 66.49,
+  currency: "EUR",
+  description: "Order ...",
+  return_url: "http://localhost:3000/orders",
+  customer_email: "user@example.com",
+  customer_name: "John Doe",
+  locale: "en"
+}
+
+
+and EuPago must return { "paymentUrl": "...", "transactionId": "..." }.
+
+8. Write a “changes-8.2-eupago.txt” file
+
+Describe:
+
+Which files changed (lib/payments/eupago.ts, etc.)
+
+The authentication fix (headers vs body)
+
+Simplified payload shapes for Card, MB WAY, and Multibanco
+
+Confirmation that AMOUNT_MISSING was resolved
+
+Example successful response from EuPago sandbox
+
+Instructions for retesting
+
+Acceptance Criteria:
+✅ No AMOUNT_MISSING errors in sandbox
+✅ Card and MB WAY payments return paymentUrl and transactionId
+✅ Multibanco returns valid entity and reference
+✅ No duplicate or unused eupago.ts files exist
+✅ “changes-8.2-eupago.txt” summarizes the final structure and tests passed

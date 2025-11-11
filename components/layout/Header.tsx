@@ -22,7 +22,7 @@ export function Header({
   locale: Locale;
 }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-white/60 bg-white/80 backdrop-blur-lg">
+    <header className="relative z-40 border-b border-white/80 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur">
       <div className="container flex items-center gap-4 py-4">
         <div className="flex items-center gap-3 lg:gap-6">
           <div className="lg:hidden">

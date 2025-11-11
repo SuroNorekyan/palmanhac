@@ -15,6 +15,7 @@ export const navConfig: Record<Locale, NavConfig> = {
     main: [
       { href: "/licor", label: "Licor" },
       { href: "/aguardente", label: "Aguardente" },
+      { href: "/bebida-espirituosa", label: "Bebida Espirituosa" },
       { href: "/about", label: "About Us" },
       { href: "/contact", label: "Contact Us" },
     ],
@@ -28,6 +29,7 @@ export const navConfig: Record<Locale, NavConfig> = {
     main: [
       { href: "/licor", label: "Licor" },
       { href: "/aguardente", label: "Aguardente" },
+      { href: "/bebida-espirituosa", label: "Bebida Espirituosa" },
       { href: "/about", label: "Sobre Nós" },
       { href: "/contact", label: "Contacte-nos" },
     ],

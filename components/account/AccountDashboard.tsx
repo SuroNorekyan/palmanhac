@@ -96,7 +96,7 @@ export function AccountDashboard({ dictionary, locale, user }: DashboardProps) {
           {dictionary.account.dashboard.greeting} {user.name ?? user.email ?? "Palmanhac"}
         </h1>
         <div className="flex flex-wrap gap-3">
-          <Button asChild>
+          <Button asChild variant="outline">
             <Link href={withLocale(locale, "/orders")}>
               {dictionary.account.dashboard.viewOrders}
             </Link>
@@ -108,6 +108,9 @@ export function AccountDashboard({ dictionary, locale, user }: DashboardProps) {
           </Button>
           <Button variant="ghost" onClick={handleSignOut}>
             {dictionary.account.logout}
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/admin">Go to Admin Panel</Link>
           </Button>
         </div>
       </header>

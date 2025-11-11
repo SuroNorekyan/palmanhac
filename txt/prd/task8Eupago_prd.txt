@@ -1,0 +1,82 @@
+Title: Align EuPago demo (sandbox) integration with env, fix endpoints/auth, verify end-to-end, and produce change log
+
+Context:
+- We are running the app locally at:
+  - Public tunnel (for webhooks): https://send-surgery-arrives-regular.trycloudflare.com/
+  - Local dev app: http://localhost:3000/ (primary), e.g. http://localhost:3000/en/checkout
+- Environment variables that MUST be honored in all payment code:
+  EUPAGO_API_BASE="https://sandbox.eupago.pt"
+  EUPAGO_API_KEY="demo-74d6-183e-c5b9-480"
+  EUPAGO_WEBHOOK_SHARED_SECRET="<filled via EuPago backoffice Webhooks 2.0 'Generate Cryptographic Key'>"
+  EUPAGO_CARD_RETURN_URL="http://localhost:3000/orders"
+
+Goals:
+1) Analyze the current codebase for EuPago usage and fix any mismatches between endpoints/auth and the above env vars.
+   - Inspect:
+     - /lib/payments/eupago.ts (or similarly named adapter)
+     - /app/api/payments/eupago/** (create/status/webhook routes) or equivalent
+     - Any shared fetch helpers used by the EuPago adapter
+2) Update endpoints and authentication to EuPago sandbox specs:
+   - Base must be EXACTLY EUPAGO_API_BASE (no hard-coded /api suffix).
+   - Credit Card (hosted page):     POST /api/v1.02/creditcard/create      -> require header "ApiKey: <EUPAGO_API_KEY>"
+   - MB WAY:                         POST /api/v1.02/mbway/create          -> require header "ApiKey: <EUPAGO_API_KEY>"
+   - Multibanco (create reference):  POST /clientes/rest_api/multibanco/create -> require apiKey in the JSON body (NO ApiKey header)
+   - (Optional polling) Multibanco info: POST /clientes/rest_api/multibanco/info -> apiKey in JSON body
+   - DO NOT use Authorization: Bearer for these calls.
+3) Adjust the internal fetch helper to support two auth modes:
+   - "header" -> set { ApiKey: <key> } and DO NOT include apiKey in body
+   - "body"   -> include { apiKey: <key> } in body and DO NOT set ApiKey header
+   - Use "header" for /api/v1.02/* endpoints and "body" for /clientes/rest_api/multibanco/* endpoints.
+4) Ensure our existing routes behave correctly:
+   - POST /api/payments/eupago/create:
+     * For "card" -> createCard -> return { paymentUrl, transactionId } and redirect client to paymentUrl.
+     * For "mbway" -> createMBWay -> return { transactionId, statusUrl? } (store statusUrl if present).
+     * For "multibanco" -> createMultibanco -> return { entity, reference, amount, expiresAt? }.
+     * Store providerRef consistently (transactionId for card/mbway; numeric reference for multibanco).
+   - GET /api/payments/eupago/status:
+     * If method is MB WAY and statusUrl is stored in providerMetadata, fetch it and return normalized status.
+     * For multibanco, either rely on webhook or optionally call the info endpoint (body-auth).
+     * Card typically relies on return_url + webhook; avoid any undocumented status endpoints.
+   - POST /api/payments/eupago/webhook:
+     * Keep verifying HMAC-SHA256 signature: compare request raw body against EUPAGO_WEBHOOK_SHARED_SECRET using the signature header (commonly X-Signature / x-signature).
+     * Normalize statuses into: paid, failed, cancelled, expired, pending/unknown.
+     * Update the order row accordingly; append event logs (no duplicate transitions).
+5) Configure the webhook endpoint for sandbox in code comments & guide:
+   - During local testing the EuPago "Webhook 2.0" Endpoint must be:
+     https://send-surgery-arrives-regular.trycloudflare.com/api/payments/eupago/webhook
+   - The "Encrypt Webhook" or "Cryptographic Key" must match EUPAGO_WEBHOOK_SHARED_SECRET.
+6) Verify end-to-end with acceptance checks (write a short test plan in the change log):
+   - Card flow (hosted form):
+     * Create an order with total >= €500 to trigger OTP (if applicable).
+     * Use EuPago’s sandbox test card, complete payment, ensure return to EUPAGO_CARD_RETURN_URL and webhook marks order as PAID.
+   - MB WAY flow:
+     * Create an order via mbway; verify UI polling (if implemented) and webhook finalization.
+   - Multibanco flow:
+     * Create reference; verify entity/reference rendering; simulate payment (or rely on support sandbox) and verify webhook updates order to PAID.
+   - Negative paths: show graceful errors for failed/cancelled/expired.
+7) No breaking changes to the public API shape expected by the frontend; keep current response structures in the create/status routes (only fix internals and provider payload mapping).
+8) Remove any lingering "Authorization: Bearer" usage for EuPago calls; use only the mechanisms described above.
+9) Produce a concise developer guide inside the change log describing what to change for production:
+   - EUPAGO_API_BASE="https://clientes.eupago.pt"
+   - EUPAGO_API_KEY="<live key from Channel Listing>"
+   - EUPAGO_WEBHOOK_SHARED_SECRET="<live cryptographic key from backoffice>"
+   - EUPAGO_CARD_RETURN_URL="https://<your-domain>/orders"
+   - In EuPago backoffice (production), set Webhook 2.0 Endpoint to:
+     https://<your-domain>/api/payments/eupago/webhook
+   - Confirm which methods (Multibanco/MB WAY/Card) are enabled in live.
+
+Deliverables:
+A) Apply all code fixes and ensure /en/checkout works against sandbox with the env above.
+B) Create a root-level text file named "changes-8-eupago.txt" containing:
+   - What changed (files + brief diffs of endpoint paths and auth headers/body).
+   - A short "Sandbox Test Guide" with steps for Card, MB WAY, Multibanco (including sample test card and OTP if applicable).
+   - A "Go Live Checklist" with the prod env keys and backoffice steps.
+   - Known caveats (e.g., MB WAY/multibanco payment simulation behavior in sandbox, reliance on webhook).
+C) If you add tiny utilities (e.g., helper to compute HMAC in tests or a script to simulate a webhook POST with X-Signature), document them in the change log.
+
+Acceptance criteria:
+- Creating a Card payment returns a valid paymentUrl and redirects successfully; after completing the hosted payment, order ends in PAID and appears in /orders.
+- Creating an MB WAY payment returns a transactionId (and statusUrl if provided); our status route doesn’t error; webhook marks order PAID when sandbox processes it.
+- Creating a Multibanco reference returns entity+reference; webhook can move order to PAID (or info endpoint shows the correct state); no 401 "APIKEY_MISSING" errors.
+- No usage of Authorization: Bearer for EuPago; ApiKey header is present for /api/v1.02/*; apiKey is in body for /clientes/rest_api/multibanco/*.
+- "changes-8-eupago.txt" is present, thorough, and includes sandbox test instructions and production switch steps.

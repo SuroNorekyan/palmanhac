@@ -1,14 +1,27 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { PrismaClient, Role } from "@prisma/client";
 import { hashPassword } from "../security/password.ts";
 import { parseMockItems } from "./mockItemParser.ts";
 
 const prisma = new PrismaClient();
+const PUBLIC_ASSETS_ROOT = path.join(process.cwd(), "public", "assets");
 
 export async function seedProducts() {
   const items = await parseMockItems();
+  await prisma.orderItem.deleteMany();
+  await prisma.favorite.deleteMany();
+  await prisma.order.deleteMany();
   await prisma.product.deleteMany();
+  await fs.mkdir(PUBLIC_ASSETS_ROOT, { recursive: true });
 
   for (const item of items) {
+    if (item.imageSourcePath) {
+      const targetRelative = item.image.replace(/^\/assets\//, "");
+      const targetPath = path.join(PUBLIC_ASSETS_ROOT, targetRelative);
+      await fs.copyFile(item.imageSourcePath, targetPath);
+    }
+
     await prisma.product.create({
       data: {
         slug: item.slug,

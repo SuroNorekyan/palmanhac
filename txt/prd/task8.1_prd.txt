@@ -1,0 +1,62 @@
+Title: Fix EuPago authentication and Multibanco payload issues in sandbox (Task 8.1)
+
+Context:
+After implementing the initial EuPago integration from task8Eupago_prd.txt, the app can successfully reach EuPago’s sandbox endpoints, but payments still fail for all methods:
+
+1. **Card and MB WAY**
+   - Both throw: 
+     ```
+     [EuPago] API error: EuPago request failed with status 401.
+     {
+       transactionStatus: 'Rejected',
+       code: 'APIKEY_MISSING',
+       text: 'API Key was not available in the request'
+     }
+     ```
+   - Environment variable `EUPAGO_API_KEY` is correctly set and read, so the issue is not environment loading but **how the key is being transmitted**.
+   - The helper currently only sends a custom header `ApiKey: <key>` for “header” mode.  
+     However, EuPago sandbox requires either `Authorization: ApiKey <key>` or `X-Api-Key`, and some endpoints may still expect an `apiKey` field in the body for legacy compatibility.
+
+2. **Multibanco**
+   - Returns:
+     ```
+     sucesso: false
+     estado: -10
+     resposta: 'Os dados inseridos não são válidos'
+     ```
+   - This happens because the legacy `/clientes/rest_api/multibanco/create` endpoint expects a **form-encoded body** (not JSON) and a minimal set of fields (`apiKey`, `id`, `valor`, `descricao`, optionally `currency`).
+   - The current implementation sends a JSON payload with nested `shipping_address`, `billing_address`, etc., which triggers “invalid data.”
+
+Goal:
+Fully align authentication and payload format with EuPago sandbox expectations.
+
+Required actions for Codex:
+1. Update the `euPagoFetch` helper to:
+   - When `authMode: "header"`:
+     * Set multiple header variants: `Authorization: ApiKey <key>`, `ApiKey: <key>`, and `X-Api-Key: <key>`.
+     * Optionally include `apiKey` in the JSON body as a fallback.
+   - When `authMode: "body"`:
+     * Keep `apiKey` in the body and remove any header variants.
+   - Apply this behavior globally so all endpoints benefit automatically.
+2. Adjust **Multibanco** calls:
+   - Change `createMultibanco` and `fetchMultibancoInfo` to send requests as **`application/x-www-form-urlencoded`** (using `URLSearchParams`).
+   - Include only valid flat keys (`apiKey`, `id`, `valor`, `descricao`, `currency`, `email`).
+   - Drop nested objects and arrays.
+   - Enforce a minimum amount of **1.00€**, since smaller amounts are rejected.
+3. Keep Card and MB WAY JSON-based but ensure new header set and body fallback so EuPago accepts the API key.
+4. Verify that:
+   - `createCard` returns a valid `paymentUrl` and `transactionId`.
+   - `createMBWay` returns a `transactionId` and `statusUrl`.
+   - `createMultibanco` returns `entity` and `reference`.
+   - All no longer produce `APIKEY_MISSING` or `dados inválidos`.
+5. Generate a `changes-8.1-eupago.txt` file describing:
+   - What was fixed (header variants added, form-encoding introduced, payload minimized).
+   - Which files changed (`lib/payments/eupago.ts`, possibly `/api/payments/eupago/create/route.ts`).
+   - A short sandbox retest plan for Card, MB WAY, and Multibanco.
+   - A note reminding that for production, `EUPAGO_API_BASE="https://clientes.eupago.pt"` must remain the same logic, but still send all three header variants.
+
+Acceptance criteria:
+- No `APIKEY_MISSING` for Card or MB WAY.
+- Multibanco successfully returns `entity` + `reference`.
+- Webhook continues to function without breaking signature verification.
+- `changes-8.1-eupago.txt` exists and documents applied fixes, retest guide, and go-live consistency notes.

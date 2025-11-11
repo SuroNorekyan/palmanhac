@@ -1,9 +1,10 @@
-# === Project Dump (2025-11-02T05:40:32.343Z) ===
+# === Project Dump (2025-11-11T11:54:49.666Z) ===
 
 
 # --- app/[locale]/about/page.tsx ---
 import { extractLocale } from "@/config/site";
 import { getDictionary } from "@/lib/i18n/dictionaries";
+import { buildAnswerSegments } from "@/lib/utils/faq";
 
 export default async function AboutPage({
   params,
@@ -13,63 +14,196 @@ export default async function AboutPage({
   const locale = await extractLocale(params);
   const dictionary = getDictionary(locale);
 
+  const { hero, pillars, faq, shippingReturns } = dictionary.about;
+
   return (
-    <section className="space-y-12">
-      <div className="space-y-4">
-        <h1 className="text-4xl font-semibold text-neutral-900">
-          {dictionary.about.heading}
-        </h1>
-        <p className="max-w-2xl text-neutral-600">{dictionary.home.heroSubheading}</p>
-      </div>
-      <div className="grid gap-10 md:grid-cols-3">
-        <article className="space-y-3 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-neutral-900">
-            {dictionary.about.missionTitle}
-          </h2>
-          <p className="text-sm leading-relaxed text-neutral-600">
-            {dictionary.about.missionDescription}
-          </p>
-        </article>
-        <article className="space-y-3 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-neutral-900">
-            {dictionary.about.craftsmanshipTitle}
-          </h2>
-          <p className="text-sm leading-relaxed text-neutral-600">
-            {dictionary.about.craftsmanshipDescription}
-          </p>
-        </article>
-        <article className="space-y-3 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-neutral-900">
-            {dictionary.about.heritageTitle}
-          </h2>
-          <p className="text-sm leading-relaxed text-neutral-600">
-            {dictionary.about.heritageDescription}
-          </p>
-        </article>
-      </div>
-      <div className="grid gap-8 rounded-3xl border border-[rgb(var(--border))] bg-white p-8 shadow-sm md:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-4">
-          <h2 className="text-2xl font-semibold text-neutral-900">
-            {dictionary.about.addressHeading}
-          </h2>
-          <p className="text-sm leading-relaxed text-neutral-600">
-            {dictionary.about.logistics}
+    <section className="space-y-16">
+      <div className="grid gap-10 overflow-hidden rounded-3xl border border-[rgb(var(--border))] bg-gradient-to-br from-amber-50 via-white to-white p-8 shadow-lg md:grid-cols-[1.4fr_0.9fr] md:p-12">
+        <div className="space-y-6">
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
+            {hero.eyebrow}
+          </span>
+          <h1 className="text-4xl font-semibold leading-tight text-neutral-900 md:text-5xl">
+            {hero.heading}
+          </h1>
+          <p className="max-w-2xl text-lg leading-relaxed text-neutral-600">
+            {hero.description}
           </p>
         </div>
-        <div className="space-y-2 text-sm text-neutral-700">
-          {dictionary.about.addressLines.map((line, index) => (
-            <p key={`${line}-${index}`}>{line}</p>
-          ))}
-          <a
-            href="https://www.livroreclamacoes.pt"
-            target="_blank"
-            rel="noreferrer"
-            className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--primary))] hover:underline"
+        <div className="flex flex-col gap-4 rounded-3xl border border-white/60 bg-white/80 p-6 shadow-inner backdrop-blur">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-500">
+            {dictionary.contact.heading}
+          </h2>
+          <div className="grid gap-4">
+            {hero.contact.map((item) => (
+              <div
+                key={`${item.label}-${item.value}`}
+                className="rounded-2xl bg-neutral-50/80 p-4"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  {item.label}
+                </p>
+                {item.href ? (
+                  <a
+                    href={item.href}
+                    className="mt-1 inline-flex text-base font-medium text-[rgb(var(--primary))] hover:underline"
+                  >
+                    {item.value}
+                  </a>
+                ) : (
+                  <p className="mt-1 text-base font-medium text-neutral-900">
+                    {item.value}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-3">
+        {pillars.map((pillar) => (
+          <article
+            key={pillar.title}
+            className="group h-full rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-[rgb(var(--primary))] hover:shadow-md"
           >
-            {dictionary.footer.complaintsBook}
-          </a>
-        </div>
+            <h2 className="text-lg font-semibold text-neutral-900">{pillar.title}</h2>
+            <p className="mt-3 text-sm leading-relaxed text-neutral-600">
+              {pillar.description}
+            </p>
+          </article>
+        ))}
       </div>
+
+      <section className="space-y-8">
+        <div className="space-y-3">
+          <h2 className="text-3xl font-semibold text-neutral-900">{faq.title}</h2>
+          <p className="max-w-3xl text-neutral-600">{faq.subtitle}</p>
+        </div>
+        <div className="space-y-6">
+          {faq.categories.map((category) => (
+            <div
+              key={category.id}
+              className="space-y-6 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm md:p-8"
+            >
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-widest text-[rgb(var(--primary))]">
+                  {category.title}
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {category.items.map((item) => {
+                  const segments = buildAnswerSegments(item.answer);
+
+                  return (
+                    <div
+                      key={item.question}
+                      className="flex h-full flex-col gap-3 rounded-2xl bg-neutral-50/60 p-5"
+                    >
+                      <h3 className="text-base font-semibold leading-snug text-neutral-900">
+                        {item.question}
+                      </h3>
+                      <div className="space-y-3 text-sm leading-relaxed text-neutral-600">
+                        {segments.map((segment, segmentIndex) => {
+                          if (segment.type === "text") {
+                            return <p key={segmentIndex}>{segment.content}</p>;
+                          }
+
+                          return (
+                            <ul key={segmentIndex} className="space-y-1.5 pl-4">
+                              {segment.content.map((value) => (
+                                <li key={value} className="list-disc">
+                                  {value}
+                                </li>
+                              ))}
+                            </ul>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-8">
+        <div className="space-y-3">
+          <h2 className="text-3xl font-semibold text-neutral-900">
+            {shippingReturns.title}
+          </h2>
+          <p className="max-w-3xl text-neutral-600">{shippingReturns.subtitle}</p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="flex h-full flex-col gap-5 rounded-3xl border border-[rgb(var(--border))] bg-gradient-to-br from-white to-neutral-50 p-6 shadow-sm md:p-8">
+            <div>
+              <h3 className="text-xl font-semibold text-neutral-900">
+                {shippingReturns.shipping.title}
+              </h3>
+            </div>
+            <div className="space-y-3 text-sm leading-relaxed text-neutral-600">
+              {shippingReturns.shipping.notes.map((note) => (
+                <p key={note}>{note}</p>
+              ))}
+            </div>
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+                {shippingReturns.shipping.costsTitle}
+              </p>
+              <ul className="mt-2 space-y-2 text-sm text-neutral-700">
+                {shippingReturns.shipping.costs.map((cost) => (
+                  <li key={cost} className="flex items-start gap-2">
+                    <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[rgb(var(--primary))]" />
+                    <span>{cost}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="space-y-2 text-sm leading-relaxed text-neutral-600">
+              {shippingReturns.shipping.extraNotes.map((note) => (
+                <p key={note}>{note}</p>
+              ))}
+            </div>
+          </div>
+          <div className="flex h-full flex-col gap-5 rounded-3xl border border-[rgb(var(--border))] bg-gradient-to-br from-white to-rose-50/60 p-6 shadow-sm md:p-8">
+            <div>
+              <h3 className="text-xl font-semibold text-neutral-900">
+                {shippingReturns.returns.title}
+              </h3>
+            </div>
+            <div className="space-y-3 text-sm leading-relaxed text-neutral-600">
+              {shippingReturns.returns.notes.map((note) => (
+                <p key={note}>{note}</p>
+              ))}
+            </div>
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+                {shippingReturns.returns.exceptionsTitle}
+              </p>
+              <ul className="mt-2 space-y-2 text-sm text-neutral-700">
+                {shippingReturns.returns.exceptions.map((exception) => (
+                  <li key={exception} className="flex items-start gap-2">
+                    <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-400" />
+                    <span>{exception}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="space-y-3 text-sm leading-relaxed text-neutral-600">
+              <p className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+                {shippingReturns.returns.supportTitle}
+              </p>
+              <ul className="space-y-2">
+                {shippingReturns.returns.supportDetails.map((detail) => (
+                  <li key={detail}>{detail}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
     </section>
   );
 }
@@ -197,6 +331,50 @@ export default async function AguardentePage({
   );
 }
 # --- end of app/[locale]/aguardente/page.tsx ---
+
+# --- app/[locale]/bebida-espirituosa/page.tsx ---
+import { Suspense } from "react";
+import { ProductFilters } from "@/components/product/ProductFilters";
+import { ProductGrid } from "@/components/product/ProductGrid";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getAllProducts } from "@/lib/server/products";
+
+export default async function BebidaEspirituosaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const resolvedSearch = (await searchParams) ?? {};
+  const dictionary = getDictionary(locale);
+  const products = await getAllProducts(locale, {
+    category: "bebida-espirituosa",
+    query: resolvedSearch.q,
+    sort: resolvedSearch.sort === "price-desc" ? "price-desc" : "price-asc",
+  });
+  const heading = dictionary.home.categories.bebidaEspirituosa;
+
+  return (
+    <section className="space-y-10">
+      <header className="space-y-2">
+        <h1 className="text-4xl font-semibold text-neutral-900">{heading}</h1>
+        <p className="text-neutral-500">{dictionary.home.featuredDescription}</p>
+      </header>
+      <Suspense
+        fallback={
+          <div className="h-12 w-full animate-pulse rounded-2xl bg-neutral-100" />
+        }
+      >
+        <ProductFilters dictionary={dictionary} />
+      </Suspense>
+      <ProductGrid products={products} dictionary={dictionary} locale={locale} />
+    </section>
+  );
+}
+# --- end of app/[locale]/bebida-espirituosa/page.tsx ---
 
 # --- app/[locale]/cart/page.tsx ---
 import { CartView } from "@/components/cart/CartView";
@@ -327,6 +505,7 @@ export default async function FavoritesPage({
 # --- app/[locale]/layout.tsx ---
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
 import { AgeGate } from "@/components/layout/AgeGate";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
@@ -361,15 +540,20 @@ export default async function LocaleLayout({
 
   return (
     <Providers>
-      <TopBanner banner={dictionary.banner} />
-      <Header nav={navigation} dictionary={dictionary} locale={locale} />
-      <main className="container space-y-16 py-12">{children}</main>
+      <div className="fixed inset-x-0 top-0 z-50">
+        <TopBanner banner={dictionary.banner} />
+        <Header nav={navigation} dictionary={dictionary} locale={locale} />
+      </div>
+      <main className="container space-y-16 pb-16 pt-56 sm:pt-56 md:pt-48 lg:pt-44 xl:pt-40">
+        {children}
+      </main>
       <Footer
         nav={navigation}
         site={siteConfig}
         dictionary={dictionary}
         locale={locale}
       />
+      <ScrollToTopButton />
       <AgeGate copy={dictionary.ageGate} locale={locale} />
     </Providers>
   );
@@ -611,11 +795,13 @@ import { withLocale } from "@/lib/utils/locale";
 const categoryImages: Record<string, string> = {
   licor: "/assets/palmanhac-licor-laranja.png",
   aguardente: "/assets/palmanhac-aguardente-morango.png",
+  "bebida-espirituosa": "/assets/palmanhac-spirit-cola.png",
 };
 
 const categorySlugMap: Record<string, string> = {
   licor: "licor",
   aguardente: "aguardente",
+  bebidaEspirituosa: "bebida-espirituosa",
 };
 
 export default async function HomePage({
@@ -1025,18 +1211,12 @@ export default async function AdminTwoFactorSetupPage() {
 # --- end of app/admin/2fa/setup/page.tsx ---
 
 # --- app/admin/layout.tsx ---
-import { redirect } from "next/navigation";
+// app/admin/layout.tsx
 import type { ReactNode } from "react";
-import { auth } from "@/auth";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Providers } from "@/components/layout/Providers";
 
-export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    redirect("/account");
-  }
-
+export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <Providers>
       <div className="min-h-screen bg-[#F6F7F9] pb-16">
@@ -1056,13 +1236,15 @@ import { notFound, redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { OrderStatusForm } from "@/components/admin/orders/OrderStatusForm";
+import { defaultLocale } from "@/config/site";
 import { prisma } from "@/lib/server/db";
 import { formatCurrency } from "@/lib/utils/currency";
 
 export const dynamic = "force-dynamic";
 
-type Params = {
-  params: { id: string };
+// 🔧 Next.js 15: params is a Promise
+type Props = {
+  params: Promise<{ id: string }>;
 };
 
 type Address = {
@@ -1081,9 +1263,7 @@ type OrderEventRecord = {
 };
 
 const parseAddress = (value: Prisma.JsonValue | null): Address | null => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const address = value as Record<string, unknown>;
   return {
     name: typeof address.name === "string" ? address.name : undefined,
@@ -1096,20 +1276,18 @@ const parseAddress = (value: Prisma.JsonValue | null): Address | null => {
 };
 
 const parseEvents = (value: Prisma.JsonValue | null): OrderEventRecord[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
+  if (!Array.isArray(value)) return [];
   const events: OrderEventRecord[] = [];
   for (const entry of value) {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      continue;
-    }
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
     const record = entry as Record<string, unknown>;
     events.push({
       type: typeof record.type === "string" ? record.type : undefined,
       createdAt: typeof record.createdAt === "string" ? record.createdAt : undefined,
       payload:
-        record.payload && typeof record.payload === "object" && !Array.isArray(record.payload)
+        record.payload &&
+        typeof record.payload === "object" &&
+        !Array.isArray(record.payload)
           ? (record.payload as Record<string, unknown>)
           : undefined,
     });
@@ -1117,56 +1295,59 @@ const parseEvents = (value: Prisma.JsonValue | null): OrderEventRecord[] => {
   return events;
 };
 
-export default async function AdminOrderDetailPage({ params }: Params) {
+export default async function AdminOrderDetailPage({ params }: Props) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN") {
-    redirect("/account");
+    redirect(`/${defaultLocale}/account?callbackUrl=/admin/orders`);
   }
-  if (session.user.twoFAEnabled && !session.twoFAVerified) {
+  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
     redirect("/admin/2fa/challenge");
   }
 
-  const orderId = params.id;
-  if (!orderId) {
-    notFound();
-  }
+  // ✅ Unwrap params (Next 15)
+  const { id: orderId } = await params;
+  if (!orderId) notFound();
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
-      user: {
-        select: { name: true, email: true },
-      },
+      user: { select: { name: true, email: true } },
       items: {
         include: {
-          product: {
-            select: { name: true, slug: true, priceCents: true },
-          },
+          product: { select: { name: true, slug: true, priceCents: true } },
         },
       },
     },
   });
 
-  if (!order) {
-    notFound();
-  }
+  if (!order) notFound();
 
   const shippingAddress = parseAddress(order.shippingAddress);
   const billingAddress = parseAddress(order.billingAddress);
   const events = parseEvents(order.events);
-  const providerMetadata = order.providerMetadata && typeof order.providerMetadata === "object"
-    ? order.providerMetadata
-    : null;
+  const providerMetadata =
+    order.providerMetadata && typeof order.providerMetadata === "object"
+      ? order.providerMetadata
+      : null;
 
-  const subtotalCents = order.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  const subtotalCents = order.items.reduce(
+    (sum, item) => sum + item.unitPrice * item.quantity,
+    0,
+  );
 
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">Order #{order.id.slice(0, 8).toUpperCase()}</h1>
+          <h1 className="text-2xl font-semibold text-neutral-900">
+            Order #{order.id.slice(0, 8).toUpperCase()}
+          </h1>
           <p className="text-sm text-neutral-600">
-            Placed {order.createdAt.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+            Placed{" "}
+            {order.createdAt.toLocaleString("en-GB", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}
           </p>
         </div>
         <Link
@@ -1176,6 +1357,7 @@ export default async function AdminOrderDetailPage({ params }: Params) {
           Back to orders
         </Link>
       </header>
+
       <section className="grid gap-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm md:grid-cols-2">
         <div className="space-y-2 text-sm text-neutral-700">
           <p className="text-xs uppercase tracking-wide text-neutral-500">Customer</p>
@@ -1189,11 +1371,12 @@ export default async function AdminOrderDetailPage({ params }: Params) {
           <p className="text-xs uppercase tracking-wide text-neutral-500">Payment</p>
           <p className="font-semibold text-neutral-900">{order.paymentStatus}</p>
           <p>
-            Method: {order.paymentMethod ?? "—"} · Provider: {order.paymentProvider ?? "—"}
+            Method: {order.paymentMethod ?? "—"} · Provider:{" "}
+            {order.paymentProvider ?? "—"}
           </p>
           <p>Reference: {order.providerRef ?? "—"}</p>
           <p>
-            Paid at: {" "}
+            Paid at:{" "}
             {order.paidAt
               ? order.paidAt.toLocaleString("en-GB", {
                   dateStyle: "medium",
@@ -1203,20 +1386,27 @@ export default async function AdminOrderDetailPage({ params }: Params) {
           </p>
         </div>
       </section>
+
       <section className="rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">Items</h2>
             <p className="text-sm text-neutral-600">
-              Subtotal {formatCurrency("en", subtotalCents)} · Order total {formatCurrency("en", order.totalAmount)}
+              Subtotal {formatCurrency("en", subtotalCents)} · Order total{" "}
+              {formatCurrency("en", order.totalAmount)}
             </p>
           </div>
         </header>
         <ul className="divide-y divide-neutral-100">
           {order.items.map((item) => (
-            <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <li
+              key={item.id}
+              className="flex flex-wrap items-center justify-between gap-3 py-3"
+            >
               <div>
-                <p className="font-semibold text-neutral-900">{item.product?.name ?? "Product"}</p>
+                <p className="font-semibold text-neutral-900">
+                  {item.product?.name ?? "Product"}
+                </p>
                 <p className="text-xs text-neutral-500">
                   {item.quantity} × {formatCurrency("en", item.unitPrice)}
                 </p>
@@ -1228,10 +1418,12 @@ export default async function AdminOrderDetailPage({ params }: Params) {
           ))}
         </ul>
       </section>
+
       <section className="grid gap-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm md:grid-cols-2">
         <AddressCard title="Shipping address" address={shippingAddress} />
         <AddressCard title="Billing address" address={billingAddress} />
       </section>
+
       <section className="grid gap-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm md:grid-cols-2">
         <div className="space-y-3">
           <h2 className="text-lg font-semibold text-neutral-900">Provider metadata</h2>
@@ -1246,8 +1438,13 @@ export default async function AdminOrderDetailPage({ params }: Params) {
           ) : (
             <ul className="space-y-2 text-sm text-neutral-700">
               {events.map((event, index) => (
-                <li key={`${event.type}-${event.createdAt ?? index}`} className="rounded-xl bg-neutral-50 p-3">
-                  <p className="font-semibold text-neutral-900">{event.type ?? "Event"}</p>
+                <li
+                  key={`${event.type}-${event.createdAt ?? index}`}
+                  className="rounded-xl bg-neutral-50 p-3"
+                >
+                  <p className="font-semibold text-neutral-900">
+                    {event.type ?? "Event"}
+                  </p>
                   <p className="text-xs text-neutral-500">
                     {event.createdAt
                       ? new Date(event.createdAt).toLocaleString("en-GB", {
@@ -1267,6 +1464,7 @@ export default async function AdminOrderDetailPage({ params }: Params) {
           )}
         </div>
       </section>
+
       <section className="rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold text-neutral-900">Update status</h2>
         <OrderStatusForm
@@ -1286,14 +1484,18 @@ function AddressCard({ title, address }: { title: string; address: Address | nul
       <p className="text-xs uppercase tracking-wide text-neutral-500">{title}</p>
       {address ? (
         <div className="rounded-xl bg-neutral-50 p-4">
-          {address.name ? <p className="font-semibold text-neutral-900">{address.name}</p> : null}
+          {address.name ? (
+            <p className="font-semibold text-neutral-900">{address.name}</p>
+          ) : null}
           {address.line1 ? <p>{address.line1}</p> : null}
           {address.line2 ? <p>{address.line2}</p> : null}
           <p>{[address.postalCode, address.city].filter(Boolean).join(" ") || "—"}</p>
           <p>{address.country ?? "—"}</p>
         </div>
       ) : (
-        <p className="rounded-xl bg-neutral-50 p-4 text-neutral-500">No address provided.</p>
+        <p className="rounded-xl bg-neutral-50 p-4 text-neutral-500">
+          No address provided.
+        </p>
       )}
     </div>
   );
@@ -1304,27 +1506,31 @@ function AddressCard({ title, address }: { title: string; address: Address | nul
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { AdminPagination, ADMIN_PAGE_SIZE } from "@/components/admin/AdminPagination";
+import { ADMIN_PAGE_SIZE, AdminPagination } from "@/components/admin/AdminPagination";
+import { defaultLocale } from "@/config/site";
 import { prisma } from "@/lib/server/db";
 import { formatCurrency } from "@/lib/utils/currency";
 
 export const dynamic = "force-dynamic";
 
 type OrdersPageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  // 🔧 Next.js 15: searchParams is a Promise
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function AdminOrdersPage({ searchParams }: OrdersPageProps) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN") {
-    redirect("/account");
+    redirect(`/${defaultLocale}/account?callbackUrl=/admin/orders`);
   }
-  if (session.user.twoFAEnabled && !session.twoFAVerified) {
+  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
     redirect("/admin/2fa/challenge");
   }
 
-  const resolvedParams = searchParams ?? {};
-  const pageParam = Array.isArray(resolvedParams.page) ? resolvedParams.page[0] : resolvedParams.page;
+  const resolvedParams = (await searchParams) ?? {};
+  const pageParam = Array.isArray(resolvedParams.page)
+    ? resolvedParams.page[0]
+    : resolvedParams.page;
   const currentPage = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const skip = (currentPage - 1) * ADMIN_PAGE_SIZE;
 
@@ -1380,7 +1586,10 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
           <tbody className="divide-y divide-neutral-100">
             {orders.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-sm text-neutral-600">
+                <td
+                  colSpan={7}
+                  className="px-4 py-6 text-center text-sm text-neutral-600"
+                >
                   No orders yet.
                 </td>
               </tr>
@@ -1396,7 +1605,8 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
                         #{order.id.slice(0, 8).toUpperCase()}
                       </Link>
                       <p className="text-xs text-neutral-500">
-                        {order.status} · {order.createdAt.toLocaleString("en-GB", {
+                        {order.status} ·{" "}
+                        {order.createdAt.toLocaleString("en-GB", {
                           dateStyle: "medium",
                           timeStyle: "short",
                         })}
@@ -1408,7 +1618,9 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
                       <p className="font-medium text-neutral-900">
                         {order.user?.name ?? "—"}
                       </p>
-                      <p className="text-xs text-neutral-500">{order.user?.email ?? "—"}</p>
+                      <p className="text-xs text-neutral-500">
+                        {order.user?.email ?? "—"}
+                      </p>
                     </div>
                   </td>
                   <td className="px-4 py-3 font-semibold text-neutral-900">
@@ -1452,6 +1664,7 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
           </tbody>
         </table>
       </div>
+
       <AdminPagination
         page={currentPage}
         totalItems={totalOrders}
@@ -1464,9 +1677,11 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
 # --- end of app/admin/orders/page.tsx ---
 
 # --- app/admin/page.tsx ---
+// app/admin/page.tsx
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { defaultLocale } from "@/config/site";
 import { prisma } from "@/lib/server/db";
 import { formatCurrency } from "@/lib/utils/currency";
 
@@ -1474,11 +1689,13 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const session = await auth();
+
+  // Fallback guard (middleware already enforces this)
   if (!session?.user || session.user.role !== "ADMIN") {
-    redirect("/account");
+    redirect(`/${defaultLocale}/account?callbackUrl=/admin`);
   }
 
-  if (session.user.twoFAEnabled && !session.twoFAVerified) {
+  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
     redirect("/admin/2fa/challenge");
   }
 
@@ -1497,9 +1714,7 @@ export default async function AdminDashboardPage() {
           paymentStatus: true,
           paymentMethod: true,
           createdAt: true,
-          user: {
-            select: { name: true, email: true },
-          },
+          user: { select: { name: true, email: true } },
         },
       }),
     ]);
@@ -1528,6 +1743,7 @@ export default async function AdminDashboardPage() {
           helper="Signed in"
         />
       </section>
+
       <section className="space-y-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -1543,14 +1759,20 @@ export default async function AdminDashboardPage() {
             View all orders
           </Link>
         </header>
+
         {recentOrders.length === 0 ? (
           <p className="text-sm text-neutral-600">No orders recorded yet.</p>
         ) : (
           <ul className="divide-y divide-neutral-100">
             {recentOrders.map((order) => (
-              <li key={order.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <li
+                key={order.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-3"
+              >
                 <div className="space-y-1">
-                  <p className="font-semibold text-neutral-900">#{order.id.slice(0, 8).toUpperCase()}</p>
+                  <p className="font-semibold text-neutral-900">
+                    #{order.id.slice(0, 8).toUpperCase()}
+                  </p>
                   <p className="text-sm text-neutral-600">
                     {order.user?.name ?? order.user?.email ?? "Guest"}
                   </p>
@@ -1574,6 +1796,7 @@ export default async function AdminDashboardPage() {
           </ul>
         )}
       </section>
+
       <section className="grid gap-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm md:grid-cols-2">
         <QuickLinkCard
           title="Manage products"
@@ -1603,9 +1826,20 @@ function DashboardStat({
 }) {
   return (
     <div className="space-y-1 rounded-2xl border border-neutral-100 bg-neutral-50 p-4 shadow-sm">
-      <p className="text-sm uppercase tracking-wide text-neutral-500">{title}</p>
-      <p className="text-3xl font-semibold text-neutral-900">{value}</p>
-      <p className="text-sm text-neutral-600">{helper}</p>
+      <p className="text-xs uppercase tracking-wide text-neutral-500 wrap-break-word">
+        {title}
+      </p>
+
+      <p
+        className="text-2xl font-semibold text-neutral-900 wrap-break-word whitespace-normal leading-tight max-w-full"
+        style={{ wordBreak: "break-word" }}
+      >
+        {value}
+      </p>
+
+      <p className="text-xs text-neutral-600 wrap-break-word whitespace-normal max-w-full leading-snug">
+        {helper}
+      </p>
     </div>
   );
 }
@@ -1698,7 +1932,12 @@ export default async function AdminProductEditPage({ params }: Params) {
             Update catalogue details or adjust stock levels for {product.name}.
           </p>
           <p className="text-xs text-neutral-500">
-            #{product.id} • Created {product.createdAt.toLocaleDateString("en-GB")} • Updated {product.updatedAt.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+            #{product.id} • Created {product.createdAt.toLocaleDateString("en-GB")} •
+            Updated{" "}
+            {product.updatedAt.toLocaleString("en-GB", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1768,8 +2007,8 @@ export default async function AdminProductCreatePage() {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { ADMIN_PAGE_SIZE, AdminPagination } from "@/components/admin/AdminPagination";
 import { DeleteProductButton } from "@/components/admin/products/DeleteProductButton";
-import { AdminPagination, ADMIN_PAGE_SIZE } from "@/components/admin/AdminPagination";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/server/db";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -1790,7 +2029,9 @@ export default async function AdminProductsPage({ searchParams }: ProductsPagePr
   }
 
   const resolvedParams = searchParams ?? {};
-  const pageParam = Array.isArray(resolvedParams.page) ? resolvedParams.page[0] : resolvedParams.page;
+  const pageParam = Array.isArray(resolvedParams.page)
+    ? resolvedParams.page[0]
+    : resolvedParams.page;
   const currentPage = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const skip = (currentPage - 1) * ADMIN_PAGE_SIZE;
 
@@ -1822,7 +2063,7 @@ export default async function AdminProductsPage({ searchParams }: ProductsPagePr
             Manage catalogue entries, pricing, and availability across languages.
           </p>
         </div>
-        <Button asChild>
+        <Button asChild variant="pill">
           <Link href="/admin/products/new">New product</Link>
         </Button>
       </header>
@@ -1842,7 +2083,10 @@ export default async function AdminProductsPage({ searchParams }: ProductsPagePr
           <tbody className="divide-y divide-neutral-100">
             {products.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-sm text-neutral-600">
+                <td
+                  colSpan={7}
+                  className="px-4 py-6 text-center text-sm text-neutral-600"
+                >
                   No products yet. Create your first product to populate the catalogue.
                 </td>
               </tr>
@@ -1890,7 +2134,10 @@ export default async function AdminProductsPage({ searchParams }: ProductsPagePr
                       >
                         Edit
                       </Link>
-                      <DeleteProductButton productId={product.id} productName={product.name} />
+                      <DeleteProductButton
+                        productId={product.id}
+                        productName={product.name}
+                      />
                     </div>
                   </td>
                 </tr>
@@ -2788,6 +3035,40 @@ export async function POST(request: NextRequest) {
 }
 # --- end of app/api/admin/products/route.ts ---
 
+# --- app/api/admin/upload/route.ts ---
+import { mkdir, writeFile } from "fs/promises";
+import path from "path";
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+
+export async function POST(req: Request) {
+  try {
+    const form = await req.formData();
+    const file = form.get("file");
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const assetsDir = path.join(process.cwd(), "public", "assets");
+    await mkdir(assetsDir, { recursive: true });
+
+    const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+    const filename = `${Date.now()}-${safeName}`;
+    const dest = path.join(assetsDir, filename);
+    await writeFile(dest, buffer);
+
+    return NextResponse.json({ path: `/assets/${filename}` });
+  } catch (e) {
+    console.error("[upload] error:", e);
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+  }
+}
+# --- end of app/api/admin/upload/route.ts ---
+
 # --- app/api/auth/[...nextauth]/route.ts ---
 export { GET, POST } from "@/auth";
 # --- end of app/api/auth/[...nextauth]/route.ts ---
@@ -2912,8 +3193,7 @@ export async function POST(request: NextRequest) {
         paymentStatus: PaymentStatus.PENDING,
         currency,
         paymentProvider: provider,
-        paymentMethod:
-          provider === PaymentProvider.EUPAGO ? PaymentMethod.CARD : null,
+        paymentMethod: provider === PaymentProvider.EUPAGO ? PaymentMethod.CARD : null,
         providerRef: `mock-${Date.now()}`,
         providerMetadata: {
           source: "mock-checkout",
@@ -3157,6 +3437,11 @@ import { PaymentMethod, PaymentProvider, PaymentStatus } from "@prisma/client";
 import { z } from "zod";
 import { auth } from "@/auth";
 import {
+  EmailConfigurationError,
+  formatEmailBlock,
+  sendAdminEmail,
+} from "@/lib/email/mailer";
+import {
   createCard,
   createMBWay,
   createMultibanco,
@@ -3164,7 +3449,6 @@ import {
   EuPagoAPIError,
   EuPagoConfigurationError,
 } from "@/lib/payments/eupago";
-import { EmailConfigurationError, formatEmailBlock, sendAdminEmail } from "@/lib/email/mailer";
 import { prisma } from "@/lib/server/db";
 import { calculateCartTotals } from "@/lib/utils/cart-totals";
 import { appendOrderEvent } from "@/lib/utils/order-events";
@@ -3201,8 +3485,7 @@ const payloadSchema = z.object({
   mbwayPhone: z.string().max(20).optional(),
 });
 
-const normalizeCurrency = (currency: string) =>
-  currency.trim().toUpperCase() || "EUR";
+const normalizeCurrency = (currency: string) => currency.trim().toUpperCase() || "EUR";
 
 const normalizeReference = (value: string | null | undefined) =>
   value ? value.replace(/[^0-9A-Za-z_-]/g, "") : null;
@@ -3274,6 +3557,15 @@ export async function POST(request: NextRequest) {
     | Awaited<ReturnType<typeof createMBWay>>
     | Awaited<ReturnType<typeof createCard>>;
 
+  if (process.env.NODE_ENV !== "production") {
+    console.debug("[Checkout] Creating EuPago payment", {
+      method: payload.method,
+      orderId,
+      totalCents: totals.totalCents,
+      currency,
+    });
+  }
+
   try {
     if (payload.method === "multibanco") {
       paymentResult = await createMultibanco(orderInput);
@@ -3285,8 +3577,26 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[Checkout] MB WAY payload", {
+          orderId,
+          amount: orderInput.amountCents / 100,
+          phone,
+          customer: orderInput.customer,
+          locale: orderInput.locale,
+        });
+      }
       paymentResult = await createMBWay({ ...orderInput, phone });
     } else {
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[Checkout] Card payload", {
+          orderId,
+          amount: orderInput.amountCents / 100,
+          customer: orderInput.customer,
+          returnUrl: process.env.EUPAGO_CARD_RETURN_URL,
+          locale: orderInput.locale,
+        });
+      }
       paymentResult = await createCard(orderInput);
     }
   } catch (error) {
@@ -3455,8 +3765,25 @@ export async function POST(request: NextRequest) {
 
 # --- app/api/payments/eupago/status/route.ts ---
 import { NextResponse, type NextRequest } from "next/server";
+import { PaymentMethod, PaymentProvider, PaymentStatus } from "@prisma/client";
 import { auth } from "@/auth";
-import { EuPagoAPIError, EuPagoConfigurationError, getStatus } from "@/lib/payments/eupago";
+import {
+  EuPagoAPIError,
+  EuPagoConfigurationError,
+  fetchMBWayStatus,
+  fetchMultibancoInfo,
+} from "@/lib/payments/eupago";
+import { prisma } from "@/lib/server/db";
+
+const normaliseTransactionId = (value: string) => value.replace(/[^0-9A-Za-z_-]/g, "");
+const normalizeReferenceDigits = (value: string | null | undefined) =>
+  value ? value.replace(/[^0-9]/g, "") : undefined;
+const asRecord = (value: unknown) =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+const asString = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim().length > 0 ? value : undefined;
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -3470,9 +3797,127 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "transactionId is required." }, { status: 400 });
   }
 
+  const candidateRefs = Array.from(
+    new Set(
+      [transactionId, normaliseTransactionId(transactionId)]
+        .filter((value): value is string => Boolean(value))
+        .map((value) => value.trim()),
+    ),
+  );
+
+  const order = await prisma.order.findFirst({
+    where: {
+      userId: session.user.id,
+      paymentProvider: PaymentProvider.EUPAGO,
+      providerRef: { in: candidateRefs },
+    },
+    select: {
+      id: true,
+      paymentMethod: true,
+      paymentStatus: true,
+      providerMetadata: true,
+      providerRef: true,
+      paidAt: true,
+      totalAmount: true,
+    },
+  });
+
+  if (!order) {
+    return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  }
+
+  const providerMetadata = asRecord(order.providerMetadata);
+
+  if (order.paymentStatus === PaymentStatus.PAID) {
+    return NextResponse.json({
+      status: {
+        status: "paid" as const,
+        paidAt: order.paidAt ? order.paidAt.toISOString() : undefined,
+        raw: {
+          paymentStatus: order.paymentStatus,
+          providerRef: order.providerRef,
+        },
+      },
+    });
+  }
+
   try {
-    const status = await getStatus(transactionId);
-    return NextResponse.json({ status });
+    if (order.paymentMethod === PaymentMethod.MBWAY) {
+      const statusUrl =
+        asString(providerMetadata.statusUrl) ??
+        asString(providerMetadata.status_url);
+      if (!statusUrl) {
+        return NextResponse.json({
+          status: {
+            status: "pending" as const,
+            error: "MB WAY status URL unavailable. Await webhook confirmation.",
+            raw: providerMetadata,
+          },
+        });
+      }
+      const status = await fetchMBWayStatus(statusUrl);
+      return NextResponse.json({ status });
+    }
+
+    if (order.paymentMethod === PaymentMethod.MULTIBANCO) {
+      const reference =
+        normalizeReferenceDigits(
+          asString(providerMetadata.reference) ??
+            asString(providerMetadata.referencia) ??
+            order.providerRef ??
+            transactionId,
+        ) ?? normalizeReferenceDigits(transactionId);
+
+      if (!reference) {
+        return NextResponse.json({
+          status: {
+            status: "pending" as const,
+            error: "Multibanco reference unavailable. Await webhook confirmation.",
+            raw: providerMetadata,
+          },
+        });
+      }
+
+      const entity = normalizeReferenceDigits(
+        asString(providerMetadata.entity) ?? asString(providerMetadata.entidade),
+      );
+
+      const amountRaw =
+        providerMetadata.amount ?? providerMetadata.value ?? providerMetadata.valor;
+      let amount: number | undefined;
+      if (typeof amountRaw === "number") {
+        amount = amountRaw;
+      } else if (typeof amountRaw === "string") {
+        const parsed = Number.parseFloat(amountRaw.replace(",", "."));
+        if (Number.isFinite(parsed)) {
+          amount = parsed;
+        }
+      }
+      if (amount === undefined && typeof order.totalAmount === "number") {
+        amount = Number((order.totalAmount / 100).toFixed(2));
+      }
+
+      const status = await fetchMultibancoInfo({
+        reference,
+        entity,
+        orderId: order.id,
+        transactionId: transactionId,
+        amount,
+      });
+      return NextResponse.json({ status });
+    }
+
+    return NextResponse.json({
+      status: {
+        status: "pending" as const,
+        error:
+          "Status polling is not available for this payment method. Await return URL or webhook.",
+        raw: {
+          paymentMethod: order.paymentMethod,
+          providerRef: order.providerRef,
+        },
+      },
+    });
   } catch (error) {
     if (error instanceof EuPagoConfigurationError) {
       return NextResponse.json(
@@ -3482,7 +3927,10 @@ export async function GET(request: NextRequest) {
     }
     if (error instanceof EuPagoAPIError) {
       console.error("[EuPago] Status error:", error.message, error.response);
-      return NextResponse.json({ error: "Unable to fetch payment status." }, { status: 502 });
+      return NextResponse.json(
+        { error: "Unable to fetch payment status." },
+        { status: 502 },
+      );
     }
     console.error("[EuPago] Unexpected status error:", error);
     return NextResponse.json({ error: "Unexpected error." }, { status: 500 });
@@ -3495,10 +3943,21 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { PaymentStatus } from "@prisma/client";
+import {
+  EmailConfigurationError,
+  formatEmailBlock,
+  sendAdminEmail,
+} from "@/lib/email/mailer";
+import { normaliseProviderReference } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { appendOrderEvent } from "@/lib/utils/order-events";
-import { normaliseProviderReference } from "@/lib/payments/eupago";
-import { EmailConfigurationError, formatEmailBlock, sendAdminEmail } from "@/lib/email/mailer";
+
+/**
+ * EuPago sandbox setup:
+ * - Configure Webhooks 2.0 endpoint to
+ *   https://send-surgery-arrives-regular.trycloudflare.com/api/payments/eupago/webhook
+ * - Use the generated Cryptographic Key as EUPAGO_WEBHOOK_SHARED_SECRET.
+ */
 
 const getSignature = (request: NextRequest) => {
   const header =
@@ -3522,13 +3981,11 @@ const signaturesMatch = (incoming: string, expected: string) => {
 };
 
 const deriveStatus = (payload: Record<string, unknown>) => {
-  const statusRaw = (
-    payload.status ??
+  const statusRaw = (payload.status ??
     payload.state ??
     payload.payment_status ??
     payload.result ??
-    ""
-  ) as string;
+    "") as string;
   const status = typeof statusRaw === "string" ? statusRaw.toLowerCase() : "";
   if (status.includes("paid") || status.includes("success") || status === "ok") {
     return "paid";
@@ -3794,7 +4251,9 @@ export async function GET(request: NextRequest) {
   const idsParam = searchParams.get("ids");
   const query = searchParams.get("q") ?? undefined;
   const categoryParam = searchParams.get("category") ?? undefined;
-  const category = (["licor", "aguardente"] as ProductCategorySlug[]).includes(
+  const category = (
+    ["licor", "aguardente", "bebida-espirituosa"] as ProductCategorySlug[]
+  ).includes(
     categoryParam as ProductCategorySlug,
   )
     ? (categoryParam as ProductCategorySlug)
@@ -4218,7 +4677,7 @@ export function AccountDashboard({ dictionary, locale, user }: DashboardProps) {
           {dictionary.account.dashboard.greeting} {user.name ?? user.email ?? "Palmanhac"}
         </h1>
         <div className="flex flex-wrap gap-3">
-          <Button asChild>
+          <Button asChild variant="outline">
             <Link href={withLocale(locale, "/orders")}>
               {dictionary.account.dashboard.viewOrders}
             </Link>
@@ -4230,6 +4689,9 @@ export function AccountDashboard({ dictionary, locale, user }: DashboardProps) {
           </Button>
           <Button variant="ghost" onClick={handleSignOut}>
             {dictionary.account.logout}
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/admin">Go to Admin Panel</Link>
           </Button>
         </div>
       </header>
@@ -4299,11 +4761,13 @@ export function AccountDashboard({ dictionary, locale, user }: DashboardProps) {
 # --- end of components/account/AccountDashboard.tsx ---
 
 # --- components/admin/AdminNav.tsx ---
+// AdminNav.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
+import { Button } from "../ui/button";
 
 const links = [
   { href: "/admin", label: "Dashboard" },
@@ -4324,27 +4788,30 @@ export function AdminNav() {
           Manage products, monitor orders, and configure security for the Palmanhac store.
         </p>
       </div>
+
       <div className="flex flex-col items-start gap-3 md:items-end">
         <nav className="flex flex-wrap gap-2 md:justify-end">
-          {links.map((link) => {
+          {links.map(({ href, label }) => {
             const isActive =
-              pathname === link.href || (link.href !== "/admin" && pathname.startsWith(link.href));
+              pathname === href || (href !== "/admin" && pathname.startsWith(href));
             return (
-              <Link
-                key={link.href}
-                href={link.href}
+              <Button
+                asChild
+                key={href}
+                variant={isActive ? "secondary" : "outline"}
                 className={clsx(
-                  "rounded-full px-4 py-2 text-sm font-semibold transition",
-                  isActive
-                    ? "bg-neutral-900 text-white shadow-sm"
-                    : "bg-white text-neutral-700 shadow-sm hover:bg-neutral-900 hover:text-white",
+                  "rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition",
+                  isActive && "bg-neutral-300 text-white hover:bg-neutral-500",
                 )}
               >
-                {link.label}
-              </Link>
+                <Link href={href} aria-current={isActive ? "page" : undefined}>
+                  {label}
+                </Link>
+              </Button>
             );
           })}
         </nav>
+
         <Link
           href="/"
           className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
@@ -4370,7 +4837,12 @@ type AdminPaginationProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
-export function AdminPagination({ page, totalItems, basePath, searchParams = {} }: AdminPaginationProps) {
+export function AdminPagination({
+  page,
+  totalItems,
+  basePath,
+  searchParams = {},
+}: AdminPaginationProps) {
   const totalPages = Math.max(1, Math.ceil(totalItems / ADMIN_PAGE_SIZE));
   if (totalPages <= 1) {
     return null;
@@ -4406,7 +4878,10 @@ export function AdminPagination({ page, totalItems, basePath, searchParams = {} 
       <span className="flex items-center gap-2 text-xs uppercase tracking-wide text-neutral-500">
         Page {page} of {totalPages}
       </span>
-      <PaginationLink href={createHref(Math.min(totalPages, page + 1))} disabled={nextDisabled}>
+      <PaginationLink
+        href={createHref(Math.min(totalPages, page + 1))}
+        disabled={nextDisabled}
+      >
         Next
       </PaginationLink>
     </div>
@@ -4748,15 +5223,27 @@ export function AdminTwoFactorSetup({
 # --- components/admin/orders/OrderStatusForm.tsx ---
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 
-const ORDER_STATUS_OPTIONS = ["PENDING", "PROCESSING", "SHIPPED", "COMPLETED", "CANCELLED"] as const;
-const PAYMENT_STATUS_OPTIONS = ["UNPAID", "PENDING", "PAID", "FAILED", "REFUNDED"] as const;
+const ORDER_STATUS_OPTIONS = [
+  "PENDING",
+  "PROCESSING",
+  "SHIPPED",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
+const PAYMENT_STATUS_OPTIONS = [
+  "UNPAID",
+  "PENDING",
+  "PAID",
+  "FAILED",
+  "REFUNDED",
+] as const;
 
 type OrderStatusFormProps = {
   orderId: string;
@@ -4765,7 +5252,12 @@ type OrderStatusFormProps = {
   notes?: string | null;
 };
 
-export function OrderStatusForm({ orderId, status, paymentStatus, notes }: OrderStatusFormProps) {
+export function OrderStatusForm({
+  orderId,
+  status,
+  paymentStatus,
+  notes,
+}: OrderStatusFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [statusValue, setStatusValue] = useState(status);
@@ -4794,7 +5286,9 @@ export function OrderStatusForm({ orderId, status, paymentStatus, notes }: Order
         });
 
         if (!response.ok) {
-          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           throw new Error(payload?.error ?? "Failed to update order.");
         }
 
@@ -4824,7 +5318,9 @@ export function OrderStatusForm({ orderId, status, paymentStatus, notes }: Order
             id="order-status"
             className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
             value={statusValue}
-            onChange={(event) => setStatusValue(event.target.value as (typeof ORDER_STATUS_OPTIONS)[number])}
+            onChange={(event) =>
+              setStatusValue(event.target.value as (typeof ORDER_STATUS_OPTIONS)[number])
+            }
             disabled={isPending || isReadOnly}
           >
             {ORDER_STATUS_OPTIONS.map((option) => (
@@ -4841,7 +5337,9 @@ export function OrderStatusForm({ orderId, status, paymentStatus, notes }: Order
             className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
             value={paymentStatusValue}
             onChange={(event) =>
-              setPaymentStatusValue(event.target.value as (typeof PAYMENT_STATUS_OPTIONS)[number])
+              setPaymentStatusValue(
+                event.target.value as (typeof PAYMENT_STATUS_OPTIONS)[number],
+              )
             }
             disabled={isPending || isReadOnly}
           >
@@ -4876,8 +5374,8 @@ export function OrderStatusForm({ orderId, status, paymentStatus, notes }: Order
 # --- components/admin/products/DeleteProductButton.tsx ---
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -4902,7 +5400,9 @@ export function DeleteProductButton({
           method: "DELETE",
         });
         if (!response.ok) {
-          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           throw new Error(payload?.error ?? "Unable to delete product.");
         }
         toast({ title: "Product deleted", variant: "success" });
@@ -4964,16 +5464,46 @@ export function DeleteProductButton({
 # --- components/admin/products/ProductForm.tsx ---
 "use client";
 
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { Paperclip } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils/format";
 
 const slugPattern = /^[a-z0-9-]+$/;
+
+// accept http(s) or root-relative /assets/... (or /images/...)
+const imagePathRegex = /^\/(assets|images)\/[^\s]+$/i;
+const imageUrlOrPath = z
+  .string()
+  .trim()
+  .refine(
+    (v) => {
+      if (!v) return false;
+      if (imagePathRegex.test(v)) return true;
+      try {
+        const u = new URL(v);
+        return u.protocol === "http:" || u.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Enter a valid image URL or a path like /assets/file.png" },
+  );
+
+// convert root-relative -> absolute (server requires absolute)
+const toAbsoluteUrl = (v: string) => {
+  if (!v) return v;
+  if (typeof window !== "undefined" && v.startsWith("/")) {
+    return `${window.location.origin}${v}`;
+  }
+  return v;
+};
 
 const productFormSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -4991,29 +5521,32 @@ const productFormSchema = z.object({
       const parsed = Number.parseFloat(value.replace(",", "."));
       return Number.isFinite(parsed) && parsed >= 0;
     }, "Enter a valid price"),
-  image: z.string().url("Enter a valid image URL"),
+  image: imageUrlOrPath,
   galleryImages: z.string().optional(),
-  volumeMl: z
-    .string()
-    .refine((value) => {
+  volumeMl: z.string().refine(
+    (value) => {
       if (!value.trim()) return true;
       const parsed = Number.parseInt(value, 10);
       return Number.isInteger(parsed) && parsed >= 0;
-    }, "Enter a valid volume in ml"),
-  abv: z
-    .string()
-    .refine((value) => {
+    },
+    { message: "Enter a valid volume in ml" },
+  ),
+  abv: z.string().refine(
+    (value) => {
       if (!value.trim()) return true;
       const parsed = Number.parseFloat(value.replace(",", "."));
       return Number.isFinite(parsed) && parsed >= 0;
-    }, "Enter a valid ABV"),
-  stock: z
-    .string()
-    .refine((value) => {
+    },
+    { message: "Enter a valid ABV" },
+  ),
+  stock: z.string().refine(
+    (value) => {
       if (!value.trim()) return true;
       const parsed = Number.parseInt(value, 10);
       return Number.isInteger(parsed) && parsed >= 0;
-    }, "Enter a valid stock quantity"),
+    },
+    { message: "Enter a valid stock quantity" },
+  ),
   descriptionEn: z.string().min(1, "Provide an English description"),
   descriptionPt: z.string().min(1, "Forneça a descrição em português"),
   isActive: z.boolean(),
@@ -5044,7 +5577,10 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  const [errors, setErrors] = useState<Partial<Record<keyof ProductFormValues, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof ProductFormValues, string>>>(
+    {},
+  );
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<ProductFormValues>({
     name: product?.name ?? "",
     slug: product?.slug ?? "",
@@ -5060,48 +5596,88 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     isActive: product?.isActive ?? true,
   });
 
-  const handleChange = <Field extends keyof ProductFormValues>(field: Field, value: ProductFormValues[Field]) => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleChange = <Field extends keyof ProductFormValues>(
+    field: Field,
+    value: ProductFormValues[Field],
+  ) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const parseGallery = (v: string | undefined) =>
+    (v ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  const handleAttachClick = () => fileInputRef.current?.click();
+
+  const handleFileChosen = async (file: File | null) => {
+    if (!file) return;
+    setSubmitError(null);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+
+      console.groupCollapsed("[ProductForm] Upload image");
+      console.log("name:", file.name, "size:", file.size, "type:", file.type);
+      console.groupEnd();
+
+      const res = await fetch("/api/admin/upload", { method: "POST", body: data });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(t || "Failed to upload file");
+      }
+      const json = (await res.json()) as { path: string };
+      handleChange("image", json.path);
+      if (!form.galleryImages?.trim()) handleChange("galleryImages", json.path);
+      toast({ title: "Image uploaded", variant: "success" });
+    } catch (e) {
+      console.error(e);
+      setSubmitError(e instanceof Error ? e.message : "Failed to upload the image.");
+      toast({ title: "Image upload failed", variant: "destructive" });
+    }
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrors({});
+    setSubmitError(null);
 
     const parsed = productFormSchema.safeParse(form);
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
-      const formattedErrors: Partial<Record<keyof ProductFormValues, string>> = {};
+      const formatted: Partial<Record<keyof ProductFormValues, string>> = {};
       (Object.keys(fieldErrors) as Array<keyof ProductFormValues>).forEach((key) => {
         const message = fieldErrors[key]?.[0];
-        if (message) {
-          formattedErrors[key] = message;
-        }
+        if (message) formatted[key] = message;
       });
-      setErrors(formattedErrors);
+      setErrors(formatted);
+      setSubmitError("Please fix the highlighted fields.");
       return;
     }
 
     startTransition(async () => {
       try {
-        const galleryImages = (parsed.data.galleryImages ?? "")
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean);
-
+        const galleryImagesRaw = parseGallery(parsed.data.galleryImages);
+        const galleryImagesAbs = galleryImagesRaw.map(toAbsoluteUrl);
         const priceFloat = Number.parseFloat(parsed.data.price.replace(",", "."));
         const priceCents = Math.round(priceFloat * 100);
         if (!Number.isFinite(priceCents) || priceCents < 0) {
           throw new Error("Unable to parse price.");
         }
 
+        // Match server contract: absolute URLs + object fields
         const payload = {
           name: parsed.data.name,
           slug: parsed.data.slug?.trim() || undefined,
           category: parsed.data.category,
           priceCents,
-          image: parsed.data.image,
-          galleryImages: galleryImages.length ? galleryImages : [parsed.data.image],
+          image: toAbsoluteUrl(parsed.data.image),
+          galleryImages: galleryImagesAbs.length
+            ? galleryImagesAbs
+            : [toAbsoluteUrl(parsed.data.image)],
           volumeMl: Number.parseInt(parsed.data.volumeMl || "0", 10) || 0,
           abv: Number.parseFloat(parsed.data.abv || "0") || 0,
           stock: Number.parseInt(parsed.data.stock || "0", 10) || 0,
@@ -5110,10 +5686,22 @@ export function ProductForm({ mode, product }: ProductFormProps) {
             en: parsed.data.descriptionEn,
             pt: parsed.data.descriptionPt,
           },
+          // Server wants strings, not nulls:
+          tastingNotes: {
+            en: "",
+            pt: "",
+          },
         };
 
+        console.groupCollapsed("[ProductForm] Submitting");
+        console.log("mode:", mode);
+        console.log("payload:", payload);
+        console.groupEnd();
+
         const response = await fetch(
-          mode === "create" ? "/api/admin/products" : `/api/admin/products/${product?.id}`,
+          mode === "create"
+            ? "/api/admin/products"
+            : `/api/admin/products/${product?.id}`,
           {
             method: mode === "create" ? "POST" : "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -5121,9 +5709,48 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           },
         );
 
+        const text = await response.text().catch(() => "");
+        let result: any = null;
+        try {
+          result = text ? JSON.parse(text) : null;
+        } catch {
+          /* non-JSON error */
+        }
+
         if (!response.ok) {
-          const result = (await response.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(result?.error ?? "Failed to save product.");
+          console.groupCollapsed("[ProductForm] Error response");
+          console.log("status:", response.status);
+          console.log("body:", text);
+          console.groupEnd();
+
+          const apiMessage =
+            result?.error ||
+            result?.message ||
+            (typeof result === "string" ? result : null) ||
+            "Failed to save product.";
+          setSubmitError(apiMessage);
+
+          if (result?.fieldErrors && typeof result.fieldErrors === "object") {
+            const mapped: Partial<Record<keyof ProductFormValues, string>> = {};
+            if (result.fieldErrors.image?.[0]) mapped.image = result.fieldErrors.image[0];
+            if (result.fieldErrors.galleryImages?.[0])
+              mapped.galleryImages = result.fieldErrors.galleryImages[0];
+            if (result.fieldErrors.description?.[0]) {
+              mapped.descriptionEn = result.fieldErrors.description[0];
+              mapped.descriptionPt = result.fieldErrors.description[0];
+            }
+            if (result.fieldErrors.tastingNotes?.[0]) {
+              // We don't have dedicated inputs for notes, bubble to banner
+              setSubmitError((prev) =>
+                prev
+                  ? `${prev} • ${result.fieldErrors.tastingNotes[0]}`
+                  : result.fieldErrors.tastingNotes[0],
+              );
+            }
+            setErrors((prev) => ({ ...prev, ...mapped }));
+          }
+
+          throw new Error(apiMessage);
         }
 
         toast({
@@ -5144,106 +5771,152 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   };
 
   return (
-    <form className="space-y-6" onSubmit={handleSubmit}>
+    <form className="space-y-6" onSubmit={handleSubmit} noValidate>
+      {submitError ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {submitError}
+        </div>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Name" error={errors.name}>
           <Input
+            className={cn(errors.name && "ring-1 ring-red-500")}
             required
             value={form.name}
-            onChange={(event) => handleChange("name", event.target.value)}
+            onChange={(e) => handleChange("name", e.target.value)}
           />
         </Field>
+
         <Field label="Slug" helper="Leave blank to auto-generate." error={errors.slug}>
           <Input
+            className={cn(errors.slug && "ring-1 ring-red-500")}
             placeholder="automatic"
             value={form.slug}
-            onChange={(event) => handleChange("slug", event.target.value)}
+            onChange={(e) => handleChange("slug", e.target.value)}
           />
         </Field>
+
         <Field label="Category" error={errors.category}>
           <Input
+            className={cn(errors.category && "ring-1 ring-red-500")}
             required
             value={form.category}
-            onChange={(event) => handleChange("category", event.target.value)}
+            onChange={(e) => handleChange("category", e.target.value)}
           />
         </Field>
+
         <Field label="Price (€)" error={errors.price}>
           <Input
+            className={cn(errors.price && "ring-1 ring-red-500")}
             type="number"
             min="0"
             step="0.01"
             required
             value={form.price}
-            onChange={(event) => handleChange("price", event.target.value)}
+            onChange={(e) => handleChange("price", e.target.value)}
           />
         </Field>
-        <Field label="Image URL" error={errors.image}>
-          <Input
-            required
-            value={form.image}
-            onChange={(event) => handleChange("image", event.target.value)}
-          />
+
+        <Field label="Image" helper="URL or /assets/file.png" error={errors.image}>
+          <div className="flex items-center gap-2">
+            <Input
+              className={cn("flex-1", errors.image && "ring-1 ring-red-500")}
+              required
+              value={form.image}
+              onChange={(e) => handleChange("image", e.target.value)}
+              placeholder="https://... or /assets/bottle.png"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleAttachClick}
+              title="Upload to /public/assets"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleFileChosen(e.target.files?.[0] ?? null)}
+            />
+          </div>
         </Field>
+
         <Field label="Gallery URLs" helper="Comma-separated" error={errors.galleryImages}>
           <Input
+            className={cn(errors.galleryImages && "ring-1 ring-red-500")}
             value={form.galleryImages ?? ""}
-            onChange={(event) => handleChange("galleryImages", event.target.value)}
+            onChange={(e) => handleChange("galleryImages", e.target.value)}
           />
         </Field>
+
         <Field label="Volume (ml)" error={errors.volumeMl}>
           <Input
+            className={cn(errors.volumeMl && "ring-1 ring-red-500")}
             type="number"
             min="0"
             value={form.volumeMl}
-            onChange={(event) => handleChange("volumeMl", event.target.value)}
+            onChange={(e) => handleChange("volumeMl", e.target.value)}
           />
         </Field>
+
         <Field label="ABV (%)" error={errors.abv}>
           <Input
+            className={cn(errors.abv && "ring-1 ring-red-500")}
             type="number"
             min="0"
             step="0.1"
             value={form.abv}
-            onChange={(event) => handleChange("abv", event.target.value)}
+            onChange={(e) => handleChange("abv", e.target.value)}
           />
         </Field>
+
         <Field label="Stock" error={errors.stock}>
           <Input
+            className={cn(errors.stock && "ring-1 ring-red-500")}
             type="number"
             min="0"
             value={form.stock}
-            onChange={(event) => handleChange("stock", event.target.value)}
+            onChange={(e) => handleChange("stock", e.target.value)}
           />
         </Field>
+
         <div className="flex items-center gap-2 pt-6">
           <input
             type="checkbox"
             id="product-active"
             className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
             checked={form.isActive}
-            onChange={(event) => handleChange("isActive", event.target.checked)}
+            onChange={(e) => handleChange("isActive", e.target.checked)}
           />
           <Label htmlFor="product-active">Active</Label>
         </div>
       </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Description (EN)" error={errors.descriptionEn}>
           <Textarea
+            className={cn(errors.descriptionEn && "ring-1 ring-red-500")}
             required
             rows={6}
             value={form.descriptionEn}
-            onChange={(event) => handleChange("descriptionEn", event.target.value)}
+            onChange={(e) => handleChange("descriptionEn", e.target.value)}
           />
         </Field>
         <Field label="Descrição (PT)" error={errors.descriptionPt}>
           <Textarea
+            className={cn(errors.descriptionPt && "ring-1 ring-red-500")}
             required
             rows={6}
             value={form.descriptionPt}
-            onChange={(event) => handleChange("descriptionPt", event.target.value)}
+            onChange={(e) => handleChange("descriptionPt", e.target.value)}
           />
         </Field>
       </div>
+
       <div className="flex items-center justify-end gap-3">
         <Button type="submit" disabled={isPending}>
           {mode === "create" ? "Create product" : "Save changes"}
@@ -5561,8 +6234,8 @@ export function CartView({
 # --- components/checkout/CheckoutView.tsx ---
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -5681,9 +6354,7 @@ export function CheckoutView({
   const [products, setProducts] = useState<CheckoutProduct[]>([]);
   const [isFetchingProducts, setIsFetchingProducts] = useState(false);
 
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodOption>(
-    "multibanco",
-  );
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodOption>("multibanco");
   const [contact, setContact] = useState({
     email: session?.user?.email ?? "",
     phone: "",
@@ -5708,13 +6379,11 @@ export function CheckoutView({
   });
   const [notes, setNotes] = useState("");
   const [mbwayPhone, setMbwayPhone] = useState("");
-  const [paymentResult, setPaymentResult] = useState<EuPagoCreateResponse | null>(
-    null,
-  );
+  const [paymentResult, setPaymentResult] = useState<EuPagoCreateResponse | null>(null);
   const [mbwayStatus, setMbwayStatus] = useState<string | null>(null);
-  const [pollingState, setPollingState] = useState<"idle" | "polling" | "complete" | "failed">(
-    "idle",
-  );
+  const [pollingState, setPollingState] = useState<
+    "idle" | "polling" | "complete" | "failed"
+  >("idle");
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollingAttemptsRef = useRef(0);
   const hasClearedCartRef = useRef(false);
@@ -5809,10 +6478,85 @@ export function CheckoutView({
     };
   }, []);
 
-  const totals = useMemo(
-    () => calculateCartTotals(items, products),
-    [items, products],
+  const totals = useMemo(() => calculateCartTotals(items, products), [items, products]);
+
+  const normalisedItems = useMemo(
+    () =>
+      items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+      })),
+    [items],
   );
+
+  const normalisedContact = useMemo(
+    () => ({
+      email: contact.email.trim(),
+      phone: contact.phone.trim() || undefined,
+      name: contact.name.trim() || undefined,
+    }),
+    [contact.email, contact.phone, contact.name],
+  );
+
+  const normalisedShipping = useMemo(
+    () => ({
+      name: shipping.name.trim(),
+      line1: shipping.line1.trim(),
+      line2: shipping.line2.trim() || undefined,
+      city: shipping.city.trim(),
+      postalCode: shipping.postalCode.trim(),
+      country: shipping.country.trim(),
+    }),
+    [
+      shipping.name,
+      shipping.line1,
+      shipping.line2,
+      shipping.city,
+      shipping.postalCode,
+      shipping.country,
+    ],
+  );
+
+  const normalisedBilling = useMemo(() => {
+    const source = billingSameAsShipping ? shipping : billing;
+    return {
+      name: source.name.trim(),
+      line1: source.line1.trim(),
+      line2: source.line2.trim() || undefined,
+      city: source.city.trim(),
+      postalCode: source.postalCode.trim(),
+      country: source.country.trim(),
+    };
+  }, [billingSameAsShipping, billing, shipping]);
+
+  const buildCheckoutPayload = () => {
+    const base = {
+      method: selectedMethod,
+      items: normalisedItems,
+      contact: normalisedContact,
+      shipping: normalisedShipping,
+      billing: normalisedBilling,
+      notes: notes.trim() || undefined,
+      currency: "EUR" as const,
+      locale,
+      totals: {
+        itemsSubtotalCents: totals.itemsSubtotalCents,
+        deliveryCents: totals.deliveryCents,
+        discountCents: totals.discountCents,
+        totalCents: totals.totalCents,
+      },
+    };
+
+    if (selectedMethod === "mbway") {
+      const normalizedPhone = mbwayPhone.trim() || contact.phone.trim() || undefined;
+      return {
+        ...base,
+        mbwayPhone: normalizedPhone,
+      };
+    }
+
+    return base;
+  };
 
   const stopPolling = () => {
     if (pollingIntervalRef.current) {
@@ -5917,46 +6661,11 @@ export function CheckoutView({
     resetPaymentState();
 
     try {
-      const payload = {
-        method: selectedMethod,
-        items: items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        })),
-        contact: {
-          email: contact.email.trim(),
-          phone: contact.phone.trim() || undefined,
-          name: contact.name.trim() || undefined,
-        },
-        shipping: {
-          name: shipping.name.trim(),
-          line1: shipping.line1.trim(),
-          line2: shipping.line2.trim() || undefined,
-          city: shipping.city.trim(),
-          postalCode: shipping.postalCode.trim(),
-          country: shipping.country.trim(),
-        },
-        billing: {
-          name: (billingSameAsShipping ? shipping.name : billing.name).trim(),
-          line1: (billingSameAsShipping ? shipping.line1 : billing.line1).trim(),
-          line2:
-            (billingSameAsShipping ? shipping.line2 : billing.line2).trim() ||
-            undefined,
-          city: (billingSameAsShipping ? shipping.city : billing.city).trim(),
-          postalCode: (billingSameAsShipping
-            ? shipping.postalCode
-            : billing.postalCode
-          ).trim(),
-          country: (billingSameAsShipping ? shipping.country : billing.country).trim(),
-        },
-        notes: notes.trim() || undefined,
-        currency: "EUR",
-        locale,
-        mbwayPhone:
-          selectedMethod === "mbway"
-            ? (mbwayPhone.trim() || contact.phone.trim() || undefined)
-            : undefined,
-      };
+      const payload = buildCheckoutPayload();
+
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[Checkout] Submitting payload", payload);
+      }
 
       const response = await fetch("/api/payments/eupago/create", {
         method: "POST",
@@ -5970,6 +6679,13 @@ export function CheckoutView({
       };
 
       if (!response.ok) {
+        const diagnostic = {
+          status: response.status,
+          payload,
+          result,
+          responseText: await response.text().catch(() => undefined),
+        };
+        console.error("[Checkout] Create payment failed", diagnostic);
         setServerError(result.error ?? dictionary.checkout.paymentServiceUnavailable);
         return;
       }
@@ -6063,9 +6779,7 @@ export function CheckoutView({
                 <p className="text-neutral-500">
                   {dictionary.checkout.resultFields.entity}
                 </p>
-                <p className="font-semibold text-neutral-900">
-                  {paymentResult.entity}
-                </p>
+                <p className="font-semibold text-neutral-900">{paymentResult.entity}</p>
               </div>
               <div>
                 <p className="text-neutral-500">
@@ -6130,14 +6844,10 @@ export function CheckoutView({
               </p>
             ) : null}
             {pollingState === "failed" ? (
-              <p className="text-xs text-red-600">
-                {dictionary.checkout.statusFailed}
-              </p>
+              <p className="text-xs text-red-600">{dictionary.checkout.statusFailed}</p>
             ) : null}
             {pollingState === "complete" ? (
-              <p className="text-xs text-neutral-600">
-                {dictionary.checkout.statusPaid}
-              </p>
+              <p className="text-xs text-neutral-600">{dictionary.checkout.statusPaid}</p>
             ) : null}
             {paymentResult.statusUrl ? (
               <a
@@ -6158,9 +6868,7 @@ export function CheckoutView({
       <Card className="border border-neutral-200 bg-neutral-50">
         <CardHeader>
           <CardTitle>{dictionary.checkout.resultHeading}</CardTitle>
-          <CardDescription>
-            {dictionary.checkout.resultInstructions.card}
-          </CardDescription>
+          <CardDescription>{dictionary.checkout.resultInstructions.card}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-neutral-700">
           <p className="rounded-lg bg-white p-3 text-neutral-600">
@@ -6400,7 +7108,10 @@ export function CheckoutView({
                         required
                         value={billing.postalCode}
                         onChange={(event) =>
-                          setBilling((prev) => ({ ...prev, postalCode: event.target.value }))
+                          setBilling((prev) => ({
+                            ...prev,
+                            postalCode: event.target.value,
+                          }))
                         }
                       />
                     </div>
@@ -6449,9 +7160,7 @@ export function CheckoutView({
                   </div>
                 ) : null}
                 <div className="space-y-2">
-                  <Label htmlFor="checkout-notes">
-                    {dictionary.checkout.notesLabel}
-                  </Label>
+                  <Label htmlFor="checkout-notes">{dictionary.checkout.notesLabel}</Label>
                   <Textarea
                     id="checkout-notes"
                     rows={3}
@@ -6715,6 +7424,48 @@ export function LanguageSwitcher() {
 }
 # --- end of components/common/LanguageSwitcher.tsx ---
 
+# --- components/common/ScrollToTopButton.tsx ---
+"use client";
+
+import { useEffect, useState } from "react";
+import { ArrowUp } from "lucide-react";
+import { cn } from "@/lib/utils/format";
+
+export function ScrollToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setVisible(window.scrollY > 320);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const handleClick = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      aria-label="Scroll to top"
+      className={cn(
+        "fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg transition",
+        "hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200",
+        "sm:bottom-8 sm:right-8",
+        visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0",
+      )}
+    >
+      <ArrowUp className="h-5 w-5" />
+    </button>
+  );
+}
+# --- end of components/common/ScrollToTopButton.tsx ---
+
 # --- components/common/SearchBar.tsx ---
 "use client";
 
@@ -6975,9 +7726,18 @@ export function FavoritesView({
 
 # --- components/home/HeroSection.tsx ---
 "use client";
-
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const HERO_IMAGES = [
+  "/assets/mainCarousel/1.JPG",
+  "/assets/mainCarousel/2.JPG",
+  "/assets/mainCarousel/3.JPG",
+  "/assets/mainCarousel/4.JPG",
+  "/assets/mainCarousel/5.JPG",
+] as const;
 
 type HeroSectionProps = {
   eyebrow: string;
@@ -6995,11 +7755,50 @@ export function HeroSection({
   scrollTargetId,
 }: HeroSectionProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startRotation = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    intervalRef.current = setInterval(
+      () =>
+        setActiveIndex((prev) => (prev + 1) % HERO_IMAGES.length),
+      6000,
+    );
+  }, []);
 
   useEffect(() => {
     const handle = requestAnimationFrame(() => setIsVisible(true));
-    return () => cancelAnimationFrame(handle);
-  }, []);
+    startRotation();
+    return () => {
+      cancelAnimationFrame(handle);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [startRotation]);
+
+  const goToIndex = useCallback(
+    (index: number) => {
+      const normalized =
+        ((index % HERO_IMAGES.length) + HERO_IMAGES.length) % HERO_IMAGES.length;
+      setActiveIndex((prev) => (normalized === prev ? prev : normalized));
+      startRotation();
+    },
+    [startRotation],
+  );
+
+  const handlePrev = useCallback(
+    () => goToIndex(activeIndex - 1),
+    [activeIndex, goToIndex],
+  );
+
+  const handleNext = useCallback(
+    () => goToIndex(activeIndex + 1),
+    [activeIndex, goToIndex],
+  );
 
   const handleScroll = () => {
     const target = document.getElementById(scrollTargetId);
@@ -7009,48 +7808,103 @@ export function HeroSection({
   };
 
   return (
-    <section className="relative overflow-hidden rounded-[2.5rem] bg-neutral-950 text-white shadow-[0px_30px_80px_rgba(15,23,42,0.45)]">
-      <video
-        className="absolute inset-0 h-full w-full object-cover"
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="metadata"
-        aria-hidden="true"
-      >
-        <source src="/videos/wine-animation.mp4" type="video/mp4" />
-      </video>
-      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/70 to-black/40" />
-      <div className="relative z-10 flex min-h-[440px] flex-col justify-center gap-6 px-8 py-16 sm:px-12 lg:min-h-[520px] lg:px-16">
-        <div
-          className={[
-            "max-w-2xl space-y-5 transition-all duration-700 ease-out",
-            isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0",
-          ].join(" ")}
-        >
-          <span className="inline-flex w-fit rounded-full bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em]">
-            {eyebrow}
-          </span>
-          <h1 className="text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
-            {heading}
-          </h1>
-          <p className="text-base text-white/80 sm:text-lg lg:text-xl">{subheading}</p>
-        </div>
-        <div
-          className={[
-            "transition-all duration-700 ease-out delay-150",
-            isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0",
-          ].join(" ")}
-        >
-          <Button
-            type="button"
-            size="lg"
-            className="px-8 py-6 text-base sm:text-lg"
-            onClick={handleScroll}
+    <section className="relative overflow-hidden rounded-[3rem] bg-neutral-950 text-white shadow-[0px_40px_90px_rgba(15,23,42,0.45)]">
+      <div className="relative min-h-[380px] max-h-[680px] h-[calc(100vh-14rem)] sm:h-[calc(100vh-14rem)] md:h-[calc(100vh-12rem)] lg:h-[calc(100vh-12rem)] xl:h-[calc(100vh-11rem)]">
+        {HERO_IMAGES.map((src, index) => {
+          const isActive = index === activeIndex;
+          return (
+            <div
+              key={src}
+              className={`absolute inset-0 transition-[opacity,transform] duration-[1200ms] ease-out ${
+                isActive
+                  ? "opacity-100 scale-100"
+                  : "pointer-events-none opacity-0 scale-105"
+              }`}
+            >
+              <Image
+                src={src}
+                alt=""
+                fill
+                priority={index === 0}
+                className="object-cover"
+                sizes="100vw"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/70 to-black/40" />
+            </div>
+          );
+        })}
+
+        <div className="relative z-10 flex h-full flex-col items-center justify-center gap-8 px-8 py-16 text-center sm:px-12 lg:px-20">
+          <div
+            className={[
+              "max-w-3xl space-y-6 transition-all duration-700 ease-out",
+              isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0",
+            ].join(" ")}
           >
-            {ctaLabel}
-          </Button>
+            <span className="mx-auto inline-flex w-fit rounded-full bg-white/15 px-5 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-white/80">
+              {eyebrow}
+            </span>
+            <h1 className="text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
+              {heading}
+            </h1>
+            <p className="mx-auto max-w-2xl text-base text-white/80 sm:text-lg lg:text-xl">
+              {subheading}
+            </p>
+          </div>
+          <div
+            className={[
+              "transition-all duration-700 ease-out delay-150",
+              isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0",
+            ].join(" ")}
+          >
+            <Button
+              type="button"
+              size="lg"
+              variant="outlineInverted"
+              className="px-8 py-6 text-base sm:text-lg"
+              onClick={handleScroll}
+            >
+              {ctaLabel}
+            </Button>
+          </div>
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-8 z-10 flex items-center justify-center gap-2 sm:bottom-10">
+          {HERO_IMAGES.map((_, index) => {
+            const isActive = index === activeIndex;
+            return (
+              <button
+                key={index}
+                type="button"
+                onClick={() => goToIndex(index)}
+                className={`pointer-events-auto h-2 w-10 rounded-full transition-all ${
+                  isActive ? "bg-white" : "bg-white/40 hover:bg-white/70"
+                }`}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            );
+          })}
+        </div>
+
+        <div className="absolute inset-y-0 left-0 z-10 flex items-center pl-4 sm:pl-8">
+          <button
+            type="button"
+            onClick={handlePrev}
+            className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            aria-label="Previous slide"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-4 sm:pr-8">
+          <button
+            type="button"
+            onClick={handleNext}
+            className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            aria-label="Next slide"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
         </div>
       </div>
     </section>
@@ -7265,6 +8119,7 @@ import { Input } from "@/components/ui/input";
 import type { NavConfig } from "@/config/nav";
 import type { Locale, SiteConfig } from "@/config/site";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { buildAnswerSegments } from "@/lib/utils/faq";
 import { withLocale } from "@/lib/utils/locale";
 
 export function Footer({
@@ -7278,10 +8133,12 @@ export function Footer({
   dictionary: Dictionary;
   locale: Locale;
 }) {
+  const faqCategories = dictionary.about.faq.categories;
+
   return (
     <footer className="mt-16 border-t border-[rgb(var(--border))] bg-white/80 backdrop-blur">
       <div className="container grid gap-12 py-12 md:grid-cols-[2fr_1fr_1fr]">
-        <div className="space-y-6">
+        <div className="space-y-8">
           <div>
             <h3 className="text-2xl font-semibold tracking-tight text-neutral-900">
               Palmanhac
@@ -7289,56 +8146,6 @@ export function Footer({
             <p className="mt-3 max-w-md text-sm text-[rgb(var(--muted-foreground))]">
               {site.description}
             </p>
-          </div>
-          <p className="text-sm text-neutral-600">{dictionary.footer.logisticsBlurb}</p>
-          <div className="space-y-2 text-sm text-neutral-700">
-            {dictionary.footer.addressLines.map((line, index) => {
-              const emailMatch = line.match(
-                /([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/,
-              );
-              const websiteMatch = line.match(/(www\.[^\s]+)/i);
-
-              if (emailMatch) {
-                const email = emailMatch[1] ?? "";
-                const prefix = line.replace(email, "").trim();
-                return (
-                  <p key={`${line}-${index}`}>
-                    {prefix ? `${prefix} ` : null}
-                    <Link href={`mailto:${email}`} className="hover:underline">
-                      {email}
-                    </Link>
-                  </p>
-                );
-              }
-
-              if (websiteMatch) {
-                const siteLabel = websiteMatch[1] ?? "";
-                const prefix = line.replace(siteLabel, "").trim();
-                return (
-                  <p key={`${line}-${index}`}>
-                    {prefix ? `${prefix} ` : null}
-                    <Link
-                      href={`https://${siteLabel}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="hover:underline"
-                    >
-                      {siteLabel}
-                    </Link>
-                  </p>
-                );
-              }
-
-              return <p key={`${line}-${index}`}>{line}</p>;
-            })}
-            <Link
-              href="https://www.livroreclamacoes.pt"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--primary))] hover:underline"
-            >
-              {dictionary.footer.complaintsBook}
-            </Link>
           </div>
           <div className="flex gap-4 text-sm font-medium text-neutral-700">
             <Link href={site.social.instagram} target="_blank" rel="noreferrer">
@@ -7384,6 +8191,127 @@ export function Footer({
               {dictionary.footer.submit}
             </Button>
           </form>
+        </div>
+        <div className="space-y-6 rounded-3xl border border-[rgb(var(--border))] bg-white/90 p-6 shadow-sm md:col-span-3 md:p-8">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-neutral-500">
+                {dictionary.about.faq.title}
+              </p>
+              <h4 className="mt-3 text-xl font-semibold text-neutral-900">
+                {dictionary.about.faq.subtitle}
+              </h4>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {faqCategories.map((category) => (
+              <div key={category.id} className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--primary))]">
+                  {category.title}
+                </p>
+                <div className="space-y-2">
+                  {category.items.map((item) => {
+                    const segments = buildAnswerSegments(item.answer);
+
+                    return (
+                      <details
+                        key={item.question}
+                        className="group rounded-xl border border-[rgb(var(--border))] bg-white p-4 text-sm text-neutral-700 transition hover:border-[rgb(var(--primary))]"
+                      >
+                        <summary className="flex cursor-pointer items-center justify-between gap-4 text-left font-medium text-neutral-900 outline-none [&::-webkit-details-marker]:hidden">
+                          <span>{item.question}</span>
+                          <span className="text-xs text-neutral-400 transition-transform duration-200 group-open:rotate-180">
+                            ▾
+                          </span>
+                        </summary>
+                        <div className="mt-3 space-y-2 text-sm leading-relaxed text-neutral-600">
+                          {segments.map((segment, segmentIndex) => {
+                            if (segment.type === "text") {
+                              return <p key={segmentIndex}>{segment.content}</p>;
+                            }
+
+                            return (
+                              <ul key={segmentIndex} className="space-y-1.5 pl-4">
+                                {segment.content.map((value) => (
+                                  <li
+                                    key={value}
+                                    className="list-disc marker:text-[rgb(var(--primary))]"
+                                  >
+                                    {value}
+                                  </li>
+                                ))}
+                              </ul>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-6 rounded-3xl border border-[rgb(var(--border))] bg-white/90 p-6 shadow-sm md:col-span-3 md:p-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="max-w-xl space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                {dictionary.footer.addressHeading}
+              </p>
+              <p className="text-sm leading-relaxed text-neutral-600">
+                {dictionary.footer.logisticsBlurb}
+              </p>
+            </div>
+            <div className="space-y-2 text-sm text-neutral-700 md:text-right">
+              {dictionary.footer.addressLines.map((line, index) => {
+                const emailMatch = line.match(
+                  /([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/,
+                );
+                const websiteMatch = line.match(/(www\.[^\s]+)/i);
+
+                if (emailMatch) {
+                  const email = emailMatch[1] ?? "";
+                  const prefix = line.replace(email, "").trim();
+                  return (
+                    <p key={`${line}-${index}`}>
+                      {prefix ? `${prefix} ` : null}
+                      <Link href={`mailto:${email}`} className="hover:underline">
+                        {email}
+                      </Link>
+                    </p>
+                  );
+                }
+
+                if (websiteMatch) {
+                  const siteLabel = websiteMatch[1] ?? "";
+                  const prefix = line.replace(siteLabel, "").trim();
+                  return (
+                    <p key={`${line}-${index}`}>
+                      {prefix ? `${prefix} ` : null}
+                      <Link
+                        href={`https://${siteLabel}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:underline"
+                      >
+                        {siteLabel}
+                      </Link>
+                    </p>
+                  );
+                }
+
+                return <p key={`${line}-${index}`}>{line}</p>;
+              })}
+              <Link
+                href="https://www.livroreclamacoes.pt"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--primary))] hover:underline md:self-end"
+              >
+                {dictionary.footer.complaintsBook}
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
       <div className="border-t border-[rgb(var(--border))] bg-white/60 py-6">
@@ -7438,7 +8366,7 @@ export function Header({
   locale: Locale;
 }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-white/60 bg-white/80 backdrop-blur-lg">
+    <header className="relative z-40 border-b border-white/80 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur">
       <div className="container flex items-center gap-4 py-4">
         <div className="flex items-center gap-3 lg:gap-6">
           <div className="lg:hidden">
@@ -8395,7 +9323,14 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils/format";
 
-type ButtonVariant = "default" | "outline" | "ghost" | "secondary" | "link" | "pill";
+type ButtonVariant =
+  | "default"
+  | "outline"
+  | "ghost"
+  | "secondary"
+  | "link"
+  | "pill"
+  | "outlineInverted";
 
 type ButtonSize = "default" | "sm" | "lg" | "icon";
 
@@ -8408,6 +9343,8 @@ const variantClasses: Record<ButtonVariant, string> = {
   secondary: "bg-neutral-900 text-white hover:bg-neutral-800",
   link: "text-[rgb(var(--primary))] underline-offset-4 hover:underline",
   pill: "rounded-full bg-[rgb(var(--accent))] px-6 text-[rgb(var(--accent-foreground))] hover:bg-[rgb(var(--accent))]/90",
+  outlineInverted:
+    "border border-white/80 bg-transparent text-white hover:border-white hover:bg-white/10",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -8915,6 +9852,7 @@ export const navConfig: Record<Locale, NavConfig> = {
     main: [
       { href: "/licor", label: "Licor" },
       { href: "/aguardente", label: "Aguardente" },
+      { href: "/bebida-espirituosa", label: "Bebida Espirituosa" },
       { href: "/about", label: "About Us" },
       { href: "/contact", label: "Contact Us" },
     ],
@@ -8928,6 +9866,7 @@ export const navConfig: Record<Locale, NavConfig> = {
     main: [
       { href: "/licor", label: "Licor" },
       { href: "/aguardente", label: "Aguardente" },
+      { href: "/bebida-espirituosa", label: "Bebida Espirituosa" },
       { href: "/about", label: "Sobre Nós" },
       { href: "/contact", label: "Contacte-nos" },
     ],
@@ -9057,6 +9996,7 @@ export type ParsedMockItem = {
   abv: number;
   volumeMl: number;
   image: string;
+  imageSourcePath: string | null;
   details: {
     region: Record<Locale, string>;
     base: Record<Locale, string>;
@@ -9264,6 +10204,9 @@ const extractDescription = (lines: string[], patterns: RegExp[]): string => {
 
 const inferCategory = (content: string): ProductCategorySlug => {
   const normalized = content.toLowerCase();
+  if (normalized.includes("bebida espirituosa") || normalized.includes("fortified wine")) {
+    return "bebida-espirituosa";
+  }
   if (normalized.includes("aguardente")) {
     return "aguardente";
   }
@@ -9452,6 +10395,7 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
       abv,
       volumeMl,
       image: resolveImagePath(slug, imageFilename),
+      imageSourcePath: imageFilename ? path.join(folderPath, imageFilename) : null,
       details,
     });
   }
@@ -9461,17 +10405,30 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
 # --- end of lib/data/mockItemParser.ts ---
 
 # --- lib/data/seed.ts ---
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { PrismaClient, Role } from "@prisma/client";
 import { hashPassword } from "../security/password.ts";
 import { parseMockItems } from "./mockItemParser.ts";
 
 const prisma = new PrismaClient();
+const PUBLIC_ASSETS_ROOT = path.join(process.cwd(), "public", "assets");
 
 export async function seedProducts() {
   const items = await parseMockItems();
+  await prisma.orderItem.deleteMany();
+  await prisma.favorite.deleteMany();
+  await prisma.order.deleteMany();
   await prisma.product.deleteMany();
+  await fs.mkdir(PUBLIC_ASSETS_ROOT, { recursive: true });
 
   for (const item of items) {
+    if (item.imageSourcePath) {
+      const targetRelative = item.image.replace(/^\/assets\//, "");
+      const targetPath = path.join(PUBLIC_ASSETS_ROOT, targetRelative);
+      await fs.copyFile(item.imageSourcePath, targetPath);
+    }
+
     await prisma.product.create({
       data: {
         slug: item.slug,
@@ -9602,7 +10559,11 @@ export const sendEmail = async ({ to, subject, text, html }: EmailMessage) => {
   });
 };
 
-export const sendAdminEmail = async ({ subject, text, html }: Omit<EmailMessage, "to">) => {
+export const sendAdminEmail = async ({
+  subject,
+  text,
+  html,
+}: Omit<EmailMessage, "to">) => {
   const adminEmail = process.env.ADMIN_EMAIL?.trim();
   if (!adminEmail) {
     throw new EmailConfigurationError("ADMIN_EMAIL must be configured.");
@@ -9736,19 +10697,55 @@ export type Dictionary = {
     categories: {
       licor: string;
       aguardente: string;
+      bebidaEspirituosa: string;
     };
   };
   about: {
-    heading: string;
-    missionTitle: string;
-    missionDescription: string;
-    craftsmanshipTitle: string;
-    craftsmanshipDescription: string;
-    heritageTitle: string;
-    heritageDescription: string;
-    logistics: string;
-    addressHeading: string;
-    addressLines: string[];
+    hero: {
+      eyebrow: string;
+      heading: string;
+      description: string;
+      contact: Array<{
+        label: string;
+        value: string;
+        href?: string;
+      }>;
+    };
+    pillars: Array<{
+      title: string;
+      description: string;
+    }>;
+    faq: {
+      title: string;
+      subtitle: string;
+      categories: Array<{
+        id: string;
+        title: string;
+        items: Array<{
+          question: string;
+          answer: string[];
+        }>;
+      }>;
+    };
+    shippingReturns: {
+      title: string;
+      subtitle: string;
+      shipping: {
+        title: string;
+        notes: string[];
+        costsTitle: string;
+        costs: string[];
+        extraNotes: string[];
+      };
+      returns: {
+        title: string;
+        notes: string[];
+        exceptionsTitle: string;
+        exceptions: string[];
+        supportTitle: string;
+        supportDetails: string[];
+      };
+    };
   };
   contact: {
     heading: string;
@@ -10000,33 +10997,258 @@ const dictionaries: Record<Locale, Dictionary> = {
       categories: {
         licor: "Licor",
         aguardente: "Aguardente",
+        bebidaEspirituosa: "Bebida Espirituosa",
       },
     },
     about: {
-      heading: "About Palmanhac",
-      missionTitle: "Our Mission",
-      missionDescription:
-        "We celebrate the craft of Portuguese distillation, highlighting small producers and their signature spirits.",
-      craftsmanshipTitle: "Craftsmanship",
-      craftsmanshipDescription:
-        "From maceration to maturation, each bottle is perfected through meticulous processes and sustainable practices.",
-      heritageTitle: "Heritage",
-      heritageDescription:
-        "Inspired by the landscapes of Portugal, Palmanhac blends tradition with modern refinement.",
-      logistics:
-        "Deliveries within 24–48h in Mainland Portugal. Free shipping for orders over €50.",
-      addressHeading: "Client Services",
-      addressLines: [
-        "KARMUXILON LDA",
-        "Palmanhac",
-        "Destilaria-Adega Rua de Mercúrio lote 38",
-        "Vale do Alecrim, Palmela",
-        "Post Code 2950-019",
-        "Tel: T.964 690 254",
-        "Site: www.palmanhac.pt",
-        "Mail: info@palmanhac.pt",
-        "Working hours: 09.00 - 18.00",
+      hero: {
+        eyebrow: "About Palmanhac",
+        heading: "Tradition, craft, and a modern sip of Portugal",
+        description:
+          "Palmanhac is the online home of KARMUXILON LDA, a family-run distillery launched in 2020. We pair heritage recipes with innovation to bottle liqueurs and brandies with soul.",
+        contact: [
+          {
+            label: "Email",
+            value: "info@palmanhac.pt",
+            href: "mailto:info@palmanhac.pt",
+          },
+          {
+            label: "Phone / WhatsApp",
+            value: "(+351) 964 690 254",
+            href: "tel:+351964690254",
+          },
+          {
+            label: "Service hours",
+            value: "Monday to Friday, 9:00 AM – 6:00 PM",
+          },
+        ],
+      },
+      pillars: [
+        {
+          title: "Crafted with authenticity",
+          description:
+            "Each bottle is distilled in small batches, honoring Portuguese terroir and family techniques perfected over generations.",
+        },
+        {
+          title: "Responsible sourcing",
+          description:
+            "We nurture close relationships with growers and artisans, selecting ingredients that elevate aroma, texture, and flavor.",
+        },
+        {
+          title: "Celebrating moments",
+          description:
+            "From gifting to gatherings, Palmanhac spirits are designed to be shared, savored, and remembered.",
+        },
       ],
+      faq: {
+        title: "Frequently Asked Questions",
+        subtitle: "Answers to the most common questions from our community.",
+        categories: [
+          {
+            id: "general",
+            title: "1. General Information",
+            items: [
+              {
+                question: "What is the Palmanhac online store?",
+                answer: [
+                  "The Palmanhac online store belongs to KARMUXILON LDA, a family-run company founded in 2020, combining tradition and innovation.",
+                  "Customers can purchase handcrafted liqueurs and brandies, internationally recognized for their quality and authenticity.",
+                ],
+              },
+              {
+                question: "How can I contact you?",
+                answer: [
+                  "You can contact us by email at info@palmanhac.pt or by phone/WhatsApp at (+351) 964 690 254.",
+                  "We are available Monday to Friday, from 9:00 AM to 6:00 PM.",
+                ],
+              },
+              {
+                question: "Do prices include VAT?",
+                answer: [
+                  "Yes. All prices are shown in euros (€) and include VAT at the legal rate in force, as well as the corresponding excise duty (IEC).",
+                ],
+              },
+            ],
+          },
+          {
+            id: "account",
+            title: "2. Account and Personal Data",
+            items: [
+              {
+                question: "Do I need to create an account to make a purchase?",
+                answer: [
+                  "No, creating an account is not mandatory. However, registration makes future purchases faster and allows you to easily track your orders.",
+                ],
+              },
+              {
+                question: "How can I edit or delete my account?",
+                answer: [
+                  "To delete your account, please send an email to info@palmanhac.pt from your registered address requesting deletion.",
+                  'To update your details or password, access your personal area ("My Account") and edit the desired information.',
+                ],
+              },
+              {
+                question: "Are my personal data safe?",
+                answer: [
+                  "Yes. Protecting your data is a top priority for Palmanhac.",
+                  "Our database is properly registered with the Comissão Nacional de Proteção de Dados (CNPD), and all communication between your device and our website uses HTTPS and SSL security standards to ensure confidentiality and protection.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "orders",
+            title: "3. Orders and Payments",
+            items: [
+              {
+                question: "How can I place an order on the Palmanhac online store?",
+                answer: [
+                  "It's very simple:",
+                  "- Add your desired products to the cart.",
+                  "- Review your cart by clicking the icon at the top right.",
+                  '- On the "Cart" page, select "Checkout."',
+                  "- Fill in your billing and shipping details.",
+                  "- Choose your preferred payment method and complete the order.",
+                  "After the payment is confirmed, you'll receive an email with order confirmation, and your package will be processed and shipped.",
+                ],
+              },
+              {
+                question: "Can I change or cancel my order?",
+                answer: [
+                  "Yes. To change or cancel an order, please contact us by email (palmanhac@gmail.com) or phone/WhatsApp (964 690 254) on business days between 9:00 AM and 6:00 PM.",
+                  "Orders can only be canceled if they have not yet been shipped.",
+                ],
+              },
+              {
+                question: "Can I send an order as a gift?",
+                answer: [
+                  'Yes. At checkout, select the option "Ship to a different address" and provide the recipient\'s details.',
+                  "The gift will be sent without an invoice and without price tags.",
+                ],
+              },
+              {
+                question: "Which payment methods are accepted?",
+                answer: [
+                  "We accept credit and debit cards (Visa, MasterCard, Maestro), MB Way, MultiBanco and bank transfer.",
+                  "If you choose bank transfer, you will receive the necessary bank details by email.",
+                ],
+              },
+              {
+                question: "Are there any additional fees?",
+                answer: [
+                  "No. The total amount includes the product price and shipping costs (if applicable).",
+                ],
+              },
+              {
+                question: "How are refunds handled in case of returns?",
+                answer: [
+                  "In accordance with Decree-Law No. 24/2014, customers may return products within 14 days of receipt.",
+                  "Please contact us by email (palmanhac@gmail.com) to start the return process.",
+                  "Products must be returned in perfect condition and in their original packaging.",
+                  "Refunds are processed within 30 days after the returned items are received and verified.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "shipping",
+            title: "4. Shipping and Delivery",
+            items: [
+              {
+                question: "Which countries do you ship to?",
+                answer: [
+                  "Currently, we ship to mainland Portugal, Madeira, and Spain.",
+                  "For other international orders, please contact us at info@palmanhac.pt to check the possibility of shipping.",
+                ],
+              },
+              {
+                question: "Which courier companies do you work with?",
+                answer: ["We work with GLS, ensuring safe and reliable deliveries."],
+              },
+              {
+                question: "What is the average delivery time?",
+                answer: [
+                  "The usual delivery time is 1 to 4 business days after payment confirmation.",
+                  "Deliveries to Madeira and Spain may take slightly longer depending on logistics and customs handling.",
+                  "Delays may occur due to courier issues or external factors beyond Palmanhac's control.",
+                ],
+              },
+              {
+                question: "What are the shipping costs?",
+                answer: [
+                  "- €6.00 — 1 to 2 bottles",
+                  "- €8.00 — 3 or more bottles",
+                  "- Free shipping — for orders over €50.00",
+                ],
+              },
+              {
+                question: "When will my order be shipped?",
+                answer: [
+                  "Orders are shipped after payment confirmation.",
+                  "Processing and dispatch generally take 1 business day.",
+                ],
+              },
+              {
+                question: "What should I do if the package is damaged or wet?",
+                answer: [
+                  "If you notice damage at the time of delivery, please refuse the package and contact us immediately.",
+                  "Send an email to palmanhac@gmail.com or call 964 690 254 (business days, 9:00 AM – 6:00 PM).",
+                ],
+              },
+              {
+                question: "What happens if a bottle breaks during transport?",
+                answer: [
+                  "If breakage occurs before delivery, a replacement order will be sent at no extra cost.",
+                  "If you notice damage after delivery, contact us immediately to arrange a replacement.",
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      shippingReturns: {
+        title: "Shipping & Returns",
+        subtitle: "Practical details for deliveries, returns, and product care.",
+        shipping: {
+          title: "Shipping",
+          notes: [
+            "Deliveries are made between 8:00 AM and 6:00 PM on business days only.",
+            "Delivery times may vary due to weekends, public holidays, weather conditions, or national holidays.",
+            "If the courier attempts delivery and the customer is unavailable, a new delivery attempt will be scheduled.",
+            "After the purchase is confirmed, the customer will receive a confirmation email with the details of the items purchased and a tracking number to monitor the delivery status.",
+            "The average delivery time within mainland Portugal is 24 to 48 hours after dispatch.",
+          ],
+          costsTitle: "Delivery costs",
+          costs: [
+            "€6 for 1 or 2 bottles",
+            "€8 for 3 or more bottles",
+            "Free delivery for orders over €50",
+          ],
+          extraNotes: [
+            "Palmanhac uses secure, custom packaging designed to ensure the integrity of products during transit.",
+          ],
+        },
+        returns: {
+          title: "Returns",
+          notes: [
+            "In accordance with Decree-Law No. 24/2014, dated February 14, customers have the right to return products within 14 days from the date of receipt.",
+            "Bottles must be returned in the same condition in which they were received — unopened, undamaged, and in the original packaging.",
+            "Palmanhac reserves the right to refuse products that do not meet these conditions.",
+          ],
+          exceptionsTitle: "Exceptions",
+          exceptions: [
+            "Opened products or products with broken security seals",
+            "Alcoholic beverages considered perishable",
+          ],
+          supportTitle: "Need assistance?",
+          supportDetails: [
+            "If the product is defective, damaged during shipping, or sent incorrectly, Palmanhac will provide a full replacement or refund.",
+            "Return requests should be sent to info@palmanhac.pt or +351 964 690 254 (business days, 9:00 AM – 6:00 PM).",
+            "Refunds will be processed within a maximum of 30 days after receipt and verification of the returned item.",
+            "If the order arrives in unsuitable condition, photograph the item and the back label (where the seal is visible) and email the images so we can arrange collection and replacement.",
+          ],
+        },
+      },
     },
     contact: {
       heading: "Contact Us",
@@ -10112,9 +11334,11 @@ const dictionaries: Record<Locale, Dictionary> = {
       notesLabel: "Order notes",
       notesPlaceholder: "Share delivery preferences or gift messages.",
       paymentDetails: "Payment",
-      paymentMethodDescription: "Pay securely with EuPago (Multibanco, MB WAY, or Cards).",
+      paymentMethodDescription:
+        "Pay securely with EuPago (Multibanco, MB WAY, or Cards).",
       paymentMethodLabel: "Choose a payment method",
-      paymentServiceUnavailable: "Payments are unavailable right now. Please try again shortly.",
+      paymentServiceUnavailable:
+        "Payments are unavailable right now. Please try again shortly.",
       startPaymentCta: "Place order",
       processingPayment: "Processing payment...",
       mbwayPhoneLabel: "MB WAY phone number",
@@ -10126,7 +11350,8 @@ const dictionaries: Record<Locale, Dictionary> = {
         card: "Card",
       },
       methodDescriptions: {
-        multibanco: "Pay later at an ATM or online banking using the generated reference.",
+        multibanco:
+          "Pay later at an ATM or online banking using the generated reference.",
         mbway: "Approve the request in your MB WAY app to complete the order instantly.",
         card: "Secure card payment via EuPago’s hosted checkout.",
       },
@@ -10318,33 +11543,258 @@ const dictionaries: Record<Locale, Dictionary> = {
       categories: {
         licor: "Licor",
         aguardente: "Aguardente",
+        bebidaEspirituosa: "Bebida Espirituosa",
       },
     },
     about: {
-      heading: "Sobre a Palmanhac",
-      missionTitle: "A Nossa Missão",
-      missionDescription:
-        "Celebramos a arte da destilação portuguesa, destacando pequenos produtores e os seus espirituosos de assinatura.",
-      craftsmanshipTitle: "Ofício",
-      craftsmanshipDescription:
-        "Da maceração à maturação, cada garrafa é aperfeiçoada com processos meticulosos e práticas sustentáveis.",
-      heritageTitle: "Herança",
-      heritageDescription:
-        "Inspirada nas paisagens de Portugal, a Palmanhac combina tradição com um requinte contemporâneo.",
-      logistics:
-        "Entregas em 24–48h em Portugal Continental. Portes gratuitos para encomendas superiores a 50€.",
-      addressHeading: "Atendimento ao Cliente",
-      addressLines: [
-        "KARMUXILON LDA",
-        "Palmanhac",
-        "Destilaria-Adega Rua de Mercúrio lote 38",
-        "Vale do Alecrim, Palmela",
-        "Código Postal 2950-019",
-        "Tel.: T.964 690 254",
-        "Site: www.palmanhac.pt",
-        "Email: info@palmanhac.pt",
-        "Horário: 09h00 - 18h00",
+      hero: {
+        eyebrow: "Sobre a Palmanhac",
+        heading: "Tradição, ofício e um brinde moderno a Portugal",
+        description:
+          "A Palmanhac é a loja online da KARMUXILON LDA, uma empresa familiar fundada em 2020. Aliamos receitas tradicionais à inovação para engarrafar licores e aguardentes com alma.",
+        contact: [
+          {
+            label: "Email",
+            value: "info@palmanhac.pt",
+            href: "mailto:info@palmanhac.pt",
+          },
+          {
+            label: "Telefone / WhatsApp",
+            value: "(+351) 964 690 254",
+            href: "tel:+351964690254",
+          },
+          {
+            label: "Horário de atendimento",
+            value: "Segunda a sexta-feira, das 9h00 às 18h00",
+          },
+        ],
+      },
+      pillars: [
+        {
+          title: "Autenticidade artesanal",
+          description:
+            "Cada garrafa é destilada em pequenos lotes, respeitando o terroir português e as técnicas de família aperfeiçoadas ao longo de gerações.",
+        },
+        {
+          title: "Seleção responsável",
+          description:
+            "Mantemos relações próximas com produtores e artesãos, escolhendo ingredientes que elevam aroma, textura e sabor.",
+        },
+        {
+          title: "Momentos para partilhar",
+          description:
+            "Dos presentes às celebrações, os espirituosos Palmanhac são pensados para serem partilhados, saboreados e recordados.",
+        },
       ],
+      faq: {
+        title: "Perguntas Frequentes",
+        subtitle: "Respostas às questões mais comuns da nossa comunidade.",
+        categories: [
+          {
+            id: "general",
+            title: "1. Informações Gerais",
+            items: [
+              {
+                question: "O que é a loja online Palmanhac?",
+                answer: [
+                  "A loja online Palmanhac pertence à KARMUXILON LDA, uma empresa familiar fundada em 2020, que combina tradição e inovação.",
+                  "Os clientes podem adquirir licores e aguardentes artesanais, reconhecidos internacionalmente pela sua qualidade e autenticidade.",
+                ],
+              },
+              {
+                question: "Como posso entrar em contacto convosco?",
+                answer: [
+                  "Pode contactar-nos por e-mail através de info@palmanhac.pt ou por telefone/WhatsApp pelo (+351) 964 690 254.",
+                  "Estamos disponíveis de segunda a sexta-feira, das 9h00 às 18h00.",
+                ],
+              },
+              {
+                question: "Os preços incluem IVA?",
+                answer: [
+                  "Sim. Todos os preços estão indicados em euros (€) e incluem IVA à taxa legal em vigor, bem como o imposto especial correspondente (IEC).",
+                ],
+              },
+            ],
+          },
+          {
+            id: "account",
+            title: "2. Conta e Dados Pessoais",
+            items: [
+              {
+                question: "É necessário criar uma conta para efetuar uma compra?",
+                answer: [
+                  "Não, criar uma conta não é obrigatório. No entanto, o registo facilita futuras encomendas e permite acompanhar os pedidos de forma mais rápida.",
+                ],
+              },
+              {
+                question: "Como posso alterar ou eliminar a minha conta?",
+                answer: [
+                  "Para eliminar a sua conta, envie um e-mail para info@palmanhac.pt a partir do endereço registado, solicitando a eliminação.",
+                  'Para atualizar os seus dados ou palavra-passe, aceda à sua área pessoal ("Minha Conta") e edite as informações desejadas.',
+                ],
+              },
+              {
+                question: "Os meus dados pessoais estão seguros?",
+                answer: [
+                  "Sim. A proteção dos seus dados é uma prioridade para a Palmanhac.",
+                  "A nossa base de dados está devidamente registada na Comissão Nacional de Proteção de Dados (CNPD), e toda a comunicação entre o seu dispositivo e o nosso site utiliza HTTPS e SSL, garantindo confidencialidade e segurança.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "orders",
+            title: "3. Encomendas e Pagamentos",
+            items: [
+              {
+                question: "Como posso fazer uma encomenda na loja online Palmanhac?",
+                answer: [
+                  "É muito simples:",
+                  "- Adicione os produtos desejados ao carrinho.",
+                  "- Verifique o carrinho clicando no ícone no canto superior direito.",
+                  '- Na página "Carrinho", selecione "Finalizar Compra".',
+                  "- Preencha os dados de faturação e envio.",
+                  "- Escolha o método de pagamento preferido e conclua a encomenda.",
+                  "Após confirmação do pagamento, receberá um e-mail de confirmação e a sua encomenda será processada e enviada.",
+                ],
+              },
+              {
+                question: "Posso alterar ou cancelar a minha encomenda?",
+                answer: [
+                  "Sim. Para alterar ou cancelar uma encomenda, contacte-nos por e-mail (palmanhac@gmail.com) ou por telefone/WhatsApp (964 690 254) em dias úteis, das 9h00 às 18h00.",
+                  "As encomendas só podem ser canceladas se ainda não tiverem sido enviadas.",
+                ],
+              },
+              {
+                question: "Posso enviar uma encomenda como presente?",
+                answer: [
+                  'Sim. No momento da finalização da compra, selecione a opção "Enviar para outro endereço" e indique os dados do destinatário.',
+                  "O presente será enviado sem fatura e sem etiquetas de preço.",
+                ],
+              },
+              {
+                question: "Quais os métodos de pagamento aceites?",
+                answer: [
+                  "Aceitamos cartões de crédito e débito (Visa, MasterCard, Maestro), MB Way, MultiBanco e transferência bancária.",
+                  "Em caso de transferência, receberá os dados bancários necessários por e-mail.",
+                ],
+              },
+              {
+                question: "Existem taxas adicionais?",
+                answer: [
+                  "Não. O valor total inclui apenas o preço dos produtos e os custos de envio (quando aplicável).",
+                ],
+              },
+              {
+                question: "Como funcionam os reembolsos em caso de devolução?",
+                answer: [
+                  "De acordo com o Decreto-Lei nº 24/2014, os clientes podem devolver produtos até 14 dias após a receção.",
+                  "Contacte-nos por e-mail (palmanhac@gmail.com) para iniciar o processo de devolução.",
+                  "Os produtos devem ser devolvidos em perfeito estado e na embalagem original.",
+                  "Os reembolsos são processados no prazo máximo de 30 dias após receção e verificação dos artigos devolvidos.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "shipping",
+            title: "4. Envio e Entrega",
+            items: [
+              {
+                question: "Para que países enviam encomendas?",
+                answer: [
+                  "Atualmente, enviamos para Portugal Continental, Madeira e Espanha.",
+                  "Para outros destinos internacionais, contacte-nos através de info@palmanhac.pt para verificar a possibilidade de envio.",
+                ],
+              },
+              {
+                question: "Com que transportadoras trabalham?",
+                answer: ["Trabalhamos com a GLS, garantindo entregas seguras e fiáveis."],
+              },
+              {
+                question: "Qual é o prazo médio de entrega?",
+                answer: [
+                  "O prazo habitual é de 1 a 4 dias úteis após a confirmação do pagamento.",
+                  "As entregas para Madeira e Espanha podem demorar um pouco mais, dependendo da logística e do tratamento aduaneiro.",
+                  "Podem ocorrer atrasos devido a problemas da transportadora ou fatores externos fora do controlo da Palmanhac.",
+                ],
+              },
+              {
+                question: "Quais são os custos de envio?",
+                answer: [
+                  "- 6,00 € — 1 a 2 garrafas",
+                  "- 8,00 € — 3 ou mais garrafas",
+                  "- Grátis — para encomendas superiores a 50,00 €",
+                ],
+              },
+              {
+                question: "Quando será enviada a minha encomenda?",
+                answer: [
+                  "As encomendas são enviadas após a confirmação do pagamento.",
+                  "O processamento e expedição geralmente demoram 1 dia útil.",
+                ],
+              },
+              {
+                question: "O que devo fazer se a embalagem estiver danificada ou molhada?",
+                answer: [
+                  "Se notar danos no momento da entrega, recuse a encomenda e contacte-nos imediatamente.",
+                  "Envie um e-mail para palmanhac@gmail.com ou ligue para 964 690 254 (dias úteis, das 9h00 às 18h00).",
+                ],
+              },
+              {
+                question: "O que acontece se uma garrafa partir durante o transporte?",
+                answer: [
+                  "Se a quebra ocorrer antes da entrega, será enviada uma nova encomenda sem custos adicionais.",
+                  "Se detetar danos após a entrega, contacte-nos imediatamente para providenciar a substituição.",
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      shippingReturns: {
+        title: "Entregas e Devoluções",
+        subtitle: "Informações essenciais sobre envios, devoluções e cuidado dos produtos.",
+        shipping: {
+          title: "Entregas",
+          notes: [
+            "As entregas são efetuadas entre as 8h00 e as 18h00, apenas em dias úteis.",
+            "Os prazos de entrega podem variar em função de feriados, fins de semana, condições meteorológicas ou feriados nacionais.",
+            "Caso o estafeta tente entregar a encomenda e o cliente não esteja disponível, será agendada uma nova tentativa de entrega.",
+            "Após a confirmação da compra, o cliente receberá um e-mail com os detalhes dos artigos adquiridos e um número de seguimento, permitindo acompanhar o estado da entrega.",
+            "O tempo médio de entrega, após expedição, para Portugal Continental é de 24 a 48 horas.",
+          ],
+          costsTitle: "Custos de entrega",
+          costs: [
+            "6€ para 1 ou 2 garrafas",
+            "8€ para 3 ou mais garrafas",
+            "Entrega gratuita para encomendas superiores a 50€",
+          ],
+          extraNotes: [
+            "A Palmanhac utiliza embalagens seguras e personalizadas, concebidas para garantir a integridade dos produtos durante o transporte.",
+          ],
+        },
+        returns: {
+          title: "Devoluções",
+          notes: [
+            "De acordo com o Decreto-Lei n.º 24/2014, de 14 de fevereiro, o cliente tem o direito de devolver os produtos no prazo máximo de 14 dias a contar da data de receção da encomenda.",
+            "As garrafas devem ser devolvidas nas mesmas condições em que foram recebidas — sem danos, fechadas e na embalagem original.",
+            "A Palmanhac reserva-se o direito de recusar produtos que não cumpram estas condições.",
+          ],
+          exceptionsTitle: "Exceções",
+          exceptions: [
+            "Produtos abertos ou com selos de segurança violados",
+            "Bebidas alcoólicas consideradas perecíveis",
+          ],
+          supportTitle: "Precisa de ajuda?",
+          supportDetails: [
+            "Se o produto estiver defeituoso, danificado durante o transporte ou se houver erro no envio, a Palmanhac procederá à substituição ou reembolso total.",
+            "O pedido de devolução deve ser enviado para info@palmanhac.pt ou +351 964 690 254 (dias úteis, das 9h00 às 18h00).",
+            "Os reembolsos serão processados no prazo máximo de 30 dias após a receção e verificação do artigo devolvido.",
+            "Caso a encomenda chegue em condições inadequadas, fotografe o artigo e a etiqueta traseira (onde o selo é visível) e envie as imagens por e-mail para que possamos agendar a recolha e substituição.",
+          ],
+        },
+      },
     },
     contact: {
       heading: "Contacte-nos",
@@ -10615,7 +12065,7 @@ export const getDictionary = (locale: Locale): Dictionary => {
 # --- end of lib/i18n/dictionaries.ts ---
 
 # --- lib/payments/eupago.ts ---
-
+// lib/payments/eupago.ts
 export class EuPagoConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -10625,7 +12075,6 @@ export class EuPagoConfigurationError extends Error {
 
 export class EuPagoAPIError extends Error {
   response?: unknown;
-
   constructor(message: string, response?: unknown) {
     super(message);
     this.name = "EuPagoAPIError";
@@ -10645,16 +12094,12 @@ export type EuPagoAddress = {
 export type EuPagoOrderInput = {
   orderId: string;
   amountCents: number;
-  currency: string;
+  currency: string; // e.g. "EUR"
   description?: string;
-  customer: {
-    email: string;
-    name?: string;
-    phone?: string;
-  };
+  customer: { email: string; name?: string; phone?: string };
   shipping?: EuPagoAddress;
   billing?: EuPagoAddress;
-  locale?: string;
+  locale?: string; // e.g. "en" | "pt"
   metadata?: Record<string, unknown>;
 };
 
@@ -10666,21 +12111,18 @@ export type EuPagoMultibancoResult = {
   expiresAt?: string;
   metadata?: Record<string, unknown>;
 };
-
 export type EuPagoMBWayResult = {
   method: "mbway";
   transactionId: string;
   statusUrl?: string;
   metadata?: Record<string, unknown>;
 };
-
 export type EuPagoCardResult = {
   method: "card";
   paymentUrl: string;
   transactionId: string;
   metadata?: Record<string, unknown>;
 };
-
 export type EuPagoStatusResult = {
   status: "pending" | "paid" | "failed" | "expired" | "cancelled" | string;
   paidAt?: string;
@@ -10688,321 +12130,360 @@ export type EuPagoStatusResult = {
   raw?: Record<string, unknown>;
 };
 
-type EuPagoRequestOptions = {
-  method?: "GET" | "POST";
-  headers?: Record<string, string>;
-};
-
-const normalizeBaseUrl = (value: string) => value.replace(/\s+/g, "").replace(/\/+$/, "");
+const normalizeBaseUrl = (v: string) => v.replace(/\s+/g, "").replace(/\/+$/, "");
 
 const ensureBaseUrl = () => {
   const raw = process.env.EUPAGO_API_BASE;
-  if (!raw) {
-    throw new EuPagoConfigurationError("EUPAGO_API_BASE is not defined.");
-  }
+  if (!raw) throw new EuPagoConfigurationError("EUPAGO_API_BASE is not defined.");
   return normalizeBaseUrl(raw);
 };
-
 const ensureApiKey = () => {
-  const apiKey = process.env.EUPAGO_API_KEY;
-  if (!apiKey) {
-    throw new EuPagoConfigurationError("EUPAGO_API_KEY is not defined.");
-  }
-  return apiKey;
+  const key = process.env.EUPAGO_API_KEY;
+  if (!key) throw new EuPagoConfigurationError("EUPAGO_API_KEY is not defined.");
+  return key.trim();
+};
+const ensureCardReturnUrl = () => {
+  const url = process.env.EUPAGO_CARD_RETURN_URL;
+  if (!url) throw new EuPagoConfigurationError("EUPAGO_CARD_RETURN_URL is not defined.");
+  return url.trim();
 };
 
-const buildUrl = (path: string) => {
-  const base = ensureBaseUrl();
-  if (!path.startsWith("/")) {
-    return `${base}/${path}`;
-  }
-  return `${base}${path}`;
-};
+const buildUrl = (path: string) =>
+  `${ensureBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
 
-const defaultHeaders = () => ({
-  "Content-Type": "application/json",
-  Accept: "application/json",
-  "User-Agent": "palmanhac-payments-adapter",
-});
-
-const parseJsonSafely = async <T>(response: Response): Promise<T> => {
+const parseJsonSafely = async <T>(res: Response): Promise<T> => {
   try {
-    return (await response.json()) as T;
+    return (await res.json()) as T;
   } catch {
     throw new EuPagoAPIError("EuPago response was not valid JSON.");
   }
 };
 
+type Mode = "header" | "body";
+type Format = "form" | "json";
+
 const euPagoFetch = async <T>(
   path: string,
-  payload: Record<string, unknown>,
-  options: EuPagoRequestOptions = {},
+  payload: Record<string, string>,
+  mode: Mode,
+  format: Format,
 ) => {
-  const apiKey = ensureApiKey();
   const url = buildUrl(path);
-  const method = options.method ?? "POST";
-
-  const requestInit: RequestInit = {
-    method,
-    headers: {
-      ...defaultHeaders(),
-      Authorization: `Bearer ${apiKey}`,
-      ...options.headers,
-    },
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "User-Agent": "palmanhac-payments-adapter",
   };
+  const key = ensureApiKey();
 
-  if (method === "GET") {
-    const merged = new URL(url);
-    Object.entries({ ...payload, apiKey }).forEach(([key, value]) => {
-      if (typeof value === "string") {
-        merged.searchParams.set(key, value);
-      }
-    });
-    const response = await fetch(merged, { method, headers: requestInit.headers, cache: "no-store" });
-    if (!response.ok) {
-      const errorPayload = await response
-        .json()
-        .catch(async () => ({ message: await response.text() }));
-      throw new EuPagoAPIError(
-        `EuPago request failed with status ${response.status}.`,
-        errorPayload,
-      );
-    }
-    return (await parseJsonSafely<T>(response)) as T;
+  const bodyParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(payload)) {
+    if (v !== undefined && v !== null) bodyParams.set(k, v);
   }
 
-  requestInit.body = JSON.stringify({
-    ...payload,
-    apiKey,
+  if (mode === "header") {
+    headers["ApiKey"] = key; // EuPago docs: ApiKey header for ApiKey Auth endpoints
+  } else {
+    bodyParams.set("apiKey", key); // legacy/Multibanco body auth
+  }
+
+  if (format === "form") {
+    headers["Content-Type"] = "application/x-www-form-urlencoded";
+  } else {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const debugBody =
+    format === "form"
+      ? Object.fromEntries(
+          [...bodyParams.entries()].map(([k, v]) => [
+            k,
+            k === "apiKey" ? "<redacted>" : v,
+          ]),
+        )
+      : payload;
+
+  if (process.env.NODE_ENV !== "production") {
+    console.debug("[EuPago] POST", url, {
+      headers: { ...headers, ApiKey: headers.ApiKey ? "<redacted>" : undefined },
+      body: debugBody,
+      mode,
+      format,
+    });
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: format === "form" ? bodyParams.toString() : JSON.stringify(payload),
+    cache: "no-store",
   });
-  const response = await fetch(url, { ...requestInit, cache: "no-store" });
-  if (!response.ok) {
-    const errorPayload = await response
+
+  if (!res.ok) {
+    const errorPayload = await res
       .json()
-      .catch(async () => ({ message: await response.text() }));
+      .catch(async () => ({ message: await res.text() }));
     throw new EuPagoAPIError(
-      `EuPago request failed with status ${response.status}.`,
+      `EuPago request failed with status ${res.status}.`,
       errorPayload,
     );
   }
-  return (await parseJsonSafely<T>(response)) as T;
+  return parseJsonSafely<T>(res);
 };
 
-const normaliseReference = (value: string | number | null | undefined) => {
-  if (typeof value !== "string" && typeof value !== "number") {
-    return null;
-  }
-  return String(value).replace(/[^0-9]/g, "");
+// ---------- Helpers
+const asTwoDecimals = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
+const extractAmount = (raw: unknown) =>
+  typeof raw === "number"
+    ? raw
+    : typeof raw === "string"
+      ? Number.parseFloat(raw.replace(",", "."))
+      : null;
+
+const parsePaidAt = (payload: Record<string, unknown>) => {
+  const c =
+    (payload.paid_at as string | undefined) ??
+    (payload.payment_date as string | undefined) ??
+    (payload.processed_at as string | undefined) ??
+    (payload.data_pagamento as string | undefined) ??
+    (payload.dataPagamento as string | undefined);
+  if (!c) return undefined;
+  const t = Date.parse(c);
+  return Number.isNaN(t) ? c : new Date(t).toISOString();
 };
 
-const extractAmount = (raw: unknown) => {
-  if (typeof raw === "number") {
-    return raw;
-  }
-  if (typeof raw === "string") {
-    const parsed = Number.parseFloat(raw.replace(",", "."));
-    if (!Number.isFinite(parsed)) {
-      return null;
-    }
-    return parsed;
-  }
-  return null;
+const normaliseStatusPayload = (p: Record<string, unknown>): EuPagoStatusResult => {
+  const s = [
+    p.status,
+    p.state,
+    p.payment_status,
+    p.paymentStatus,
+    p.result,
+    p.response,
+    p.estado,
+  ]
+    .map((v) => (typeof v === "string" ? v.toLowerCase() : undefined))
+    .find((v) => v && v.trim());
+  let status: EuPagoStatusResult["status"] = "unknown";
+  if (
+    s?.includes("paid") ||
+    s === "ok" ||
+    s === "paga" ||
+    s === "pago" ||
+    p.paid === true ||
+    p.pago === 1
+  )
+    status = "paid";
+  else if (
+    s?.includes("fail") ||
+    s?.includes("error") ||
+    s?.includes("denied") ||
+    s === "ko"
+  )
+    status = "failed";
+  else if (s?.includes("cancel")) status = "cancelled";
+  else if (s?.includes("expir")) status = "expired";
+  else if (s?.includes("pend") || s?.includes("wait")) status = "pending";
+
+  const error =
+    (typeof p.error === "string" && p.error) ||
+    (typeof p.message === "string" && p.message) ||
+    (typeof p.reason === "string" && p.reason) ||
+    undefined;
+
+  return { status, paidAt: parsePaidAt(p), error, raw: p };
 };
 
-export const createMultibanco = async (
-  order: EuPagoOrderInput,
-): Promise<EuPagoMultibancoResult> => {
-  const payload = {
+// ---------- Public API
+
+export const createCard = async (order: EuPagoOrderInput): Promise<EuPagoCardResult> => {
+  const eur = Math.max(order.amountCents, 100) / 100;
+  const value = asTwoDecimals(eur); // string "66.49"
+  const payload: Record<string, string> = {
     id: order.orderId,
-    value: (order.amountCents / 100).toFixed(2),
-    currency: order.currency?.toUpperCase() ?? "EUR",
+    value, // EuPago expects "value" in form body
+    currency: (order.currency || "EUR").toUpperCase(),
     description: order.description ?? `Order ${order.orderId}`,
+    return_url: ensureCardReturnUrl(),
     customer_email: order.customer.email,
-    customer_name: order.customer.name,
-    customer_phone: order.customer.phone,
-    shipping_address: order.shipping,
-    billing_address: order.billing,
-    locale: order.locale,
-    metadata: order.metadata,
+    customer_name: order.customer.name ?? "",
+    locale: order.locale ?? "en",
   };
 
-  const response = await euPagoFetch<Record<string, unknown>>(
-    "/api/v1/multibanco/create",
+  const res = await euPagoFetch<Record<string, unknown>>(
+    "/api/v1.02/creditcard/create",
     payload,
+    "header",
+    "form",
   );
 
-  const entity =
-    typeof response.entity === "string"
-      ? response.entity
-      : typeof response.entidade === "string"
-        ? response.entidade
-        : null;
-  const reference =
-    typeof response.reference === "string"
-      ? response.reference
-      : typeof response.referencia === "string"
-        ? response.referencia
-        : null;
-  const amount =
-    extractAmount(response.amount) ??
-    extractAmount(response.value) ??
-    extractAmount(response.valor) ??
-    order.amountCents / 100;
-  const expiresAt =
-    typeof response.expires_at === "string"
-      ? response.expires_at
-      : typeof response.expiration === "string"
-        ? response.expiration
-        : typeof response.data_limite === "string"
-          ? response.data_limite
-          : undefined;
+  const paymentUrl =
+    (typeof res.paymentUrl === "string" && res.paymentUrl) ||
+    (typeof res.payment_url === "string" && res.payment_url) ||
+    (typeof res.redirect === "string" && res.redirect) ||
+    null;
+  const transactionId =
+    (typeof res.transactionId === "string" && res.transactionId) ||
+    (typeof res.transaction_id === "string" && res.transaction_id) ||
+    (typeof res.id === "string" && res.id) ||
+    null;
 
-  if (!entity || !reference) {
-    throw new EuPagoAPIError("EuPago Multibanco response is missing entity or reference.", response);
+  if (!paymentUrl || !transactionId) {
+    throw new EuPagoAPIError(
+      "EuPago card response missing payment URL or transaction identifier.",
+      res,
+    );
   }
-
-  return {
-    method: "multibanco",
-    entity,
-    reference,
-    amount,
-    expiresAt,
-    metadata: response,
-  };
+  return { method: "card", paymentUrl, transactionId, metadata: res };
 };
 
 export const createMBWay = async (
   order: EuPagoOrderInput & { phone: string },
 ): Promise<EuPagoMBWayResult> => {
-  const payload = {
+  const eur = Math.max(order.amountCents, 100) / 100;
+  const value = asTwoDecimals(eur);
+  const payload: Record<string, string> = {
     id: order.orderId,
-    value: (order.amountCents / 100).toFixed(2),
-    currency: order.currency?.toUpperCase() ?? "EUR",
+    value,
+    currency: (order.currency || "EUR").toUpperCase(),
     description: order.description ?? `Order ${order.orderId}`,
     customer_email: order.customer.email,
-    customer_name: order.customer.name,
-    customer_phone: order.phone,
-    locale: order.locale,
-    metadata: order.metadata,
+    customer_name: order.customer.name ?? "",
+    alias: order.phone, // MB WAY phone
+    locale: order.locale ?? "en",
   };
 
-  const response = await euPagoFetch<Record<string, unknown>>(
-    "/api/v1/mbway/create",
+  const res = await euPagoFetch<Record<string, unknown>>(
+    "/api/v1.02/mbway/create",
     payload,
+    "header",
+    "form",
   );
 
   const transactionId =
-    typeof response.transactionId === "string"
-      ? response.transactionId
-      : typeof response.transaction_id === "string"
-        ? response.transaction_id
-        : typeof response.id === "string"
-          ? response.id
-          : null;
-
-  if (!transactionId) {
-    throw new EuPagoAPIError("EuPago MB WAY response missing transaction identifier.", response);
-  }
+    (typeof res.transactionId === "string" && res.transactionId) ||
+    (typeof res.transaction_id === "string" && res.transaction_id) ||
+    (typeof res.id === "string" && res.id) ||
+    null;
+  if (!transactionId)
+    throw new EuPagoAPIError(
+      "EuPago MB WAY response missing transaction identifier.",
+      res,
+    );
 
   const statusUrl =
-    typeof response.statusUrl === "string"
-      ? response.statusUrl
-      : typeof response.status_url === "string"
-        ? response.status_url
-        : undefined;
+    (typeof res.statusUrl === "string" && res.statusUrl) ||
+    (typeof res.status_url === "string" && res.status_url) ||
+    undefined;
 
-  return {
-    method: "mbway",
-    transactionId,
-    statusUrl,
-    metadata: response,
-  };
+  return { method: "mbway", transactionId, statusUrl, metadata: res };
 };
 
-export const createCard = async (
+export const createMultibanco = async (
   order: EuPagoOrderInput,
-): Promise<EuPagoCardResult> => {
-  const payload = {
+): Promise<EuPagoMultibancoResult> => {
+  const amount = asTwoDecimals(Math.max(order.amountCents, 100) / 100);
+  const payload: Record<string, string> = {
     id: order.orderId,
-    value: (order.amountCents / 100).toFixed(2),
-    currency: order.currency?.toUpperCase() ?? "EUR",
-    description: order.description ?? `Order ${order.orderId}`,
-    return_url: process.env.EUPAGO_CARD_RETURN_URL,
-    customer_email: order.customer.email,
-    customer_name: order.customer.name,
-    customer_phone: order.customer.phone,
-    locale: order.locale,
-    metadata: order.metadata,
+    valor: amount, // Multibanco uses "valor"
+    descricao: order.description ?? `Order ${order.orderId}`,
+    email: order.customer.email,
   };
 
-  const response = await euPagoFetch<Record<string, unknown>>("/api/v1/cards/create", payload);
-
-  const paymentUrl =
-    typeof response.paymentUrl === "string"
-      ? response.paymentUrl
-      : typeof response.payment_url === "string"
-        ? response.payment_url
-        : typeof response.redirect === "string"
-          ? response.redirect
-          : null;
-  const transactionId =
-    typeof response.transactionId === "string"
-      ? response.transactionId
-      : typeof response.transaction_id === "string"
-        ? response.transaction_id
-        : typeof response.id === "string"
-          ? response.id
-          : null;
-
-  if (!paymentUrl || !transactionId) {
-    throw new EuPagoAPIError(
-      "EuPago card response missing payment URL or transaction identifier.",
-      response,
-    );
-  }
-
-  return {
-    method: "card",
-    paymentUrl,
-    transactionId,
-    metadata: response,
-  };
-};
-
-export const getStatus = async (transactionId: string): Promise<EuPagoStatusResult> => {
-  const response = await euPagoFetch<Record<string, unknown>>(
-    "/api/v1/transactions/status",
-    {
-      transactionId,
-    },
-    { method: "GET" },
+  const res = await euPagoFetch<Record<string, unknown>>(
+    "/clientes/rest_api/multibanco/create",
+    payload,
+    "body", // multibanco uses apiKey in body
+    "form",
   );
 
-  const status =
-    typeof response.status === "string"
-      ? response.status
-      : typeof response.state === "string"
-        ? response.state
-        : "unknown";
-  const paidAt =
-    typeof response.paid_at === "string"
-      ? response.paid_at
-      : typeof response.payment_date === "string"
-        ? response.payment_date
-        : undefined;
-  const error =
-    typeof response.error === "string"
-      ? response.error
-      : typeof response.message === "string"
-        ? response.message
-        : undefined;
+  const entity =
+    (typeof res.entity === "string" && res.entity) ||
+    (typeof res.entidade === "string" && res.entidade) ||
+    null;
+  const reference =
+    (typeof res.reference === "string" && res.reference) ||
+    (typeof res.referencia === "string" && res.referencia) ||
+    null;
+  const amt =
+    extractAmount(res.amount) ??
+    extractAmount(res.value) ??
+    extractAmount(res.valor) ??
+    Number(amount);
 
+  const expiresAt =
+    (typeof res.expires_at === "string" && res.expires_at) ||
+    (typeof res.expiration === "string" && res.expiration) ||
+    (typeof res.data_limite === "string" && res.data_limite) ||
+    undefined;
+
+  if (!entity || !reference) {
+    throw new EuPagoAPIError(
+      "EuPago Multibanco response is missing entity or reference.",
+      res,
+    );
+  }
   return {
-    status,
-    paidAt,
-    error,
-    raw: response,
+    method: "multibanco",
+    entity,
+    reference,
+    amount: amt ?? Number(amount),
+    expiresAt,
+    metadata: res,
   };
+};
+
+// Optional status helpers (unchanged)
+export const fetchMBWayStatus = async (
+  statusUrl: string,
+): Promise<EuPagoStatusResult> => {
+  const url = /^https?:\/\//i.test(statusUrl) ? statusUrl : buildUrl(statusUrl);
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "palmanhac-payments-adapter",
+      ApiKey: ensureApiKey(),
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(async () => ({ message: await res.text() }));
+    throw new EuPagoAPIError(
+      `EuPago MB WAY status request failed with status ${res.status}.`,
+      e,
+    );
+  }
+  return normaliseStatusPayload(await parseJsonSafely<Record<string, unknown>>(res));
+};
+
+export const fetchMultibancoInfo = async (params: {
+  reference?: string;
+  entity?: string;
+  transactionId?: string;
+  orderId?: string;
+  amount?: number;
+}): Promise<EuPagoStatusResult> => {
+  if (!params.reference && !params.transactionId && !params.orderId) {
+    throw new EuPagoAPIError(
+      "EuPago Multibanco info requires a reference, transactionId, or orderId.",
+    );
+  }
+  const p: Record<string, string> = {};
+  if (params.reference) p.referencia = params.reference;
+  if (params.entity) p.entidade = params.entity;
+  if (params.transactionId) p.transactionId = params.transactionId;
+  if (params.orderId) p.id = params.orderId;
+  if (typeof params.amount === "number" && Number.isFinite(params.amount)) {
+    const a = asTwoDecimals(Math.max(params.amount, 1));
+    p.valor = a;
+  }
+  const res = await euPagoFetch<Record<string, unknown>>(
+    "/clientes/rest_api/multibanco/info",
+    p,
+    "body",
+    "form",
+  );
+  return normaliseStatusPayload(res);
 };
 
 export const deriveProviderReference = (result: {
@@ -11010,17 +12491,12 @@ export const deriveProviderReference = (result: {
   reference?: string;
   transactionId?: string;
 }) => {
-  if (result.method === "multibanco" && result.reference) {
-    return normaliseReference(result.reference);
-  }
-  if ((result.method === "card" || result.method === "mbway") && result.transactionId) {
+  if (result.method === "multibanco" && result.reference)
+    return String(result.reference).replace(/[^0-9]/g, "");
+  if ((result.method === "card" || result.method === "mbway") && result.transactionId)
     return String(result.transactionId);
-  }
   return null;
 };
-
-export const normaliseProviderReference = (value: string | null | undefined) =>
-  normaliseReference(value);
 # --- end of lib/payments/eupago.ts ---
 
 # --- lib/security/password.ts ---
@@ -11750,6 +13226,47 @@ export const formatCurrency = (locale: Locale, cents: number): string =>
 export const formatEuroAmount = (locale: Locale, amount: number): string =>
   `${getAmountFormatter(locale).format(amount)} €`;
 # --- end of lib/utils/currency.ts ---
+
+# --- lib/utils/faq.ts ---
+export type AnswerSegment =
+  | {
+      type: "text";
+      content: string;
+    }
+  | {
+      type: "list";
+      content: string[];
+    };
+
+export const buildAnswerSegments = (lines: string[]): AnswerSegment[] => {
+  const segments: AnswerSegment[] = [];
+  let currentList: string[] | null = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      continue;
+    }
+
+    if (line.startsWith("-")) {
+      const cleaned = line.replace(/^-\s*/, "");
+      if (!currentList) {
+        currentList = [cleaned];
+        segments.push({ type: "list", content: currentList });
+      } else {
+        currentList.push(cleaned);
+      }
+      continue;
+    }
+
+    currentList = null;
+    segments.push({ type: "text", content: line });
+  }
+
+  return segments;
+};
+# --- end of lib/utils/faq.ts ---
 
 # --- lib/utils/format.ts ---
 import clsx from "clsx";

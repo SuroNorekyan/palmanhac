@@ -125,6 +125,15 @@ export async function POST(request: NextRequest) {
     | Awaited<ReturnType<typeof createMBWay>>
     | Awaited<ReturnType<typeof createCard>>;
 
+  if (process.env.NODE_ENV !== "production") {
+    console.debug("[Checkout] Creating EuPago payment", {
+      method: payload.method,
+      orderId,
+      totalCents: totals.totalCents,
+      currency,
+    });
+  }
+
   try {
     if (payload.method === "multibanco") {
       paymentResult = await createMultibanco(orderInput);
@@ -136,8 +145,26 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[Checkout] MB WAY payload", {
+          orderId,
+          amount: orderInput.amountCents / 100,
+          phone,
+          customer: orderInput.customer,
+          locale: orderInput.locale,
+        });
+      }
       paymentResult = await createMBWay({ ...orderInput, phone });
     } else {
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[Checkout] Card payload", {
+          orderId,
+          amount: orderInput.amountCents / 100,
+          customer: orderInput.customer,
+          returnUrl: process.env.EUPAGO_CARD_RETURN_URL,
+          locale: orderInput.locale,
+        });
+      }
       paymentResult = await createCard(orderInput);
     }
   } catch (error) {

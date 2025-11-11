@@ -1,0 +1,71 @@
+Quick sanity checks (outside your app)
+
+Run these two cURL calls. If these work, your app will too.
+
+Credit Card (v1.02, header auth, form body)
+
+curl -i -X POST 'https://sandbox.eupago.pt/api/v1.02/creditcard/create' \
+  -H 'ApiKey: demo-74d6-183e-c5b9-480' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'id=test-order-123&value=66.49&currency=EUR&description=Test+Order&return_url=https://send-surgery-arrives-regular.trycloudflare.com/orders&customer_email=sandbox@example.com&customer_name=Demo&locale=en'
+
+
+Expected: 200 with payment_url/paymentUrl and transaction_id/transactionId.
+
+Multibanco (legacy body-auth)
+
+curl -i -X POST 'https://sandbox.eupago.pt/clientes/rest_api/multibanco/create' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'apiKey=demo-74d6-183e-c5b9-480&id=test-order-456&valor=66.49&descricao=Test+Order&email=sandbox@example.com'
+
+
+Expected: 200 with entidade/entity and referencia/reference.
+
+Your current env looks fine
+
+Keep:
+
+EUPAGO_API_BASE="https://sandbox.eupago.pt"
+EUPAGO_API_KEY="demo-74d6-183e-c5b9-480"
+EUPAGO_CARD_RETURN_URL="https://send-surgery-arrives-regular.trycloudflare.com/orders"
+EUPAGO_WEBHOOK_SHARED_SECRET="TTempoDLAdXX77ehv5zDnfz7SM66HrRW"
+
+
+//outputs
+
+surennorekyan@MacBook-Pro palmanhac % curl -i -X POST 'https://sandbox.eupago.pt/api/v1.02/creditcard/create' \
+  -H 'ApiKey: demo-74d6-183e-c5b9-480' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'id=test-order-123&value=66.49&currency=EUR&description=Test+Order&return_url=https://send-surgery-arrives-regular.trycloudflare.com/orders&customer_email=sandbox@example.com&customer_name=Demo&locale=en'
+HTTP/2 401 
+server: nginx/1.20.1
+date: Mon, 03 Nov 2025 16:36:03 GMT
+content-type: application/json
+x-powered-by: PHP/8.0.30
+set-cookie: PHPSESSID=qsc6og91nooapaaajc9sk8079q; path=/
+expires: Thu, 19 Nov 1981 08:52:00 GMT
+cache-control: no-store, no-cache, must-revalidate
+pragma: no-cache
+x-request-id: 09dbf016e0f51869ef476a0137972174
+
+{"transactionStatus":"Rejected","code":"APIKEY_MISSING","text":"API Key was not available in the request"}%                                                                                                                                                    
+surennorekyan@MacBook-Pro palmanhac % curl -i -X POST 'https://sandbox.eupago.pt/clientes/rest_api/multibanco/create' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'apiKey=demo-74d6-183e-c5b9-480&id=test-order-456&valor=66.49&descricao=Test+Order&email=sandbox@example.com'
+HTTP/2 200 
+server: nginx/1.20.1
+date: Mon, 03 Nov 2025 16:36:17 GMT
+content-type: application/json
+x-powered-by: PHP/8.0.30
+set-cookie: PHPSESSID=cagd3a1jk0sctmrf2r4qkqim9o; path=/clientes/; domain=sandbox.eupago.pt
+expires: Thu, 19 Nov 1981 08:52:00 GMT
+pragma: no-cache
+cache-control: no-cache, must-revalidate
+alternate-protocol: 443:npn-spdy/3
+strict-transport-security: max-age=31536000;
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+referrer-policy: no-referrer
+
+{"sucesso":false,"estado":-10,"resposta":"Os dados inseridos não são válidos"}%                                                                                                                                                                                
+surennorekyan@MacBook-Pro palmanhac % 

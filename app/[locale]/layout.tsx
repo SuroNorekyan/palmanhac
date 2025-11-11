@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
 import { AgeGate } from "@/components/layout/AgeGate";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
@@ -34,15 +35,20 @@ export default async function LocaleLayout({
 
   return (
     <Providers>
-      <TopBanner banner={dictionary.banner} />
-      <Header nav={navigation} dictionary={dictionary} locale={locale} />
-      <main className="container space-y-16 py-12">{children}</main>
+      <div className="fixed inset-x-0 top-0 z-50">
+        <TopBanner banner={dictionary.banner} />
+        <Header nav={navigation} dictionary={dictionary} locale={locale} />
+      </div>
+      <main className="container space-y-16 pb-16 pt-56 sm:pt-56 md:pt-48 lg:pt-44 xl:pt-40">
+        {children}
+      </main>
       <Footer
         nav={navigation}
         site={siteConfig}
         dictionary={dictionary}
         locale={locale}
       />
+      <ScrollToTopButton />
       <AgeGate copy={dictionary.ageGate} locale={locale} />
     </Providers>
   );

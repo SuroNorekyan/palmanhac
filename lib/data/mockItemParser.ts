@@ -17,6 +17,7 @@ export type ParsedMockItem = {
   abv: number;
   volumeMl: number;
   image: string;
+  imageSourcePath: string | null;
   details: {
     region: Record<Locale, string>;
     base: Record<Locale, string>;
@@ -224,6 +225,12 @@ const extractDescription = (lines: string[], patterns: RegExp[]): string => {
 
 const inferCategory = (content: string): ProductCategorySlug => {
   const normalized = content.toLowerCase();
+  if (
+    normalized.includes("bebida espirituosa") ||
+    normalized.includes("fortified wine")
+  ) {
+    return "bebida-espirituosa";
+  }
   if (normalized.includes("aguardente")) {
     return "aguardente";
   }
@@ -412,6 +419,7 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
       abv,
       volumeMl,
       image: resolveImagePath(slug, imageFilename),
+      imageSourcePath: imageFilename ? path.join(folderPath, imageFilename) : null,
       details,
     });
   }

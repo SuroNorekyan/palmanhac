@@ -1,0 +1,48 @@
+Changes
+- `lib/payments/eupago.ts`: card/MB WAY requests send only the documented fields (`value` number, `currency`, `description`, `return_url`/`customer_*`, optional `locale`) with the API key in headers; Multibanco continues to post a minimal form body. Logging still prints options and sanitized headers/bodies for deep debugging.
+- `scripts/eupago-simulate.ts`: added a runnable simulation that shims `fetch`, exercises card/MB WAY/Multibanco flows, and prints the resulting payloads plus mock responses.
+- Cleared build caches (`rm -rf .next .turbo .pnpm-store`) to make sure the canonical `lib/payments/eupago.ts` is the one loaded at runtime.
+
+Tests
+- `pnpm typecheck`
+
+Verified Payloads
+- Card request payload:
+  ```
+  {
+    id: "6f9d8d59-7a60-4bcf-a0b3-20f40e9873c1",
+    value: 66.49,
+    currency: "EUR",
+    description: "Order 6f9d8d59-7a60-4bcf-a0b3-20f40e9873c1",
+    return_url: "http://localhost:3000/orders",
+    customer_email: "sandbox@example.com",
+    customer_name: "Palmanhac Demo",
+    locale: "en"
+  }
+  ```
+- MB WAY request payload:
+  ```
+  {
+    id: "a832f1bc-6df9-46ac-9d04-1f0e3fa4d5ef",
+    value: 45.2,
+    currency: "EUR",
+    description: "Order a832f1bc-6df9-46ac-9d04-1f0e3fa4d5ef",
+    customer_email: "sandbox@example.com",
+    customer_name: "Palmanhac Demo",
+    alias: "911234567",
+    locale: "en"
+  }
+  ```
+- Multibanco form payload (URL-encoded):
+  ```
+  apiKey=demo-74d6-183e-c5b9-480&id=bd4b4074-5f8b-43a6-989d-2f7f8e9fc911&valor=66.49&descricao=Order+bd4b4074-5f8b-43a6-989d-2f7f8e9fc911&email=sandbox%40example.com
+  ```
+
+Next Steps
+- Restart `pnpm dev` and re-run Card, MB WAY, and Multibanco flows; the sandbox should now return `paymentUrl`/`transactionId` (card/MB WAY) and entity/reference (Multibanco) without `AMOUNT_MISSING`.
+
+Request Simulation
+- `TS_NODE_COMPILER_OPTIONS='{"module":"esnext"}' pnpm ts-node --esm scripts/eupago-simulate.ts`
+  * Card request body: `{"id":"simulation-order","value":66.49,"currency":"EUR","description":"Order simulation-order","return_url":"http://localhost:3000/orders","customer_email":"sandbox@example.com","customer_name":"Palmanhac Demo","locale":"en"}` → mock response `{ payment_url: "https://sandbox.eupago.pt/pay/mock-card", transaction_id: "card_sim_123" }`
+  * MB WAY request body: `{"id":"simulation-order","value":66.49,"currency":"EUR","description":"Order simulation-order","customer_email":"sandbox@example.com","customer_name":"Palmanhac Demo","alias":"911234567","locale":"en"}` → mock response `{ transaction_id: "mbway_sim_123", status_url: "https://sandbox.eupago.pt/status/mock-mbway" }`
+  * Multibanco form body: `apiKey=demo-74d6-183e-c5b9-480&id=simulation-order&valor=66.49&descricao=Order+simulation-order&email=sandbox%40example.com` → mock response `{ entidade: "12345", referencia: "555777888", valor: "66.49" }`

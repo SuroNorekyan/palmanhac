@@ -1,0 +1,29 @@
+name: demo-Palmanhac
+url (mock tunneled for now): https://send-surgery-arrives-regular.trycloudflare.com/en
+
+Name of the GET variable that receives the value
+valor
+Name of the GET variable that receives the channel ID
+canal
+Name of the GET variable that gets the reference
+referencia
+Name of the GET variable that receives the transaction
+transacao
+Name of the GET variable that receives the order identifier
+identificador
+
+
+Webhooks 2.0
+The new webhooks provide more secure communication with your platform. They allow you to choose to receive notifications about successful payments or expired references.
+Integrated Software
+
+Custom Integration
+Encrypt Webhook
+
+Yes
+Webhook Endpoint (See Callback type list)
+https://send-surgery-arrives-regular.trycloudflare.com/api/payments/eupago/webhook
+Cryptographic Key
+TTempoDLAdXX77ehv5zDnfz7SM66HrRW
+
+API Key	demo-74d6-183e-c5b9-480

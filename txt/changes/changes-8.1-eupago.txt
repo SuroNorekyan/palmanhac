@@ -1,0 +1,19 @@
+Updates
+- `lib/payments/eupago.ts`: expanded authentication to send `Authorization: ApiKey <key>`, `ApiKey`, and `X-Api-Key` headers for header-mode calls, while still stuffing `apiKey` into JSON payloads as a fallback. Multibanco helpers now submit `application/x-www-form-urlencoded` payloads containing only EuPago’s accepted fields (`apiKey`, `id`, `valor`, `descricao`, optional `currency`/`email`), enforce a ≥€1.00 amount, and reuse the same form encoding for `/clientes/rest_api/multibanco/info`. MB WAY status polling also gained the new header trio.
+- Simplified card/MB WAY payloads to the schema EuPago documents (`value`/`amount` numeric plus `valor` string) to eliminate `AMOUNT_MISSING` while still providing required metadata.
+- Introduced non-production console debug logs to inspect EuPago request payloads (API key redacted) for troubleshooting.
+- Added development-only logging in `/api/payments/eupago/create` to trace method, order ID, and totals when spinning up payments.
+
+Sandbox Retest Plan
+1. Card: start a checkout ≥€1,000, confirm create returns `paymentUrl`/`transactionId`, follow the hosted flow with the sandbox Visa `4543630000000000` (CVC `123`, expiry `12/29`, OTP `1234`), and verify the webhook marks the order `PAID`.
+2. MB WAY: run through checkout with alias `911234567`, ensure `transactionId` + `statusUrl` are returned, and watch polling succeed once you approve the request (or simulate the webhook).
+3. Multibanco: create a reference and confirm the response includes `entity` and `reference`; if needed, call `GET /api/payments/eupago/status?...` to hit the form-encoded info endpoint and see the status switch after paying through the sandbox tool.
+4. Negative: try a sub-€1 cart (should be coerced to €1.00) and confirm EuPago accepts the call; repeat MB WAY/Card to ensure the 401 `APIKEY_MISSING` no longer appears.
+
+Production Notes
+- Keep `EUPAGO_API_BASE="https://clientes.eupago.pt"` in live and continue sending all three header variants; EuPago’s production gateway uses the same pattern.
+- The minimum €1.00 guard applies in production too—surface validation if you ever expose smaller denominations.
+- Webhook handling is untouched; no signature changes were required.
+
+Tests
+- `pnpm typecheck`

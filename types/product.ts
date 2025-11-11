@@ -1,6 +1,6 @@
 import type { Locale } from "@/config/site";
 
-export type ProductCategorySlug = "licor" | "aguardente";
+export type ProductCategorySlug = "licor" | "aguardente" | "bebida-espirituosa";
 
 export type ProductDetails = {
   region: Record<Locale, string>;
