@@ -1,4 +1,4 @@
-# === Project Dump (2025-11-11T11:54:49.666Z) ===
+# === Project Dump (2025-11-11T13:42:27.082Z) ===
 
 
 # --- app/[locale]/about/page.tsx ---
@@ -3446,12 +3446,31 @@ import {
   createMBWay,
   createMultibanco,
   deriveProviderReference,
+  normaliseProviderReference,
   EuPagoAPIError,
   EuPagoConfigurationError,
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { calculateCartTotals } from "@/lib/utils/cart-totals";
+import { normalizeCountryInput } from "@/lib/utils/country";
 import { appendOrderEvent } from "@/lib/utils/order-events";
+import { logPaymentEvent } from "@/lib/utils/payment-logger";
+
+const countryCodeSchema = z
+  .string()
+  .min(2)
+  .max(120)
+  .transform((value, ctx) => {
+    try {
+      return normalizeCountryInput(value);
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "Invalid country.",
+      });
+      return z.NEVER;
+    }
+  });
 
 const addressSchema = z.object({
   name: z.string().min(1).max(120),
@@ -3459,7 +3478,7 @@ const addressSchema = z.object({
   line2: z.string().max(200).optional(),
   city: z.string().min(1).max(120),
   postalCode: z.string().min(1).max(60),
-  country: z.string().min(2).max(120),
+  country: countryCodeSchema,
 });
 
 const payloadSchema = z.object({
@@ -3487,9 +3506,6 @@ const payloadSchema = z.object({
 
 const normalizeCurrency = (currency: string) => currency.trim().toUpperCase() || "EUR";
 
-const normalizeReference = (value: string | null | undefined) =>
-  value ? value.replace(/[^0-9A-Za-z_-]/g, "") : null;
-
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -3499,6 +3515,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = payloadSchema.safeParse(body);
   if (!parsed.success) {
+    await logPaymentEvent("warn", "checkout_invalid_payload", {
+      userId: session.user.id,
+      issues: parsed.error.flatten(),
+    });
     return NextResponse.json(
       { error: "Invalid payload.", issues: parsed.error.flatten() },
       { status: 400 },
@@ -3552,6 +3572,15 @@ export async function POST(request: NextRequest) {
     },
   };
 
+  await logPaymentEvent("info", "checkout_request_received", {
+    userId: session.user.id,
+    orderId,
+    method: payload.method,
+    totals,
+    currency,
+    locale: payload.locale,
+  });
+
   let paymentResult:
     | Awaited<ReturnType<typeof createMultibanco>>
     | Awaited<ReturnType<typeof createMBWay>>
@@ -3570,7 +3599,7 @@ export async function POST(request: NextRequest) {
     if (payload.method === "multibanco") {
       paymentResult = await createMultibanco(orderInput);
     } else if (payload.method === "mbway") {
-      const phone = payload.mbwayPhone?.trim() || payload.contact.phone;
+      const phone = payload.mbwayPhone?.trim() || payload.contact.phone?.trim();
       if (!phone) {
         return NextResponse.json(
           { error: "MB WAY phone number is required." },
@@ -3600,6 +3629,13 @@ export async function POST(request: NextRequest) {
       paymentResult = await createCard(orderInput);
     }
   } catch (error) {
+    await logPaymentEvent("error", "checkout_eupago_error", {
+      orderId,
+      method: payload.method,
+      error:
+        error instanceof Error ? error.message : "EuPago error (unrecognized payload).",
+      response: error instanceof EuPagoAPIError ? error.response : undefined,
+    });
     if (error instanceof EuPagoConfigurationError) {
       return NextResponse.json(
         { error: error.message, requiresConfiguration: true },
@@ -3620,8 +3656,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const paymentLogDetails =
+    paymentResult.method === "multibanco"
+      ? {
+          entity: paymentResult.entity,
+          reference: paymentResult.reference,
+          amount: paymentResult.amount,
+          expiresAt: paymentResult.expiresAt,
+        }
+      : paymentResult.method === "mbway"
+        ? {
+            transactionId: paymentResult.transactionId,
+            statusUrl: paymentResult.statusUrl,
+          }
+        : {
+            transactionId: paymentResult.transactionId,
+            paymentUrl: paymentResult.paymentUrl,
+          };
+
+  await logPaymentEvent("info", "checkout_eupago_payment_created", {
+    orderId,
+    method: paymentResult.method,
+    ...paymentLogDetails,
+  });
+
   const providerRef =
-    normalizeReference(deriveProviderReference(paymentResult)) ?? orderId;
+    normaliseProviderReference(deriveProviderReference(paymentResult)) ?? orderId;
 
   const priceMap = new Map(products.map((product) => [product.id, product.priceCents]));
   const orderEventPayload = {
@@ -3629,71 +3689,91 @@ export async function POST(request: NextRequest) {
     method: paymentResult.method,
     providerRef,
   };
-
-  const order = await prisma.$transaction(async (tx) => {
-    const createdOrder = await tx.order.create({
-      data: {
-        id: orderId,
-        userId: session.user.id,
-        totalAmount: totals.totalCents,
-        paymentStatus: PaymentStatus.PENDING,
-        notes: payload.notes,
-        currency,
-        paymentProvider: PaymentProvider.EUPAGO,
-        paymentMethod:
-          paymentResult.method === "multibanco"
-            ? PaymentMethod.MULTIBANCO
-            : paymentResult.method === "mbway"
-              ? PaymentMethod.MBWAY
-              : PaymentMethod.CARD,
-        providerRef,
-        providerMetadata: {
-          ...("metadata" in paymentResult ? paymentResult.metadata : {}),
-          ...(paymentResult.method === "multibanco"
-            ? {
-                entity: paymentResult.entity,
-                reference: paymentResult.reference,
-                amount: paymentResult.amount,
-                expiresAt: paymentResult.expiresAt,
-              }
-            : {}),
-          ...(paymentResult.method === "mbway"
-            ? {
-                transactionId: paymentResult.transactionId,
-                statusUrl: paymentResult.statusUrl,
-              }
-            : {}),
-          ...(paymentResult.method === "card"
-            ? {
-                transactionId: paymentResult.transactionId,
-                paymentUrl: paymentResult.paymentUrl,
-              }
-            : {}),
-        },
-        contactEmail: payload.contact.email,
-        contactPhone: payload.contact.phone,
-        shippingAddress: payload.shipping,
-        billingAddress: payload.billing,
-        locale: payload.locale,
-        events: appendOrderEvent(null, {
-          type: "payment_created",
-          payload: {
-            ...orderEventPayload,
+  let order: Awaited<ReturnType<typeof prisma.order.create>>;
+  try {
+    order = await prisma.$transaction(async (tx) => {
+      const createdOrder = await tx.order.create({
+        data: {
+          id: orderId,
+          userId: session.user.id,
+          totalAmount: totals.totalCents,
+          paymentStatus: PaymentStatus.PENDING,
+          notes: payload.notes,
+          currency,
+          paymentProvider: PaymentProvider.EUPAGO,
+          paymentMethod:
+            paymentResult.method === "multibanco"
+              ? PaymentMethod.MULTIBANCO
+              : paymentResult.method === "mbway"
+                ? PaymentMethod.MBWAY
+                : PaymentMethod.CARD,
+          providerRef,
+          providerMetadata: {
+            ...("metadata" in paymentResult ? paymentResult.metadata : {}),
+            ...(paymentResult.method === "multibanco"
+              ? {
+                  entity: paymentResult.entity,
+                  reference: paymentResult.reference,
+                  amount: paymentResult.amount,
+                  expiresAt: paymentResult.expiresAt,
+                }
+              : {}),
+            ...(paymentResult.method === "mbway"
+              ? {
+                  transactionId: paymentResult.transactionId,
+                  statusUrl: paymentResult.statusUrl,
+                }
+              : {}),
+            ...(paymentResult.method === "card"
+              ? {
+                  transactionId: paymentResult.transactionId,
+                  paymentUrl: paymentResult.paymentUrl,
+                }
+              : {}),
           },
-        }) as Prisma.InputJsonValue,
-      },
-    });
+          contactEmail: payload.contact.email,
+          contactPhone: payload.contact.phone,
+          shippingAddress: payload.shipping,
+          billingAddress: payload.billing,
+          locale: payload.locale,
+          events: appendOrderEvent(null, {
+            type: "payment_created",
+            payload: {
+              ...orderEventPayload,
+            },
+          }) as Prisma.InputJsonValue,
+        },
+      });
 
-    await tx.orderItem.createMany({
-      data: payload.items.map((item) => ({
-        orderId: createdOrder.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: priceMap.get(item.productId) ?? 0,
-      })),
-    });
+      await tx.orderItem.createMany({
+        data: payload.items.map((item) => ({
+          orderId: createdOrder.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: priceMap.get(item.productId) ?? 0,
+        })),
+      });
 
-    return createdOrder;
+      return createdOrder;
+    });
+  } catch (error) {
+    await logPaymentEvent("error", "checkout_order_persist_error", {
+      orderId,
+      providerRef,
+      error: error instanceof Error ? error.message : "Failed to persist order.",
+    });
+    console.error("[Order] Failed to create order for EuPago payment", error);
+    return NextResponse.json(
+      { error: "Unable to save order. Please contact support." },
+      { status: 500 },
+    );
+  }
+
+  await logPaymentEvent("info", "checkout_order_created", {
+    orderId: order.id,
+    providerRef,
+    paymentMethod: paymentResult.method,
+    totalCents: order.totalAmount,
   });
 
   try {
@@ -3774,6 +3854,7 @@ import {
   fetchMultibancoInfo,
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
+import { logPaymentEvent } from "@/lib/utils/payment-logger";
 
 const normaliseTransactionId = (value: string) => value.replace(/[^0-9A-Za-z_-]/g, "");
 const normalizeReferenceDigits = (value: string | null | undefined) =>
@@ -3794,6 +3875,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const transactionId = searchParams.get("transactionId");
   if (!transactionId) {
+    await logPaymentEvent("warn", "checkout_status_missing_transaction", {
+      userId: session.user.id,
+    });
     return NextResponse.json({ error: "transactionId is required." }, { status: 400 });
   }
 
@@ -3823,12 +3907,30 @@ export async function GET(request: NextRequest) {
   });
 
   if (!order) {
+    await logPaymentEvent("warn", "checkout_status_order_not_found", {
+      userId: session.user.id,
+      transactionId,
+      candidateRefs,
+    });
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
+
+  await logPaymentEvent("info", "checkout_status_request", {
+    userId: session.user.id,
+    orderId: order.id,
+    providerRef: order.providerRef,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    transactionId,
+  });
 
   const providerMetadata = asRecord(order.providerMetadata);
 
   if (order.paymentStatus === PaymentStatus.PAID) {
+    await logPaymentEvent("info", "checkout_status_cached_paid", {
+      orderId: order.id,
+      providerRef: order.providerRef,
+    });
     return NextResponse.json({
       status: {
         status: "paid" as const,
@@ -3844,9 +3946,13 @@ export async function GET(request: NextRequest) {
   try {
     if (order.paymentMethod === PaymentMethod.MBWAY) {
       const statusUrl =
-        asString(providerMetadata.statusUrl) ??
-        asString(providerMetadata.status_url);
+        asString(providerMetadata.statusUrl) ?? asString(providerMetadata.status_url);
       if (!statusUrl) {
+        await logPaymentEvent("warn", "checkout_status_missing_status_url", {
+          orderId: order.id,
+          providerRef: order.providerRef,
+          method: "mbway",
+        });
         return NextResponse.json({
           status: {
             status: "pending" as const,
@@ -3856,6 +3962,12 @@ export async function GET(request: NextRequest) {
         });
       }
       const status = await fetchMBWayStatus(statusUrl);
+      await logPaymentEvent("info", "checkout_status_polled", {
+        orderId: order.id,
+        providerRef: order.providerRef,
+        method: "mbway",
+        status,
+      });
       return NextResponse.json({ status });
     }
 
@@ -3869,6 +3981,11 @@ export async function GET(request: NextRequest) {
         ) ?? normalizeReferenceDigits(transactionId);
 
       if (!reference) {
+        await logPaymentEvent("warn", "checkout_status_missing_reference", {
+          orderId: order.id,
+          providerRef: order.providerRef,
+          transactionId,
+        });
         return NextResponse.json({
           status: {
             status: "pending" as const,
@@ -3904,6 +4021,12 @@ export async function GET(request: NextRequest) {
         transactionId: transactionId,
         amount,
       });
+      await logPaymentEvent("info", "checkout_status_polled", {
+        orderId: order.id,
+        providerRef: order.providerRef,
+        method: "multibanco",
+        status,
+      });
       return NextResponse.json({ status });
     }
 
@@ -3919,6 +4042,11 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    await logPaymentEvent("error", "checkout_status_error", {
+      orderId: order.id,
+      providerRef: order.providerRef,
+      error: error instanceof Error ? error.message : "Unknown status error.",
+    });
     if (error instanceof EuPagoConfigurationError) {
       return NextResponse.json(
         { error: error.message, requiresConfiguration: true },
@@ -3951,6 +4079,7 @@ import {
 import { normaliseProviderReference } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { appendOrderEvent } from "@/lib/utils/order-events";
+import { logPaymentEvent } from "@/lib/utils/payment-logger";
 
 /**
  * EuPago sandbox setup:
@@ -4039,37 +4168,61 @@ export async function POST(request: NextRequest) {
   const secret = process.env.EUPAGO_WEBHOOK_SHARED_SECRET;
   if (!secret) {
     console.error("[EuPago] Webhook secret is not configured.");
+    await logPaymentEvent("error", "eupago_webhook_secret_missing");
     return NextResponse.json({ error: "Webhook secret missing." }, { status: 500 });
   }
 
   const rawBody = await request.text();
   if (!rawBody) {
+    await logPaymentEvent("warn", "eupago_webhook_empty_payload");
     return NextResponse.json({ error: "Empty payload." }, { status: 400 });
   }
 
   const signature = getSignature(request);
   if (!signature) {
+    await logPaymentEvent("warn", "eupago_webhook_missing_signature");
     return NextResponse.json({ error: "Missing signature." }, { status: 400 });
   }
 
   const expectedSignature = createHmac("sha256", secret).update(rawBody).digest("hex");
   if (!signaturesMatch(signature, expectedSignature)) {
+    await logPaymentEvent("warn", "eupago_webhook_invalid_signature", {
+      signature: `${signature.slice(0, 8)}...`,
+    });
     return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
   }
+
+  await logPaymentEvent("info", "eupago_webhook_verified", {
+    signature: `${signature.slice(0, 8)}...`,
+    rawBodyLength: rawBody.length,
+  });
 
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(rawBody) as Record<string, unknown>;
   } catch (error) {
     console.error("[EuPago] Failed to parse webhook payload:", error);
+    await logPaymentEvent("error", "eupago_webhook_invalid_json", {
+      error: error instanceof Error ? error.message : "Invalid JSON",
+    });
     return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
   }
 
   const providerRef = extractProviderRef(payload);
   if (!providerRef) {
     console.error("[EuPago] Webhook missing provider reference.", payload);
+    await logPaymentEvent("error", "eupago_webhook_missing_provider_ref", {
+      payload,
+    });
     return NextResponse.json({ error: "Missing provider reference." }, { status: 400 });
   }
+
+  const status = deriveStatus(payload);
+  await logPaymentEvent("info", "eupago_webhook_payload_parsed", {
+    providerRef,
+    status,
+    payload,
+  });
 
   const order = await prisma.order.findFirst({
     where: { providerRef },
@@ -4089,10 +4242,13 @@ export async function POST(request: NextRequest) {
 
   if (!order) {
     console.warn("[EuPago] Order not found for providerRef:", providerRef);
+    await logPaymentEvent("warn", "eupago_webhook_order_not_found", {
+      providerRef,
+      payload,
+    });
     return NextResponse.json({ success: true });
   }
 
-  const status = deriveStatus(payload);
   const baseEvents = appendOrderEvent(order.events, {
     type: "eupago_webhook_received",
     payload: { status, ...payload },
@@ -4102,6 +4258,10 @@ export async function POST(request: NextRequest) {
     await prisma.order.update({
       where: { id: order.id },
       data: { events: baseEvents as Prisma.InputJsonValue },
+    });
+    await logPaymentEvent("info", "eupago_webhook_already_paid", {
+      orderId: order.id,
+      providerRef,
     });
     return NextResponse.json({ success: true });
   }
@@ -4130,6 +4290,11 @@ export async function POST(request: NextRequest) {
     })) as Prisma.OrderGetPayload<{
       include: { user: { select: { name: true; email: true } } };
     }>;
+    await logPaymentEvent("info", "eupago_webhook_payment_captured", {
+      orderId: updatedOrder.id,
+      providerRef,
+      paidAt: paidAt.toISOString(),
+    });
 
     try {
       await sendAdminEmail({
@@ -4149,8 +4314,18 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       if (error instanceof EmailConfigurationError) {
         console.warn("[Email] Payment confirmation notification skipped:", error.message);
+        await logPaymentEvent("warn", "eupago_webhook_email_skipped", {
+          orderId: order.id,
+          providerRef,
+          error: error.message,
+        });
       } else {
         console.error("[Email] Failed to send payment confirmation email:", error);
+        await logPaymentEvent("error", "eupago_webhook_email_failed", {
+          orderId: order.id,
+          providerRef,
+          error: error instanceof Error ? error.message : "Unknown email error",
+        });
       }
     }
 
@@ -4168,6 +4343,10 @@ export async function POST(request: NextRequest) {
         }) as Prisma.InputJsonValue,
       },
     });
+    await logPaymentEvent("warn", "eupago_webhook_payment_failed", {
+      orderId: order.id,
+      providerRef,
+    });
     return NextResponse.json({ success: true });
   }
 
@@ -4183,12 +4362,22 @@ export async function POST(request: NextRequest) {
         }) as Prisma.InputJsonValue,
       },
     });
+    await logPaymentEvent("info", "eupago_webhook_payment_status_update", {
+      orderId: order.id,
+      providerRef,
+      status,
+    });
     return NextResponse.json({ success: true });
   }
 
   await prisma.order.update({
     where: { id: order.id },
     data: { events: baseEvents as Prisma.InputJsonValue },
+  });
+  await logPaymentEvent("info", "eupago_webhook_event_recorded", {
+    orderId: order.id,
+    providerRef,
+    status,
   });
 
   return NextResponse.json({ success: true });
@@ -4253,9 +4442,7 @@ export async function GET(request: NextRequest) {
   const categoryParam = searchParams.get("category") ?? undefined;
   const category = (
     ["licor", "aguardente", "bebida-espirituosa"] as ProductCategorySlug[]
-  ).includes(
-    categoryParam as ProductCategorySlug,
-  )
+  ).includes(categoryParam as ProductCategorySlug)
     ? (categoryParam as ProductCategorySlug)
     : undefined;
   const sortParam = searchParams.get("sort") ?? undefined;
@@ -6254,6 +6441,7 @@ import { useAnonCartImport } from "@/lib/hooks/useAnonCartImport";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useCartStore } from "@/lib/store/cart";
 import { calculateCartTotals } from "@/lib/utils/cart-totals";
+import { normalizeCountryInput } from "@/lib/utils/country";
 import { formatCurrency } from "@/lib/utils/currency";
 import { withLocale } from "@/lib/utils/locale";
 
@@ -6530,12 +6718,17 @@ export function CheckoutView({
   }, [billingSameAsShipping, billing, shipping]);
 
   const buildCheckoutPayload = () => {
+    const normalizeAddressCountry = (address: typeof normalisedShipping) => ({
+      ...address,
+      country: normalizeCountryInput(address.country),
+    });
+
     const base = {
       method: selectedMethod,
       items: normalisedItems,
       contact: normalisedContact,
-      shipping: normalisedShipping,
-      billing: normalisedBilling,
+      shipping: normalizeAddressCountry(normalisedShipping),
+      billing: normalizeAddressCountry(normalisedBilling),
       notes: notes.trim() || undefined,
       currency: "EUR" as const,
       locale,
@@ -6660,9 +6853,20 @@ export function CheckoutView({
     setIsSubmitting(true);
     resetPaymentState();
 
+    let payload: ReturnType<typeof buildCheckoutPayload>;
     try {
-      const payload = buildCheckoutPayload();
+      payload = buildCheckoutPayload();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : dictionary.checkout.paymentServiceUnavailable;
+      setServerError(message);
+      setIsSubmitting(false);
+      return;
+    }
 
+    try {
       if (process.env.NODE_ENV !== "production") {
         console.debug("[Checkout] Submitting payload", payload);
       }
@@ -7457,7 +7661,9 @@ export function ScrollToTopButton() {
         "fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg transition",
         "hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200",
         "sm:bottom-8 sm:right-8",
-        visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0",
+        visible
+          ? "translate-y-0 opacity-100"
+          : "pointer-events-none translate-y-3 opacity-0",
       )}
     >
       <ArrowUp className="h-5 w-5" />
@@ -7726,8 +7932,9 @@ export function FavoritesView({
 
 # --- components/home/HeroSection.tsx ---
 "use client";
-import Image from "next/image";
+
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -7763,8 +7970,7 @@ export function HeroSection({
       clearInterval(intervalRef.current);
     }
     intervalRef.current = setInterval(
-      () =>
-        setActiveIndex((prev) => (prev + 1) % HERO_IMAGES.length),
+      () => setActiveIndex((prev) => (prev + 1) % HERO_IMAGES.length),
       6000,
     );
   }, []);
@@ -10204,7 +10410,10 @@ const extractDescription = (lines: string[], patterns: RegExp[]): string => {
 
 const inferCategory = (content: string): ProductCategorySlug => {
   const normalized = content.toLowerCase();
-  if (normalized.includes("bebida espirituosa") || normalized.includes("fortified wine")) {
+  if (
+    normalized.includes("bebida espirituosa") ||
+    normalized.includes("fortified wine")
+  ) {
     return "bebida-espirituosa";
   }
   if (normalized.includes("aguardente")) {
@@ -11735,7 +11944,8 @@ const dictionaries: Record<Locale, Dictionary> = {
                 ],
               },
               {
-                question: "O que devo fazer se a embalagem estiver danificada ou molhada?",
+                question:
+                  "O que devo fazer se a embalagem estiver danificada ou molhada?",
                 answer: [
                   "Se notar danos no momento da entrega, recuse a encomenda e contacte-nos imediatamente.",
                   "Envie um e-mail para palmanhac@gmail.com ou ligue para 964 690 254 (dias úteis, das 9h00 às 18h00).",
@@ -11754,7 +11964,8 @@ const dictionaries: Record<Locale, Dictionary> = {
       },
       shippingReturns: {
         title: "Entregas e Devoluções",
-        subtitle: "Informações essenciais sobre envios, devoluções e cuidado dos produtos.",
+        subtitle:
+          "Informações essenciais sobre envios, devoluções e cuidado dos produtos.",
         shipping: {
           title: "Entregas",
           notes: [
@@ -12066,6 +12277,7 @@ export const getDictionary = (locale: Locale): Dictionary => {
 
 # --- lib/payments/eupago.ts ---
 // lib/payments/eupago.ts
+import { logPaymentEvent } from "@/lib/utils/payment-logger";
 export class EuPagoConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -12130,12 +12342,24 @@ export type EuPagoStatusResult = {
   raw?: Record<string, unknown>;
 };
 
-const normalizeBaseUrl = (v: string) => v.replace(/\s+/g, "").replace(/\/+$/, "");
+const normalizeBaseUrl = (value: string) =>
+  value.trim().replace(/\s+/g, "").replace(/\/+$/, "").replace(/\/api$/i, "");
+const LIVE_BASE_CANDIDATES = ["https://clientes.eupago.pt", "https://eupago.pt"];
+let liveWarningIssued = false;
 
 const ensureBaseUrl = () => {
   const raw = process.env.EUPAGO_API_BASE;
   if (!raw) throw new EuPagoConfigurationError("EUPAGO_API_BASE is not defined.");
-  return normalizeBaseUrl(raw);
+  const normalized = normalizeBaseUrl(raw);
+  if (!liveWarningIssued && process.env.NODE_ENV !== "production") {
+    if (LIVE_BASE_CANDIDATES.some((candidate) => normalized.startsWith(candidate))) {
+      liveWarningIssued = true;
+      console.warn(
+        "[EuPago] Live API endpoint configured while NODE_ENV !== production. Handle with care.",
+      );
+    }
+  }
+  return normalized;
 };
 const ensureApiKey = () => {
   const key = process.env.EUPAGO_API_KEY;
@@ -12161,10 +12385,12 @@ const parseJsonSafely = async <T>(res: Response): Promise<T> => {
 
 type Mode = "header" | "body";
 type Format = "form" | "json";
+type EuPagoPayloadValue = string | number | boolean | null | undefined;
+type EuPagoPayload = Record<string, EuPagoPayloadValue>;
 
 const euPagoFetch = async <T>(
   path: string,
-  payload: Record<string, string>,
+  payload: EuPagoPayload,
   mode: Mode,
   format: Format,
 ) => {
@@ -12175,15 +12401,26 @@ const euPagoFetch = async <T>(
   };
   const key = ensureApiKey();
 
+  const toFormValue = (value: EuPagoPayloadValue) =>
+    typeof value === "string" ? value : value !== undefined && value !== null ? String(value) : undefined;
+
   const bodyParams = new URLSearchParams();
   for (const [k, v] of Object.entries(payload)) {
-    if (v !== undefined && v !== null) bodyParams.set(k, v);
+    const stringValue = toFormValue(v);
+    if (stringValue !== undefined) bodyParams.set(k, stringValue);
+  }
+
+  const jsonPayload: Record<string, EuPagoPayloadValue> = {};
+  for (const [k, v] of Object.entries(payload)) {
+    if (v !== undefined && v !== null) jsonPayload[k] = v;
   }
 
   if (mode === "header") {
-    headers["ApiKey"] = key; // EuPago docs: ApiKey header for ApiKey Auth endpoints
+    headers["ApiKey"] = key;
+    headers["Authorization"] = `ApiKey ${key}`;
+    headers["X-Api-Key"] = key;
   } else {
-    bodyParams.set("apiKey", key); // legacy/Multibanco body auth
+    bodyParams.set("apiKey", key);
   }
 
   if (format === "form") {
@@ -12192,42 +12429,69 @@ const euPagoFetch = async <T>(
     headers["Content-Type"] = "application/json";
   }
 
+  const redactPayload = (input: Record<string, EuPagoPayloadValue>) =>
+    Object.fromEntries(
+      Object.entries(input).map(([k, v]) =>
+        k.toLowerCase().includes("key") ? [k, "<redacted>"] : [k, v],
+      ),
+    );
+
   const debugBody =
     format === "form"
       ? Object.fromEntries(
           [...bodyParams.entries()].map(([k, v]) => [
             k,
-            k === "apiKey" ? "<redacted>" : v,
+            k.toLowerCase().includes("key") ? "<redacted>" : v,
           ]),
         )
-      : payload;
+      : redactPayload(jsonPayload);
 
-  if (process.env.NODE_ENV !== "production") {
-    console.debug("[EuPago] POST", url, {
-      headers: { ...headers, ApiKey: headers.ApiKey ? "<redacted>" : undefined },
-      body: debugBody,
-      mode,
-      format,
-    });
-  }
+  const loggedHeaders: Record<string, string | undefined> = { ...headers };
+  if (loggedHeaders.ApiKey) loggedHeaders.ApiKey = "<redacted>";
+  if (loggedHeaders.Authorization) loggedHeaders.Authorization = "<redacted>";
+  if (loggedHeaders["X-Api-Key"]) loggedHeaders["X-Api-Key"] = "<redacted>";
+
+  await logPaymentEvent("info", "eupago_request", {
+    url,
+    headers: loggedHeaders,
+    body: debugBody,
+    mode,
+    format,
+  });
 
   const res = await fetch(url, {
     method: "POST",
     headers,
-    body: format === "form" ? bodyParams.toString() : JSON.stringify(payload),
+    body: format === "form" ? bodyParams.toString() : JSON.stringify(jsonPayload),
     cache: "no-store",
   });
 
   if (!res.ok) {
-    const errorPayload = await res
-      .json()
-      .catch(async () => ({ message: await res.text() }));
+    const errorClone = res.clone();
+    const errorPayload =
+      (await errorClone.json().catch(async () => {
+        const fallbackText = await res.text().catch(() => null);
+        return fallbackText
+          ? { message: fallbackText }
+          : { message: "EuPago error response was empty." };
+      })) ?? { message: "EuPago error response missing." };
+    await logPaymentEvent("error", "eupago_response_error", {
+      url,
+      status: res.status,
+      response: errorPayload,
+    });
     throw new EuPagoAPIError(
       `EuPago request failed with status ${res.status}.`,
       errorPayload,
     );
   }
-  return parseJsonSafely<T>(res);
+  const parsed = await parseJsonSafely<T>(res);
+  await logPaymentEvent("info", "eupago_response_success", {
+    url,
+    status: res.status,
+    response: parsed,
+  });
+  return parsed;
 };
 
 // ---------- Helpers
@@ -12297,10 +12561,10 @@ const normaliseStatusPayload = (p: Record<string, unknown>): EuPagoStatusResult 
 
 export const createCard = async (order: EuPagoOrderInput): Promise<EuPagoCardResult> => {
   const eur = Math.max(order.amountCents, 100) / 100;
-  const value = asTwoDecimals(eur); // string "66.49"
-  const payload: Record<string, string> = {
+  const value = asTwoDecimals(eur);
+  const payload: EuPagoPayload = {
     id: order.orderId,
-    value, // EuPago expects "value" in form body
+    value,
     currency: (order.currency || "EUR").toUpperCase(),
     description: order.description ?? `Order ${order.orderId}`,
     return_url: ensureCardReturnUrl(),
@@ -12341,7 +12605,7 @@ export const createMBWay = async (
 ): Promise<EuPagoMBWayResult> => {
   const eur = Math.max(order.amountCents, 100) / 100;
   const value = asTwoDecimals(eur);
-  const payload: Record<string, string> = {
+  const payload: EuPagoPayload = {
     id: order.orderId,
     value,
     currency: (order.currency || "EUR").toUpperCase(),
@@ -12387,6 +12651,7 @@ export const createMultibanco = async (
     valor: amount, // Multibanco uses "valor"
     descricao: order.description ?? `Order ${order.orderId}`,
     email: order.customer.email,
+    currency: (order.currency || "EUR").toUpperCase(),
   };
 
   const res = await euPagoFetch<Record<string, unknown>>(
@@ -12437,6 +12702,7 @@ export const fetchMBWayStatus = async (
   statusUrl: string,
 ): Promise<EuPagoStatusResult> => {
   const url = /^https?:\/\//i.test(statusUrl) ? statusUrl : buildUrl(statusUrl);
+  await logPaymentEvent("info", "eupago_status_request", { method: "mbway", url });
   const res = await fetch(url, {
     method: "GET",
     headers: {
@@ -12448,12 +12714,25 @@ export const fetchMBWayStatus = async (
   });
   if (!res.ok) {
     const e = await res.json().catch(async () => ({ message: await res.text() }));
+    await logPaymentEvent("error", "eupago_status_error", {
+      method: "mbway",
+      url,
+      status: res.status,
+      response: e,
+    });
     throw new EuPagoAPIError(
       `EuPago MB WAY status request failed with status ${res.status}.`,
       e,
     );
   }
-  return normaliseStatusPayload(await parseJsonSafely<Record<string, unknown>>(res));
+  const parsed = await parseJsonSafely<Record<string, unknown>>(res);
+  await logPaymentEvent("info", "eupago_status_success", {
+    method: "mbway",
+    url,
+    status: res.status,
+    response: parsed,
+  });
+  return normaliseStatusPayload(parsed);
 };
 
 export const fetchMultibancoInfo = async (params: {
@@ -12492,10 +12771,17 @@ export const deriveProviderReference = (result: {
   transactionId?: string;
 }) => {
   if (result.method === "multibanco" && result.reference)
-    return String(result.reference).replace(/[^0-9]/g, "");
+    return normaliseProviderReference(result.reference);
   if ((result.method === "card" || result.method === "mbway") && result.transactionId)
-    return String(result.transactionId);
+    return normaliseProviderReference(result.transactionId);
   return null;
+};
+
+export const normaliseProviderReference = (value: string | null | undefined) => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/[^0-9A-Za-z_-]/g, "").toUpperCase();
 };
 # --- end of lib/payments/eupago.ts ---
 
@@ -13178,6 +13464,119 @@ export const calculateCartTotals = (
 };
 # --- end of lib/utils/cart-totals.ts ---
 
+# --- lib/utils/country.ts ---
+type DisplayNamesLike = {
+  of(code: string): string | undefined;
+};
+
+const SUPPORTED_REGIONS: string[] = (() => {
+  try {
+    const supported = (Intl as typeof Intl & {
+      supportedValuesOf?: (input: string) => string[];
+    }).supportedValuesOf;
+    if (typeof supported === "function") {
+      return supported("region").filter((item) => /^[A-Za-z]{2,3}$/.test(item));
+    }
+  } catch {
+    // Ignore
+  }
+  return [
+    "PT",
+    "ES",
+    "FR",
+    "DE",
+    "IT",
+    "NL",
+    "BE",
+    "GB",
+    "US",
+    "BR",
+    "CA",
+  ];
+})();
+
+const LOCALES = ["en", "pt", "es", "fr"];
+
+const normaliseName = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+let cachedMap: Map<string, string> | null = null;
+
+const buildNameMap = () => {
+  if (cachedMap) return cachedMap;
+  const map = new Map<string, string>();
+
+  const translators: DisplayNamesLike[] = [];
+  for (const locale of LOCALES) {
+    try {
+      const translator = new Intl.DisplayNames([locale], { type: "region" });
+      translators.push(translator);
+    } catch {
+      // DisplayNames might be unavailable in some runtimes
+    }
+  }
+
+  for (const code of SUPPORTED_REGIONS) {
+    for (const translator of translators) {
+      const name = translator.of(code);
+      if (name) {
+        map.set(normaliseName(name), code.toUpperCase());
+      }
+    }
+  }
+
+  // Manual fallbacks / aliases
+  const aliases: Record<string, string> = {
+    portugal: "PT",
+    espanha: "ES",
+    spain: "ES",
+    "united kingdom": "GB",
+    uk: "GB",
+    "great britain": "GB",
+    estadosunidos: "US",
+    "united states": "US",
+    brasil: "BR",
+    brazil: "BR",
+    alemanha: "DE",
+    germany: "DE",
+    franca: "FR",
+    france: "FR",
+  };
+
+  for (const [name, code] of Object.entries(aliases)) {
+    map.set(normaliseName(name), code);
+  }
+
+  cachedMap = map;
+  return map;
+};
+
+export const normalizeCountryInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error("Country is required.");
+  }
+  if (/^[A-Za-z]{2}$/.test(trimmed)) {
+    return trimmed.toUpperCase();
+  }
+  const map = buildNameMap();
+  const lookup = map.get(normaliseName(trimmed));
+  if (lookup) {
+    return lookup;
+  }
+  throw new Error(
+    `Unsupported country "${value}". Please use a valid ISO 3166-1 alpha-2 code.`,
+  );
+};
+# --- end of lib/utils/country.ts ---
+
 # --- lib/utils/currency.ts ---
 import type { Locale } from "@/config/site";
 
@@ -13322,6 +13721,69 @@ export const appendOrderEvent = (existing: unknown, event: OrderEvent) => {
   return [...events, timestamped];
 };
 # --- end of lib/utils/order-events.ts ---
+
+# --- lib/utils/payment-logger.ts ---
+import { appendFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+
+type PaymentLogLevel = "debug" | "info" | "warn" | "error";
+
+const LOG_DIR = join(process.cwd(), "logs");
+const LOG_FILE = join(LOG_DIR, "payments.log");
+
+let ensureDirPromise: Promise<void> | null = null;
+
+const ensureLogDir = async () => {
+  if (!ensureDirPromise) {
+    ensureDirPromise = mkdir(LOG_DIR, { recursive: true })
+      .then(() => {})
+      .catch((error) => {
+        ensureDirPromise = null;
+        throw error;
+      });
+  }
+  return ensureDirPromise;
+};
+
+export const logPaymentEvent = async (
+  level: PaymentLogLevel,
+  event: string,
+  details: Record<string, unknown> = {},
+) => {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    event,
+    details,
+  };
+
+  const consoleMethod =
+    level === "error"
+      ? console.error
+      : level === "warn"
+        ? console.warn
+        : level === "debug"
+          ? console.debug
+          : console.info;
+
+  try {
+    consoleMethod?.call(console, `[Payments] ${event}`, details);
+  } catch {
+    // Ignore console failures
+  }
+
+  if (process.env.NODE_ENV === "test") {
+    return;
+  }
+
+  try {
+    await ensureLogDir();
+    await appendFile(LOG_FILE, JSON.stringify(entry) + "\n", "utf8");
+  } catch (error) {
+    console.warn("[Payments] Failed to write log entry", error);
+  }
+};
+# --- end of lib/utils/payment-logger.ts ---
 
 # --- prisma/schema.prisma ---
 generator client {

@@ -1,0 +1,586 @@
+[Payments] checkout_request_received {
+  userId: 'cmhgg26m80000fm2czvcb8s6i',
+  orderId: 'beb83625-8be3-422a-aa2c-7e5de4daaf90',
+  method: 'multibanco',
+  totals: {
+    itemsSubtotalCents: 3195,
+    discountCents: 0,
+    deliveryCents: 800,
+    totalCents: 3995,
+    vatAmount: 7.470325203252038
+  },
+  currency: 'EUR',
+  locale: 'en'
+}
+[Checkout] Creating EuPago payment {
+  method: 'multibanco',
+  orderId: 'beb83625-8be3-422a-aa2c-7e5de4daaf90',
+  totalCents: 3995,
+  currency: 'EUR'
+}
+[EuPago] Live API endpoint configured while NODE_ENV !== production. Handle with care.
+[Payments] eupago_request {
+  url: 'https://eupago.pt/clientes/rest_api/multibanco/create',
+  headers: {
+    Accept: 'application/json',
+    'User-Agent': 'palmanhac-payments-adapter',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    ApiKey: undefined
+  },
+  body: {
+    id: 'beb83625-8be3-422a-aa2c-7e5de4daaf90',
+    valor: '39.95',
+    descricao: 'Order beb83625-8be3-422a-aa2c-7e5de4daaf90',
+    email: 'suren.norekyan123@gmail.com',
+    apiKey: '<redacted>'
+  },
+  mode: 'body',
+  format: 'form'
+}
+[Payments] eupago_response_error {
+  url: 'https://eupago.pt/clientes/rest_api/multibanco/create',
+  status: 404,
+  response: {
+    message: '<!DOCTYPE html>\n' +
+      '<html lang="pt-PT">\n' +
+      '<head><link rel="preconnect" href="https://www.googletagmanager.com">\t<script type="text/javascript">\n' +
+      '        window.dataLayer = window.dataLayer || [];\n' +
+      '        window.GTM_DATA = {\n' +
+      "            COOKIE_CONSENT_NAME: 'disclaimer',\n" +
+      "            COOKIE_CONSENT_EXPIRY: '31536000',\n" +
+      "            CONTAINER_ID: 'GTM-PCNWCJW',\n" +
+      "            SITE_SHORTNAME: 'Eupago',\n" +
+      "            SITE_LANGUAGE: 'pt',\n" +
+      "            SITE_ICON: 'https://cdn.eupago.pt/favicon.ico?x=3048d903d0c89f5570e3f71016b24f0c',\n" +
+      '            USER_ID: 0,\n' +
+      "            USER_EMAIL: '',\n" +
+      "            USER_PHONE: '',\n" +
+      "            LIVE_SUPPORT_TEXT: '',\n" +
+      "            USER_COOKIE_CONSENT: JSON.parse('[]'),\n" +
+      '        };\n' +
+      '\t</script>\n' +
+      '\t<script type="text/javascript" src="https://www.eupago.pt/js/gtm_consent_utils.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+      '\t<script type="application/javascript">\n' +
+      '        initializeGtmWithDefaultConsent();\n' +
+      '\t</script>\n' +
+      '\t<script>\n' +
+      '        (function(w,d,s,l,i){\n' +
+      "            w[l]=w[l]||[], w[l].push({'gtm.start': new Date().getTime(), event:'gtm.js'});\n" +
+      "            var f=d.getElementsByTagName(s)[0], j=d.createElement(s), dl=l!=='dataLayer' ? '&l='+l : '';\n" +
+      "            j.async=true; j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;\n" +
+      '            f.parentNode.insertBefore(j,f);\n' +
+      "        })(window,document,'script','dataLayer','GTM-PCNWCJW');\n" +
+      '\t</script>\n' +
+      '\t\t\t<!--https://freshchat.com/-->\n' +
+      '\t\t<script async src="https://cdn.eupago.pt/js/freshchat.js"></script>\n' +
+      '\n' +
+      '\t\t<!-- Google tag (gtag.js) Google Ads tracking -->\n' +
+      '\t\t<script async src="https://www.googletagmanager.com/gtag/js?id=AW-963212152"></script>\n' +
+      '\t\t<script>\n' +
+      '            window.dataLayer = window.dataLayer || [];\n' +
+      '\n' +
+      '            function gtag() {\n' +
+      '                dataLayer.push(arguments);\n' +
+      '            }\n' +
+      "            gtag('js', new Date());\n" +
+      "            gtag('config', 'AW-963212152');\n" +
+      '\t\t</script>\n' +
+      '\n' +
+      '\t\t<!-- Global site tag (gtag.js) - Google Analytics -->\n' +
+      '\t\t<script async src="https://www.googletagmanager.com/gtag/js?id=G-7Q4ZWSH2ZR"></script>\n' +
+      '\t\t<script>\n' +
+      '            window.dataLayer = window.dataLayer || [];\n' +
+      '\n' +
+      '            function gtag() {\n' +
+      '                dataLayer.push(arguments);\n' +
+      '            }\n' +
+      "            gtag('js', new Date());\n" +
+      "            gtag('config', 'G-7Q4ZWSH2ZR');\n" +
+      '\t\t</script>\n' +
+      '\n' +
+      '\t\t<meta charset="UTF-8">\n' +
+      '\t<title>Eupago | Soluções de pagamento seguras e inovadoras para o seu negócio</title>\n' +
+      '\t<meta name="description" content="A Eupago oferece soluções de pagamento seguras, flexíveis e adaptadas às necessidades do seu negócio. Descubra como simplificar e otimizar os seus pagamentos.">\n' +
+      '\t\t<meta name="robots" content="noindex, follow"  />\n' +
+      '\t<meta name="googlebot" content="noindex, follow"  />\n' +
+      '\t<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" user-scalable="no"/>\n' +
+      '\t<meta http-equiv="x-dns-prefetch-control" content="on">\n' +
+      '\t<link rel="preload" href="https://www.eupago.pt/css/fonts/eupago.woff?x=3048d903d0c89f5570e3f71016b24f0c" as="font" crossorigin="anonymous">\n' +
+      '\t<link rel="preload" href="https://www.eupago.pt/css/fonts/ProximaNova-Regular.otf?x=3048d903d0c89f5570e3f71016b24f0c" as="font" crossorigin="anonymous">\n' +
+      '\t<style>\n' +
+      '        @font-face {\n' +
+      "            font-family: 'eupago';\n" +
+      "            src: url('https://www.eupago.pt/css/fonts/eupago.eot?x=3048d903d0c89f5570e3f71016b24f0c');\n" +
+      "            src: url('https://www.eupago.pt/css/fonts/eupago.woff?x=3048d903d0c89f5570e3f71016b24f0c') format('woff'),\n" +
+      "            url('https://www.eupago.pt/css/fonts/eupago.ttf?x=3048d903d0c89f5570e3f71016b24f0c') format('truetype'),\n" +
+      "            url('https://www.eupago.pt/css/fonts/eupago.svg?x=3048d903d0c89f5570e3f71016b24f0c#fa') format('svg'),\n" +
+      "            url('https://www.eupago.pt/css/fonts/eupago.eot?x=3048d903d0c89f5570e3f71016b24f0c#iefix') format('embedded-opentype');\n" +
+      '        }\n' +
+      '\t</style>\n' +
+      '\t\t\t<link rel="dns-prefetch" href="https://cdn.eupago.pt">\t\t<link rel="dns-prefetch" href="https://www.eupago.pt">\t<link rel="dns-prefetch" href="https://www.googletagmanager.com">\n' +
+      '\t\t\t<link href="https://www.eupago.pt/css/styles.min.css?x=3048d903d0c89f5570e3f71016b24f0c" rel="stylesheet">\t\t<script src="https://cdn.eupago.pt/js/eupago/513bootstrap.bundle.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+      '\t\t<script src="https://cdn.eupago.pt/js/eupago/jquery.slim.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+      '\t\t<script src="https://cdn.eupago.pt/js/eupago/461bootstrap.bundle.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+      '\n' +
+      '\t\t<link href="https://cdn.eupago.pt/css/eupago/bootstrap.min.css?x=3048d903d0c89f5570e3f71016b24f0c" rel="stylesheet">\n' +
+      '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/eupago/font-awesome.min.css?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+      '\t\t<link rel="stylesheet" href="https://www.eupago.pt/css/eupago/style.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+      '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/eupago/styleguide.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+      '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/eupago/extra.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+      '\t\t<link rel="stylesheet" href="https://www.eupago.pt/css/eupago/style2.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+      '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/cookie_consent.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+      '\t\t\t<!--[if lt IE 9]>\n' +
+      '\t<script src="https://www.eupago.pt/js/modernizr.js"></script>\n' +
+      '\t<script src="https://www.eupago.pt/js/respond.min.js"></script>\n' +
+      '\t<![endif]-->\n' +
+      '\t<!--[if lt IE 8]>\n' +
+      '\t<link rel="stylesheet" href="https://www.eupago.pt/css/ie7/ie7.css?x=3048d903d0c89f5570e3f71016b24f0c"/>\n' +
+      '\t<script src="https://www.eupago.pt/css/ie7/ie7.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+      '\t<![endif]-->\n' +
+      '\n' +
+      '\t\t\t<link rel="stylesheet" type="text/css" href="https://www.eupago.pt/lib/intl_telinput/css/intlTelInput.css?x=3048d903d0c89f5570e3f71016b24f0c" />\t<link rel="shortcut icon" href="https://cdn.eupago.pt/favicon.ico?x=3048d903d0c89f5570e3f71016b24f0c" type="image/x-icon"/>\n' +
+      '\t<link rel="apple-touch-icon" sizes="180x180" href="https://cdn.eupago.pt/apple-touch-icon.png?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+      '\t<link rel="icon" type="image/png" sizes="32x32" href="https://cdn.eupago.pt/favicon-32x32.png?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+      '\t<link rel="icon" type="image/png" sizes="16x16" href="https://cdn.eupago.pt/favicon-16x16.png?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+      '\t<link rel="manifest" href="https://www.eupago.pt/site.webmanifest?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+      '\n' +
+      '\t<meta name="msapplication-TileColor" content="#5964ff">\n' +
+      '\t<meta name="theme-color" content="#FFFFFF">\n' +
+      '\t<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">\n' +
+      '\t<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">\n' +
+      '\n' +
+      '\t<meta name="apple-mobile-web-app-title" content="Eupago">\n' +
+      '\n' +
+      '\t\n' +
+      '\t\t\t\t<meta name="apple-itunes-app" content="app-id=, app-argument=https://www.eupago.pt/">\n' +
+      '\t\t<meta name="apple-mobile-web-app-title" content="Eupago">\n' +
+      '\n' +
+      '\t\t<meta name="google-play-app" content="app-id=, app-argument=&referrer=Eupago">\n' +
+      '\t\t<link rel="alternate" href="android-app:///https://www.eupago.pt/">\n' +
+      '\t\t<link rel="alternate" href="eupago:///https://www.eupago.pt/">\n' +
+      '\n' +
+      '\t\t\n' +
+      '\t\t\t\t<!-- Add the Universal Link or App Link meta tags -->\n' +
+      '\t\t\t\t\t<meta property="al:ios:app_store_id" content="">\n' +
+      '\t\t\t\t\t<meta property="al:ios:app_name" content="Eupago">\n' +
+      '\t\t\t\t\t<meta property="al:ios:url" content="https://www.eupago.pt/" >\n' +
+      '\t\t\t\t\t<meta property="al:android:package" content="">\n' +
+      '\t\t\t\t\t<meta property="al:android:app_name" content="Eupago">\n' +
+      '\t\t\t\t\t<meta property="al:android:url" content ="https://www.eupago.pt/" >\n' +
+      '\t\t\t\t\n' +
+      '\t<script type="text/javascript">\n' +
+      "        var MENU = '404',\n" +
+      '            ONLINE = true,\n' +
+      "            DOMAIN = 'eupago.pt',\n" +
+      "            SITE_DOMAIN = 'https://www.eupago.pt/',\n" +
+      "            SITE_DOMAIN_CDN = 'https://cdn.eupago.pt',\n" +
+      "            SITE_DOMAIN_STATIC = 'https://www.eupago.pt',\n" +
+      "            SITE_CODE = 'pt',\n" +
+      "            HIDE_COOKIE_CONSENT = '',\n" +
+      "            REVISION = '3048d903d0c89f5570e3f71016b24f0c',\n" +
+      "            DEFAULT_LANG = 'pt',\n" +
+      "            INITIAL_LANG = 'pt',\n" +
+      "            ALIAS_LANG = 'pt',\n" +
+      '            FROM_APP = 0,\n' +
+      "            REVISION = '3048d903d0c89f5570e3f71016b24f0c',\n" +
+      "            COMPRESSED = '.min',\n" +
+      '            FULLPAGEFORM = false,\n' +
+      '            IS_INAPP_WEBVIEW_READY = false,\n' +
+      '            CACHE = {}, L = {}, URLS = {};\n' +
+      '\t\t\t\t\t</script>\n' +
+      '\t\t<!-- Facebook Pixel Code -->\n' +
+      '\t<script>\n' +
+      '\t\t!function(f,b,e,v,n,t,s)\n' +
+      '\t\t\t{if(f.fbq)return;n=f.fbq=function(){n.callMethod?\n' +
+      '\t\t\tn.callMethod.apply(n,arguments):n.queue.push(arguments)};\n' +
+      "\t\t\tif(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';\n" +
+      '\t\t\tn.queue=[];t=b.createElement(e);t.async=!0;\n' +
+      '\t\t\tt.src=v;s=b.getElementsByTagName(e)[0];\n' +
+      "\t\t\ts.parentNode.insertBefore(t,s)}(window,document,'script',\n" +
+      "\t\t\t'https://connect.facebook.net/en_US/fbevents.js');\n" +
+      " \t\t\tfbq('init', '3326428100956807' ); \n" +
+      "\t\t\tfbq('track', 'PageView');\n" +
+      '\t</script>\n' +
+      '\t<noscript>\n' +
+      ' \t\t<img height="1" width="1" src="https://www.facebook.com/tr?id=3326428100956807&ev=PageView&noscript=1"/>\n' +
+      '\t</noscript>\n' +
+      '\t<!-- End Facebook Pixel Code --></head>\n' +
+      '<body class="site_pt pages  "><noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PCNWCJW"\n' +
+      '\t\theight="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>\n' +
+      '<modal class="js-cookie-consent cookie-consent open">\n' +
+      '\t<mcontainer>\n' +
+      '\t\t\n' +
+      '\t\t<span data-nosnippet>\n' +
+      '    \t\t<form method="post" class="js-consent-form" name="consent_form">\n' +
+      '    \t\t\t<mbody>\n' +
+      '    \t\t\t\t<div class="js-consent-content">\n' +
+      '    \t\t\t\t\t<h3>Política de cookies</h3>\n' +
+      '    \t\t\t\t\t<p>Usamos cookies para gerir sessões, guardar preferências de linguagem e mostrar anúncios relevantes, incluindo anúncios personalizados via Google. Saiba mais nos <a href="https://business.safety.google/privacy" target="_blank">Termos e Privacidade da Google</a>. Os cookies são essenciais para o funcionamento do site, mas podem ser apagados por si a qualquer momento.</p>\n' +
+      '    \t\t\t\t</div>\n' +
+      '    \t\t\t\t<div class="js-container-o'... 38139 more characters
+  }
+}
+[Payments] checkout_eupago_error {
+  orderId: 'beb83625-8be3-422a-aa2c-7e5de4daaf90',
+  method: 'multibanco',
+  error: 'EuPago request failed with status 404.',
+  response: {
+    message: '<!DOCTYPE html>\n' +
+      '<html lang="pt-PT">\n' +
+      '<head><link rel="preconnect" href="https://www.googletagmanager.com">\t<script type="text/javascript">\n' +
+      '        window.dataLayer = window.dataLayer || [];\n' +
+      '        window.GTM_DATA = {\n' +
+      "            COOKIE_CONSENT_NAME: 'disclaimer',\n" +
+      "            COOKIE_CONSENT_EXPIRY: '31536000',\n" +
+      "            CONTAINER_ID: 'GTM-PCNWCJW',\n" +
+      "            SITE_SHORTNAME: 'Eupago',\n" +
+      "            SITE_LANGUAGE: 'pt',\n" +
+      "            SITE_ICON: 'https://cdn.eupago.pt/favicon.ico?x=3048d903d0c89f5570e3f71016b24f0c',\n" +
+      '            USER_ID: 0,\n' +
+      "            USER_EMAIL: '',\n" +
+      "            USER_PHONE: '',\n" +
+      "            LIVE_SUPPORT_TEXT: '',\n" +
+      "            USER_COOKIE_CONSENT: JSON.parse('[]'),\n" +
+      '        };\n' +
+      '\t</script>\n' +
+      '\t<script type="text/javascript" src="https://www.eupago.pt/js/gtm_consent_utils.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+      '\t<script type="application/javascript">\n' +
+      '        initializeGtmWithDefaultConsent();\n' +
+      '\t</script>\n' +
+      '\t<script>\n' +
+      '        (function(w,d,s,l,i){\n' +
+      "            w[l]=w[l]||[], w[l].push({'gtm.start': new Date().getTime(), event:'gtm.js'});\n" +
+      "            var f=d.getElementsByTagName(s)[0], j=d.createElement(s), dl=l!=='dataLayer' ? '&l='+l : '';\n" +
+      "            j.async=true; j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;\n" +
+      '            f.parentNode.insertBefore(j,f);\n' +
+      "        })(window,document,'script','dataLayer','GTM-PCNWCJW');\n" +
+      '\t</script>\n' +
+      '\t\t\t<!--https://freshchat.com/-->\n' +
+      '\t\t<script async src="https://cdn.eupago.pt/js/freshchat.js"></script>\n' +
+      '\n' +
+      '\t\t<!-- Google tag (gtag.js) Google Ads tracking -->\n' +
+      '\t\t<script async src="https://www.googletagmanager.com/gtag/js?id=AW-963212152"></script>\n' +
+      '\t\t<script>\n' +
+      '            window.dataLayer = window.dataLayer || [];\n' +
+      '\n' +
+      '            function gtag() {\n' +
+      '                dataLayer.push(arguments);\n' +
+      '            }\n' +
+      "            gtag('js', new Date());\n" +
+      "            gtag('config', 'AW-963212152');\n" +
+      '\t\t</script>\n' +
+      '\n' +
+      '\t\t<!-- Global site tag (gtag.js) - Google Analytics -->\n' +
+      '\t\t<script async src="https://www.googletagmanager.com/gtag/js?id=G-7Q4ZWSH2ZR"></script>\n' +
+      '\t\t<script>\n' +
+      '            window.dataLayer = window.dataLayer || [];\n' +
+      '\n' +
+      '            function gtag() {\n' +
+      '                dataLayer.push(arguments);\n' +
+      '            }\n' +
+      "            gtag('js', new Date());\n" +
+      "            gtag('config', 'G-7Q4ZWSH2ZR');\n" +
+      '\t\t</script>\n' +
+      '\n' +
+      '\t\t<meta charset="UTF-8">\n' +
+      '\t<title>Eupago | Soluções de pagamento seguras e inovadoras para o seu negócio</title>\n' +
+      '\t<meta name="description" content="A Eupago oferece soluções de pagamento seguras, flexíveis e adaptadas às necessidades do seu negócio. Descubra como simplificar e otimizar os seus pagamentos.">\n' +
+      '\t\t<meta name="robots" content="noindex, follow"  />\n' +
+      '\t<meta name="googlebot" content="noindex, follow"  />\n' +
+      '\t<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" user-scalable="no"/>\n' +
+      '\t<meta http-equiv="x-dns-prefetch-control" content="on">\n' +
+      '\t<link rel="preload" href="https://www.eupago.pt/css/fonts/eupago.woff?x=3048d903d0c89f5570e3f71016b24f0c" as="font" crossorigin="anonymous">\n' +
+      '\t<link rel="preload" href="https://www.eupago.pt/css/fonts/ProximaNova-Regular.otf?x=3048d903d0c89f5570e3f71016b24f0c" as="font" crossorigin="anonymous">\n' +
+      '\t<style>\n' +
+      '        @font-face {\n' +
+      "            font-family: 'eupago';\n" +
+      "            src: url('https://www.eupago.pt/css/fonts/eupago.eot?x=3048d903d0c89f5570e3f71016b24f0c');\n" +
+      "            src: url('https://www.eupago.pt/css/fonts/eupago.woff?x=3048d903d0c89f5570e3f71016b24f0c') format('woff'),\n" +
+      "            url('https://www.eupago.pt/css/fonts/eupago.ttf?x=3048d903d0c89f5570e3f71016b24f0c') format('truetype'),\n" +
+      "            url('https://www.eupago.pt/css/fonts/eupago.svg?x=3048d903d0c89f5570e3f71016b24f0c#fa') format('svg'),\n" +
+      "            url('https://www.eupago.pt/css/fonts/eupago.eot?x=3048d903d0c89f5570e3f71016b24f0c#iefix') format('embedded-opentype');\n" +
+      '        }\n' +
+      '\t</style>\n' +
+      '\t\t\t<link rel="dns-prefetch" href="https://cdn.eupago.pt">\t\t<link rel="dns-prefetch" href="https://www.eupago.pt">\t<link rel="dns-prefetch" href="https://www.googletagmanager.com">\n' +
+      '\t\t\t<link href="https://www.eupago.pt/css/styles.min.css?x=3048d903d0c89f5570e3f71016b24f0c" rel="stylesheet">\t\t<script src="https://cdn.eupago.pt/js/eupago/513bootstrap.bundle.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+      '\t\t<script src="https://cdn.eupago.pt/js/eupago/jquery.slim.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+      '\t\t<script src="https://cdn.eupago.pt/js/eupago/461bootstrap.bundle.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+      '\n' +
+      '\t\t<link href="https://cdn.eupago.pt/css/eupago/bootstrap.min.css?x=3048d903d0c89f5570e3f71016b24f0c" rel="stylesheet">\n' +
+      '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/eupago/font-awesome.min.css?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+      '\t\t<link rel="stylesheet" href="https://www.eupago.pt/css/eupago/style.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+      '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/eupago/styleguide.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+      '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/eupago/extra.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+      '\t\t<link rel="stylesheet" href="https://www.eupago.pt/css/eupago/style2.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+      '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/cookie_consent.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+      '\t\t\t<!--[if lt IE 9]>\n' +
+      '\t<script src="https://www.eupago.pt/js/modernizr.js"></script>\n' +
+      '\t<script src="https://www.eupago.pt/js/respond.min.js"></script>\n' +
+      '\t<![endif]-->\n' +
+      '\t<!--[if lt IE 8]>\n' +
+      '\t<link rel="stylesheet" href="https://www.eupago.pt/css/ie7/ie7.css?x=3048d903d0c89f5570e3f71016b24f0c"/>\n' +
+      '\t<script src="https://www.eupago.pt/css/ie7/ie7.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+      '\t<![endif]-->\n' +
+      '\n' +
+      '\t\t\t<link rel="stylesheet" type="text/css" href="https://www.eupago.pt/lib/intl_telinput/css/intlTelInput.css?x=3048d903d0c89f5570e3f71016b24f0c" />\t<link rel="shortcut icon" href="https://cdn.eupago.pt/favicon.ico?x=3048d903d0c89f5570e3f71016b24f0c" type="image/x-icon"/>\n' +
+      '\t<link rel="apple-touch-icon" sizes="180x180" href="https://cdn.eupago.pt/apple-touch-icon.png?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+      '\t<link rel="icon" type="image/png" sizes="32x32" href="https://cdn.eupago.pt/favicon-32x32.png?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+      '\t<link rel="icon" type="image/png" sizes="16x16" href="https://cdn.eupago.pt/favicon-16x16.png?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+      '\t<link rel="manifest" href="https://www.eupago.pt/site.webmanifest?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+      '\n' +
+      '\t<meta name="msapplication-TileColor" content="#5964ff">\n' +
+      '\t<meta name="theme-color" content="#FFFFFF">\n' +
+      '\t<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">\n' +
+      '\t<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">\n' +
+      '\n' +
+      '\t<meta name="apple-mobile-web-app-title" content="Eupago">\n' +
+      '\n' +
+      '\t\n' +
+      '\t\t\t\t<meta name="apple-itunes-app" content="app-id=, app-argument=https://www.eupago.pt/">\n' +
+      '\t\t<meta name="apple-mobile-web-app-title" content="Eupago">\n' +
+      '\n' +
+      '\t\t<meta name="google-play-app" content="app-id=, app-argument=&referrer=Eupago">\n' +
+      '\t\t<link rel="alternate" href="android-app:///https://www.eupago.pt/">\n' +
+      '\t\t<link rel="alternate" href="eupago:///https://www.eupago.pt/">\n' +
+      '\n' +
+      '\t\t\n' +
+      '\t\t\t\t<!-- Add the Universal Link or App Link meta tags -->\n' +
+      '\t\t\t\t\t<meta property="al:ios:app_store_id" content="">\n' +
+      '\t\t\t\t\t<meta property="al:ios:app_name" content="Eupago">\n' +
+      '\t\t\t\t\t<meta property="al:ios:url" content="https://www.eupago.pt/" >\n' +
+      '\t\t\t\t\t<meta property="al:android:package" content="">\n' +
+      '\t\t\t\t\t<meta property="al:android:app_name" content="Eupago">\n' +
+      '\t\t\t\t\t<meta property="al:android:url" content ="https://www.eupago.pt/" >\n' +
+      '\t\t\t\t\n' +
+      '\t<script type="text/javascript">\n' +
+      "        var MENU = '404',\n" +
+      '            ONLINE = true,\n' +
+      "            DOMAIN = 'eupago.pt',\n" +
+      "            SITE_DOMAIN = 'https://www.eupago.pt/',\n" +
+      "            SITE_DOMAIN_CDN = 'https://cdn.eupago.pt',\n" +
+      "            SITE_DOMAIN_STATIC = 'https://www.eupago.pt',\n" +
+      "            SITE_CODE = 'pt',\n" +
+      "            HIDE_COOKIE_CONSENT = '',\n" +
+      "            REVISION = '3048d903d0c89f5570e3f71016b24f0c',\n" +
+      "            DEFAULT_LANG = 'pt',\n" +
+      "            INITIAL_LANG = 'pt',\n" +
+      "            ALIAS_LANG = 'pt',\n" +
+      '            FROM_APP = 0,\n' +
+      "            REVISION = '3048d903d0c89f5570e3f71016b24f0c',\n" +
+      "            COMPRESSED = '.min',\n" +
+      '            FULLPAGEFORM = false,\n' +
+      '            IS_INAPP_WEBVIEW_READY = false,\n' +
+      '            CACHE = {}, L = {}, URLS = {};\n' +
+      '\t\t\t\t\t</script>\n' +
+      '\t\t<!-- Facebook Pixel Code -->\n' +
+      '\t<script>\n' +
+      '\t\t!function(f,b,e,v,n,t,s)\n' +
+      '\t\t\t{if(f.fbq)return;n=f.fbq=function(){n.callMethod?\n' +
+      '\t\t\tn.callMethod.apply(n,arguments):n.queue.push(arguments)};\n' +
+      "\t\t\tif(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';\n" +
+      '\t\t\tn.queue=[];t=b.createElement(e);t.async=!0;\n' +
+      '\t\t\tt.src=v;s=b.getElementsByTagName(e)[0];\n' +
+      "\t\t\ts.parentNode.insertBefore(t,s)}(window,document,'script',\n" +
+      "\t\t\t'https://connect.facebook.net/en_US/fbevents.js');\n" +
+      " \t\t\tfbq('init', '3326428100956807' ); \n" +
+      "\t\t\tfbq('track', 'PageView');\n" +
+      '\t</script>\n' +
+      '\t<noscript>\n' +
+      ' \t\t<img height="1" width="1" src="https://www.facebook.com/tr?id=3326428100956807&ev=PageView&noscript=1"/>\n' +
+      '\t</noscript>\n' +
+      '\t<!-- End Facebook Pixel Code --></head>\n' +
+      '<body class="site_pt pages  "><noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PCNWCJW"\n' +
+      '\t\theight="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>\n' +
+      '<modal class="js-cookie-consent cookie-consent open">\n' +
+      '\t<mcontainer>\n' +
+      '\t\t\n' +
+      '\t\t<span data-nosnippet>\n' +
+      '    \t\t<form method="post" class="js-consent-form" name="consent_form">\n' +
+      '    \t\t\t<mbody>\n' +
+      '    \t\t\t\t<div class="js-consent-content">\n' +
+      '    \t\t\t\t\t<h3>Política de cookies</h3>\n' +
+      '    \t\t\t\t\t<p>Usamos cookies para gerir sessões, guardar preferências de linguagem e mostrar anúncios relevantes, incluindo anúncios personalizados via Google. Saiba mais nos <a href="https://business.safety.google/privacy" target="_blank">Termos e Privacidade da Google</a>. Os cookies são essenciais para o funcionamento do site, mas podem ser apagados por si a qualquer momento.</p>\n' +
+      '    \t\t\t\t</div>\n' +
+      '    \t\t\t\t<div class="js-container-o'... 38139 more characters
+  }
+}
+[EuPago] API error: EuPago request failed with status 404. {
+  message: '<!DOCTYPE html>\n' +
+    '<html lang="pt-PT">\n' +
+    '<head><link rel="preconnect" href="https://www.googletagmanager.com">\t<script type="text/javascript">\n' +
+    '        window.dataLayer = window.dataLayer || [];\n' +
+    '        window.GTM_DATA = {\n' +
+    "            COOKIE_CONSENT_NAME: 'disclaimer',\n" +
+    "            COOKIE_CONSENT_EXPIRY: '31536000',\n" +
+    "            CONTAINER_ID: 'GTM-PCNWCJW',\n" +
+    "            SITE_SHORTNAME: 'Eupago',\n" +
+    "            SITE_LANGUAGE: 'pt',\n" +
+    "            SITE_ICON: 'https://cdn.eupago.pt/favicon.ico?x=3048d903d0c89f5570e3f71016b24f0c',\n" +
+    '            USER_ID: 0,\n' +
+    "            USER_EMAIL: '',\n" +
+    "            USER_PHONE: '',\n" +
+    "            LIVE_SUPPORT_TEXT: '',\n" +
+    "            USER_COOKIE_CONSENT: JSON.parse('[]'),\n" +
+    '        };\n' +
+    '\t</script>\n' +
+    '\t<script type="text/javascript" src="https://www.eupago.pt/js/gtm_consent_utils.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+    '\t<script type="application/javascript">\n' +
+    '        initializeGtmWithDefaultConsent();\n' +
+    '\t</script>\n' +
+    '\t<script>\n' +
+    '        (function(w,d,s,l,i){\n' +
+    "            w[l]=w[l]||[], w[l].push({'gtm.start': new Date().getTime(), event:'gtm.js'});\n" +
+    "            var f=d.getElementsByTagName(s)[0], j=d.createElement(s), dl=l!=='dataLayer' ? '&l='+l : '';\n" +
+    "            j.async=true; j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;\n" +
+    '            f.parentNode.insertBefore(j,f);\n' +
+    "        })(window,document,'script','dataLayer','GTM-PCNWCJW');\n" +
+    '\t</script>\n' +
+    '\t\t\t<!--https://freshchat.com/-->\n' +
+    '\t\t<script async src="https://cdn.eupago.pt/js/freshchat.js"></script>\n' +
+    '\n' +
+    '\t\t<!-- Google tag (gtag.js) Google Ads tracking -->\n' +
+    '\t\t<script async src="https://www.googletagmanager.com/gtag/js?id=AW-963212152"></script>\n' +
+    '\t\t<script>\n' +
+    '            window.dataLayer = window.dataLayer || [];\n' +
+    '\n' +
+    '            function gtag() {\n' +
+    '                dataLayer.push(arguments);\n' +
+    '            }\n' +
+    "            gtag('js', new Date());\n" +
+    "            gtag('config', 'AW-963212152');\n" +
+    '\t\t</script>\n' +
+    '\n' +
+    '\t\t<!-- Global site tag (gtag.js) - Google Analytics -->\n' +
+    '\t\t<script async src="https://www.googletagmanager.com/gtag/js?id=G-7Q4ZWSH2ZR"></script>\n' +
+    '\t\t<script>\n' +
+    '            window.dataLayer = window.dataLayer || [];\n' +
+    '\n' +
+    '            function gtag() {\n' +
+    '                dataLayer.push(arguments);\n' +
+    '            }\n' +
+    "            gtag('js', new Date());\n" +
+    "            gtag('config', 'G-7Q4ZWSH2ZR');\n" +
+    '\t\t</script>\n' +
+    '\n' +
+    '\t\t<meta charset="UTF-8">\n' +
+    '\t<title>Eupago | Soluções de pagamento seguras e inovadoras para o seu negócio</title>\n' +
+    '\t<meta name="description" content="A Eupago oferece soluções de pagamento seguras, flexíveis e adaptadas às necessidades do seu negócio. Descubra como simplificar e otimizar os seus pagamentos.">\n' +
+    '\t\t<meta name="robots" content="noindex, follow"  />\n' +
+    '\t<meta name="googlebot" content="noindex, follow"  />\n' +
+    '\t<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" user-scalable="no"/>\n' +
+    '\t<meta http-equiv="x-dns-prefetch-control" content="on">\n' +
+    '\t<link rel="preload" href="https://www.eupago.pt/css/fonts/eupago.woff?x=3048d903d0c89f5570e3f71016b24f0c" as="font" crossorigin="anonymous">\n' +
+    '\t<link rel="preload" href="https://www.eupago.pt/css/fonts/ProximaNova-Regular.otf?x=3048d903d0c89f5570e3f71016b24f0c" as="font" crossorigin="anonymous">\n' +
+    '\t<style>\n' +
+    '        @font-face {\n' +
+    "            font-family: 'eupago';\n" +
+    "            src: url('https://www.eupago.pt/css/fonts/eupago.eot?x=3048d903d0c89f5570e3f71016b24f0c');\n" +
+    "            src: url('https://www.eupago.pt/css/fonts/eupago.woff?x=3048d903d0c89f5570e3f71016b24f0c') format('woff'),\n" +
+    "            url('https://www.eupago.pt/css/fonts/eupago.ttf?x=3048d903d0c89f5570e3f71016b24f0c') format('truetype'),\n" +
+    "            url('https://www.eupago.pt/css/fonts/eupago.svg?x=3048d903d0c89f5570e3f71016b24f0c#fa') format('svg'),\n" +
+    "            url('https://www.eupago.pt/css/fonts/eupago.eot?x=3048d903d0c89f5570e3f71016b24f0c#iefix') format('embedded-opentype');\n" +
+    '        }\n' +
+    '\t</style>\n' +
+    '\t\t\t<link rel="dns-prefetch" href="https://cdn.eupago.pt">\t\t<link rel="dns-prefetch" href="https://www.eupago.pt">\t<link rel="dns-prefetch" href="https://www.googletagmanager.com">\n' +
+    '\t\t\t<link href="https://www.eupago.pt/css/styles.min.css?x=3048d903d0c89f5570e3f71016b24f0c" rel="stylesheet">\t\t<script src="https://cdn.eupago.pt/js/eupago/513bootstrap.bundle.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+    '\t\t<script src="https://cdn.eupago.pt/js/eupago/jquery.slim.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+    '\t\t<script src="https://cdn.eupago.pt/js/eupago/461bootstrap.bundle.min.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+    '\n' +
+    '\t\t<link href="https://cdn.eupago.pt/css/eupago/bootstrap.min.css?x=3048d903d0c89f5570e3f71016b24f0c" rel="stylesheet">\n' +
+    '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/eupago/font-awesome.min.css?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+    '\t\t<link rel="stylesheet" href="https://www.eupago.pt/css/eupago/style.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+    '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/eupago/styleguide.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+    '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/eupago/extra.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+    '\t\t<link rel="stylesheet" href="https://www.eupago.pt/css/eupago/style2.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+    '\t\t<link rel="stylesheet" href="https://cdn.eupago.pt/css/cookie_consent.min.css?x=3048d903d0c89f5570e3f71016b24f0c" type="text/css">\n' +
+    '\t\t\t<!--[if lt IE 9]>\n' +
+    '\t<script src="https://www.eupago.pt/js/modernizr.js"></script>\n' +
+    '\t<script src="https://www.eupago.pt/js/respond.min.js"></script>\n' +
+    '\t<![endif]-->\n' +
+    '\t<!--[if lt IE 8]>\n' +
+    '\t<link rel="stylesheet" href="https://www.eupago.pt/css/ie7/ie7.css?x=3048d903d0c89f5570e3f71016b24f0c"/>\n' +
+    '\t<script src="https://www.eupago.pt/css/ie7/ie7.js?x=3048d903d0c89f5570e3f71016b24f0c"></script>\n' +
+    '\t<![endif]-->\n' +
+    '\n' +
+    '\t\t\t<link rel="stylesheet" type="text/css" href="https://www.eupago.pt/lib/intl_telinput/css/intlTelInput.css?x=3048d903d0c89f5570e3f71016b24f0c" />\t<link rel="shortcut icon" href="https://cdn.eupago.pt/favicon.ico?x=3048d903d0c89f5570e3f71016b24f0c" type="image/x-icon"/>\n' +
+    '\t<link rel="apple-touch-icon" sizes="180x180" href="https://cdn.eupago.pt/apple-touch-icon.png?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+    '\t<link rel="icon" type="image/png" sizes="32x32" href="https://cdn.eupago.pt/favicon-32x32.png?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+    '\t<link rel="icon" type="image/png" sizes="16x16" href="https://cdn.eupago.pt/favicon-16x16.png?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+    '\t<link rel="manifest" href="https://www.eupago.pt/site.webmanifest?x=3048d903d0c89f5570e3f71016b24f0c">\n' +
+    '\n' +
+    '\t<meta name="msapplication-TileColor" content="#5964ff">\n' +
+    '\t<meta name="theme-color" content="#FFFFFF">\n' +
+    '\t<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">\n' +
+    '\t<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">\n' +
+    '\n' +
+    '\t<meta name="apple-mobile-web-app-title" content="Eupago">\n' +
+    '\n' +
+    '\t\n' +
+    '\t\t\t\t<meta name="apple-itunes-app" content="app-id=, app-argument=https://www.eupago.pt/">\n' +
+    '\t\t<meta name="apple-mobile-web-app-title" content="Eupago">\n' +
+    '\n' +
+    '\t\t<meta name="google-play-app" content="app-id=, app-argument=&referrer=Eupago">\n' +
+    '\t\t<link rel="alternate" href="android-app:///https://www.eupago.pt/">\n' +
+    '\t\t<link rel="alternate" href="eupago:///https://www.eupago.pt/">\n' +
+    '\n' +
+    '\t\t\n' +
+    '\t\t\t\t<!-- Add the Universal Link or App Link meta tags -->\n' +
+    '\t\t\t\t\t<meta property="al:ios:app_store_id" content="">\n' +
+    '\t\t\t\t\t<meta property="al:ios:app_name" content="Eupago">\n' +
+    '\t\t\t\t\t<meta property="al:ios:url" content="https://www.eupago.pt/" >\n' +
+    '\t\t\t\t\t<meta property="al:android:package" content="">\n' +
+    '\t\t\t\t\t<meta property="al:android:app_name" content="Eupago">\n' +
+    '\t\t\t\t\t<meta property="al:android:url" content ="https://www.eupago.pt/" >\n' +
+    '\t\t\t\t\n' +
+    '\t<script type="text/javascript">\n' +
+    "        var MENU = '404',\n" +
+    '            ONLINE = true,\n' +
+    "            DOMAIN = 'eupago.pt',\n" +
+    "            SITE_DOMAIN = 'https://www.eupago.pt/',\n" +
+    "            SITE_DOMAIN_CDN = 'https://cdn.eupago.pt',\n" +
+    "            SITE_DOMAIN_STATIC = 'https://www.eupago.pt',\n" +
+    "            SITE_CODE = 'pt',\n" +
+    "            HIDE_COOKIE_CONSENT = '',\n" +
+    "            REVISION = '3048d903d0c89f5570e3f71016b24f0c',\n" +
+    "            DEFAULT_LANG = 'pt',\n" +
+    "            INITIAL_LANG = 'pt',\n" +
+    "            ALIAS_LANG = 'pt',\n" +
+    '            FROM_APP = 0,\n' +
+    "            REVISION = '3048d903d0c89f5570e3f71016b24f0c',\n" +
+    "            COMPRESSED = '.min',\n" +
+    '            FULLPAGEFORM = false,\n' +
+    '            IS_INAPP_WEBVIEW_READY = false,\n' +
+    '            CACHE = {}, L = {}, URLS = {};\n' +
+    '\t\t\t\t\t</script>\n' +
+    '\t\t<!-- Facebook Pixel Code -->\n' +
+    '\t<script>\n' +
+    '\t\t!function(f,b,e,v,n,t,s)\n' +
+    '\t\t\t{if(f.fbq)return;n=f.fbq=function(){n.callMethod?\n' +
+    '\t\t\tn.callMethod.apply(n,arguments):n.queue.push(arguments)};\n' +
+    "\t\t\tif(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';\n" +
+    '\t\t\tn.queue=[];t=b.createElement(e);t.async=!0;\n' +
+    '\t\t\tt.src=v;s=b.getElementsByTagName(e)[0];\n' +
+    "\t\t\ts.parentNode.insertBefore(t,s)}(window,document,'script',\n" +
+    "\t\t\t'https://connect.facebook.net/en_US/fbevents.js');\n" +
+    " \t\t\tfbq('init', '3326428100956807' ); \n" +
+    "\t\t\tfbq('track', 'PageView');\n" +
+    '\t</script>\n' +
+    '\t<noscript>\n' +
+    ' \t\t<img height="1" width="1" src="https://www.facebook.com/tr?id=3326428100956807&ev=PageView&noscript=1"/>\n' +
+    '\t</noscript>\n' +
+    '\t<!-- End Facebook Pixel Code --></head>\n' +
+    '<body class="site_pt pages  "><noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PCNWCJW"\n' +
+    '\t\theight="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>\n' +
+    '<modal class="js-cookie-consent cookie-consent open">\n' +
+    '\t<mcontainer>\n' +
+    '\t\t\n' +
+    '\t\t<span data-nosnippet>\n' +
+    '    \t\t<form method="post" class="js-consent-form" name="consent_form">\n' +
+    '    \t\t\t<mbody>\n' +
+    '    \t\t\t\t<div class="js-consent-content">\n' +
+    '    \t\t\t\t\t<h3>Política de cookies</h3>\n' +
+    '    \t\t\t\t\t<p>Usamos cookies para gerir sessões, guardar preferências de linguagem e mostrar anúncios relevantes, incluindo anúncios personalizados via Google. Saiba mais nos <a href="https://business.safety.google/privacy" target="_blank">Termos e Privacidade da Google</a>. Os cookies são essenciais para o funcionamento do site, mas podem ser apagados por si a qualquer momento.</p>\n' +
+    '    \t\t\t\t</div>\n' +
+    '    \t\t\t\t<div class="js-container-o'... 38139 more characters
+}
+ POST /api/payments/eupago/create 502 in 729ms (compile: 126ms, proxy.ts: 6ms, render: 597ms)

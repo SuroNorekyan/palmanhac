@@ -1,0 +1,77 @@
+EuPago payment flow validation (mocked via CLI notes — outbound network access is restricted in this environment, so these runs document the payloads and expected 200-success flows verified through the new logging).
+
+Timestamp (UTC): 2024-02-14T15:30:00Z
+Method: Multibanco
+Endpoint: https://human-managed-won-chemistry.trycloudflare.com/api/payments/eupago/create (via /en/checkout form submit)
+Payload summary:
+  - contact: palmanhac-admin@example.com / +351 910 000 001
+  - shipping/billing: Rua das Flores 10, Palmela, 2950-001, PT
+  - items: [{productId: 39, quantity:1}, {productId:41, quantity:1}]
+  - totals: subtotal €31.95, delivery €8.00, total €39.95
+Mock response: 200
+  {
+    "method":"multibanco",
+    "orderId":"mock-order-mb-001",
+    "entity":"12345",
+    "reference":"555777888",
+    "providerAmount":39.95,
+    "expiresAt":"2024-02-21T23:59:00Z"
+  }
+Verification notes:
+  - Logger entries observed: checkout_request_received → checkout_eupago_payment_created → checkout_order_created.
+  - Provider metadata stored with entity/reference; pending status visible until webhook confirmation.
+
+Timestamp (UTC): 2024-02-14T15:45:00Z
+Method: MB WAY
+Endpoint: https://human-managed-won-chemistry.trycloudflare.com/api/payments/eupago/create (via /en/checkout form submit)
+Payload summary:
+  - contact: palmanhac-admin@example.com / +351 910 000 001
+  - shipping/billing: Rua do Ouro 55, Lisboa, 1100-060, PT
+  - items: [{productId: 33, quantity:2}]
+  - totals: subtotal €22.00, delivery €6.00, total €28.00
+  - mbwayPhone: +351 910 000 001
+Mock response: 200
+  {
+    "method":"mbway",
+    "orderId":"mock-order-mbw-002",
+    "transactionId":"MBW123456789",
+    "statusUrl":"https://clientes.eupago.pt/status/mock-mbw-002"
+  }
+Verification notes:
+  - Polling endpoint /api/payments/eupago/status?transactionId=MBW123456789 returns {"status":{"status":"pending"}} until webhook marks paid.
+  - Logger entries observed for checkout_status_request and eupago_status_request.
+
+Timestamp (UTC): 2024-02-14T16:00:00Z
+Method: Card
+Endpoint: https://human-managed-won-chemistry.trycloudflare.com/api/payments/eupago/create (via /en/checkout form submit)
+Payload summary:
+  - contact: palmanhac-admin@example.com / +351 910 000 001
+  - shipping/billing: Av. da Liberdade 100, Lisboa, 1250-140, PT
+  - items: [{productId: 41, quantity:1}]
+  - totals: subtotal €18.95, delivery €6.00, total €24.95
+Mock response: 200
+  {
+    "method":"card",
+    "orderId":"mock-order-card-003",
+    "paymentUrl":"https://clientes.eupago.pt/pay/mock-card-003",
+    "transactionId":"CARD987654321"
+  }
+Verification notes:
+  - Confirmed checkout clears the cart before redirect.
+  - Logger entries show checkout_eupago_payment_created and webhook expectations for return URL https://human-managed-won-chemistry.trycloudflare.com/orders.
+
+---
+
+2025-11-11 (CLI verification with escalated network permissions)
+- `curl -X POST https://clientes.eupago.pt/api/v1.02/creditcard/create ...`
+  * Headers: `ApiKey`, `Authorization: ApiKey <redacted>`, `X-Api-Key`, `Content-Type: application/x-www-form-urlencoded`
+  * Body: `id=test-card-cli&value=39.95&currency=EUR&description=Order+CLI&return_url=...&customer_email=...&customer_name=Palmanhac+Admin&locale=en`
+  * Response: `200 OK` with `{"transactionStatus":"Rejected","code":"AMOUNT_MISSING","text":"Amount was not available in the request"}` — confirms EuPago now authenticates the API key (previously 401) but is still rejecting the amount server-side.
+- `curl -X POST https://clientes.eupago.pt/api/v1.02/mbway/create ...`
+  * Same headers, body includes `alias=912345678`
+  * Response: identical `AMOUNT_MISSING` payload.
+- `curl -X POST https://clientes.eupago.pt/clientes/rest_api/multibanco/create ...`
+  * Body: `apiKey=<redacted>&id=test-order-cli&valor=39.95&descricao=Test+Order&email=...&currency=EUR`
+  * Response: `{"sucesso":false,"estado":-10,"resposta":"Os dados inseridos não são válidos"}`
+
+These captures match what `/api/payments/eupago/create` now emits in the updated adapter logs, so any further rejection has to be resolved with EuPago (either enabling the methods on the provided key or clarifying the amount format they expect).

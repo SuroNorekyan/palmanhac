@@ -20,6 +20,7 @@ import { useAnonCartImport } from "@/lib/hooks/useAnonCartImport";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useCartStore } from "@/lib/store/cart";
 import { calculateCartTotals } from "@/lib/utils/cart-totals";
+import { normalizeCountryInput } from "@/lib/utils/country";
 import { formatCurrency } from "@/lib/utils/currency";
 import { withLocale } from "@/lib/utils/locale";
 
@@ -296,12 +297,17 @@ export function CheckoutView({
   }, [billingSameAsShipping, billing, shipping]);
 
   const buildCheckoutPayload = () => {
+    const normalizeAddressCountry = (address: typeof normalisedShipping) => ({
+      ...address,
+      country: normalizeCountryInput(address.country),
+    });
+
     const base = {
       method: selectedMethod,
       items: normalisedItems,
       contact: normalisedContact,
-      shipping: normalisedShipping,
-      billing: normalisedBilling,
+      shipping: normalizeAddressCountry(normalisedShipping),
+      billing: normalizeAddressCountry(normalisedBilling),
       notes: notes.trim() || undefined,
       currency: "EUR" as const,
       locale,
@@ -426,9 +432,20 @@ export function CheckoutView({
     setIsSubmitting(true);
     resetPaymentState();
 
+    let payload: ReturnType<typeof buildCheckoutPayload>;
     try {
-      const payload = buildCheckoutPayload();
+      payload = buildCheckoutPayload();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : dictionary.checkout.paymentServiceUnavailable;
+      setServerError(message);
+      setIsSubmitting(false);
+      return;
+    }
 
+    try {
       if (process.env.NODE_ENV !== "production") {
         console.debug("[Checkout] Submitting payload", payload);
       }

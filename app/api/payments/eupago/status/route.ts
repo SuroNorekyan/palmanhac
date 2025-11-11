@@ -8,6 +8,7 @@ import {
   fetchMultibancoInfo,
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
+import { logPaymentEvent } from "@/lib/utils/payment-logger";
 
 const normaliseTransactionId = (value: string) => value.replace(/[^0-9A-Za-z_-]/g, "");
 const normalizeReferenceDigits = (value: string | null | undefined) =>
@@ -28,6 +29,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const transactionId = searchParams.get("transactionId");
   if (!transactionId) {
+    await logPaymentEvent("warn", "checkout_status_missing_transaction", {
+      userId: session.user.id,
+    });
     return NextResponse.json({ error: "transactionId is required." }, { status: 400 });
   }
 
@@ -57,12 +61,30 @@ export async function GET(request: NextRequest) {
   });
 
   if (!order) {
+    await logPaymentEvent("warn", "checkout_status_order_not_found", {
+      userId: session.user.id,
+      transactionId,
+      candidateRefs,
+    });
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
+
+  await logPaymentEvent("info", "checkout_status_request", {
+    userId: session.user.id,
+    orderId: order.id,
+    providerRef: order.providerRef,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    transactionId,
+  });
 
   const providerMetadata = asRecord(order.providerMetadata);
 
   if (order.paymentStatus === PaymentStatus.PAID) {
+    await logPaymentEvent("info", "checkout_status_cached_paid", {
+      orderId: order.id,
+      providerRef: order.providerRef,
+    });
     return NextResponse.json({
       status: {
         status: "paid" as const,
@@ -80,6 +102,11 @@ export async function GET(request: NextRequest) {
       const statusUrl =
         asString(providerMetadata.statusUrl) ?? asString(providerMetadata.status_url);
       if (!statusUrl) {
+        await logPaymentEvent("warn", "checkout_status_missing_status_url", {
+          orderId: order.id,
+          providerRef: order.providerRef,
+          method: "mbway",
+        });
         return NextResponse.json({
           status: {
             status: "pending" as const,
@@ -89,6 +116,12 @@ export async function GET(request: NextRequest) {
         });
       }
       const status = await fetchMBWayStatus(statusUrl);
+      await logPaymentEvent("info", "checkout_status_polled", {
+        orderId: order.id,
+        providerRef: order.providerRef,
+        method: "mbway",
+        status,
+      });
       return NextResponse.json({ status });
     }
 
@@ -102,6 +135,11 @@ export async function GET(request: NextRequest) {
         ) ?? normalizeReferenceDigits(transactionId);
 
       if (!reference) {
+        await logPaymentEvent("warn", "checkout_status_missing_reference", {
+          orderId: order.id,
+          providerRef: order.providerRef,
+          transactionId,
+        });
         return NextResponse.json({
           status: {
             status: "pending" as const,
@@ -137,6 +175,12 @@ export async function GET(request: NextRequest) {
         transactionId: transactionId,
         amount,
       });
+      await logPaymentEvent("info", "checkout_status_polled", {
+        orderId: order.id,
+        providerRef: order.providerRef,
+        method: "multibanco",
+        status,
+      });
       return NextResponse.json({ status });
     }
 
@@ -152,6 +196,11 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    await logPaymentEvent("error", "checkout_status_error", {
+      orderId: order.id,
+      providerRef: order.providerRef,
+      error: error instanceof Error ? error.message : "Unknown status error.",
+    });
     if (error instanceof EuPagoConfigurationError) {
       return NextResponse.json(
         { error: error.message, requiresConfiguration: true },

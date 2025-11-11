@@ -16,10 +16,29 @@ import {
   deriveProviderReference,
   EuPagoAPIError,
   EuPagoConfigurationError,
+  normaliseProviderReference,
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { calculateCartTotals } from "@/lib/utils/cart-totals";
+import { normalizeCountryInput } from "@/lib/utils/country";
 import { appendOrderEvent } from "@/lib/utils/order-events";
+import { logPaymentEvent } from "@/lib/utils/payment-logger";
+
+const countryCodeSchema = z
+  .string()
+  .min(2)
+  .max(120)
+  .transform((value, ctx) => {
+    try {
+      return normalizeCountryInput(value);
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "Invalid country.",
+      });
+      return z.NEVER;
+    }
+  });
 
 const addressSchema = z.object({
   name: z.string().min(1).max(120),
@@ -27,7 +46,7 @@ const addressSchema = z.object({
   line2: z.string().max(200).optional(),
   city: z.string().min(1).max(120),
   postalCode: z.string().min(1).max(60),
-  country: z.string().min(2).max(120),
+  country: countryCodeSchema,
 });
 
 const payloadSchema = z.object({
@@ -55,9 +74,6 @@ const payloadSchema = z.object({
 
 const normalizeCurrency = (currency: string) => currency.trim().toUpperCase() || "EUR";
 
-const normalizeReference = (value: string | null | undefined) =>
-  value ? value.replace(/[^0-9A-Za-z_-]/g, "") : null;
-
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user) {
@@ -67,6 +83,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = payloadSchema.safeParse(body);
   if (!parsed.success) {
+    await logPaymentEvent("warn", "checkout_invalid_payload", {
+      userId: session.user.id,
+      issues: parsed.error.flatten(),
+    });
     return NextResponse.json(
       { error: "Invalid payload.", issues: parsed.error.flatten() },
       { status: 400 },
@@ -120,6 +140,15 @@ export async function POST(request: NextRequest) {
     },
   };
 
+  await logPaymentEvent("info", "checkout_request_received", {
+    userId: session.user.id,
+    orderId,
+    method: payload.method,
+    totals,
+    currency,
+    locale: payload.locale,
+  });
+
   let paymentResult:
     | Awaited<ReturnType<typeof createMultibanco>>
     | Awaited<ReturnType<typeof createMBWay>>
@@ -138,7 +167,7 @@ export async function POST(request: NextRequest) {
     if (payload.method === "multibanco") {
       paymentResult = await createMultibanco(orderInput);
     } else if (payload.method === "mbway") {
-      const phone = payload.mbwayPhone?.trim() || payload.contact.phone;
+      const phone = payload.mbwayPhone?.trim() || payload.contact.phone?.trim();
       if (!phone) {
         return NextResponse.json(
           { error: "MB WAY phone number is required." },
@@ -168,6 +197,13 @@ export async function POST(request: NextRequest) {
       paymentResult = await createCard(orderInput);
     }
   } catch (error) {
+    await logPaymentEvent("error", "checkout_eupago_error", {
+      orderId,
+      method: payload.method,
+      error:
+        error instanceof Error ? error.message : "EuPago error (unrecognized payload).",
+      response: error instanceof EuPagoAPIError ? error.response : undefined,
+    });
     if (error instanceof EuPagoConfigurationError) {
       return NextResponse.json(
         { error: error.message, requiresConfiguration: true },
@@ -188,8 +224,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const paymentLogDetails =
+    paymentResult.method === "multibanco"
+      ? {
+          entity: paymentResult.entity,
+          reference: paymentResult.reference,
+          amount: paymentResult.amount,
+          expiresAt: paymentResult.expiresAt,
+        }
+      : paymentResult.method === "mbway"
+        ? {
+            transactionId: paymentResult.transactionId,
+            statusUrl: paymentResult.statusUrl,
+          }
+        : {
+            transactionId: paymentResult.transactionId,
+            paymentUrl: paymentResult.paymentUrl,
+          };
+
+  await logPaymentEvent("info", "checkout_eupago_payment_created", {
+    orderId,
+    method: paymentResult.method,
+    ...paymentLogDetails,
+  });
+
   const providerRef =
-    normalizeReference(deriveProviderReference(paymentResult)) ?? orderId;
+    normaliseProviderReference(deriveProviderReference(paymentResult)) ?? orderId;
 
   const priceMap = new Map(products.map((product) => [product.id, product.priceCents]));
   const orderEventPayload = {
@@ -197,71 +257,91 @@ export async function POST(request: NextRequest) {
     method: paymentResult.method,
     providerRef,
   };
-
-  const order = await prisma.$transaction(async (tx) => {
-    const createdOrder = await tx.order.create({
-      data: {
-        id: orderId,
-        userId: session.user.id,
-        totalAmount: totals.totalCents,
-        paymentStatus: PaymentStatus.PENDING,
-        notes: payload.notes,
-        currency,
-        paymentProvider: PaymentProvider.EUPAGO,
-        paymentMethod:
-          paymentResult.method === "multibanco"
-            ? PaymentMethod.MULTIBANCO
-            : paymentResult.method === "mbway"
-              ? PaymentMethod.MBWAY
-              : PaymentMethod.CARD,
-        providerRef,
-        providerMetadata: {
-          ...("metadata" in paymentResult ? paymentResult.metadata : {}),
-          ...(paymentResult.method === "multibanco"
-            ? {
-                entity: paymentResult.entity,
-                reference: paymentResult.reference,
-                amount: paymentResult.amount,
-                expiresAt: paymentResult.expiresAt,
-              }
-            : {}),
-          ...(paymentResult.method === "mbway"
-            ? {
-                transactionId: paymentResult.transactionId,
-                statusUrl: paymentResult.statusUrl,
-              }
-            : {}),
-          ...(paymentResult.method === "card"
-            ? {
-                transactionId: paymentResult.transactionId,
-                paymentUrl: paymentResult.paymentUrl,
-              }
-            : {}),
-        },
-        contactEmail: payload.contact.email,
-        contactPhone: payload.contact.phone,
-        shippingAddress: payload.shipping,
-        billingAddress: payload.billing,
-        locale: payload.locale,
-        events: appendOrderEvent(null, {
-          type: "payment_created",
-          payload: {
-            ...orderEventPayload,
+  let order: Awaited<ReturnType<typeof prisma.order.create>>;
+  try {
+    order = await prisma.$transaction(async (tx) => {
+      const createdOrder = await tx.order.create({
+        data: {
+          id: orderId,
+          userId: session.user.id,
+          totalAmount: totals.totalCents,
+          paymentStatus: PaymentStatus.PENDING,
+          notes: payload.notes,
+          currency,
+          paymentProvider: PaymentProvider.EUPAGO,
+          paymentMethod:
+            paymentResult.method === "multibanco"
+              ? PaymentMethod.MULTIBANCO
+              : paymentResult.method === "mbway"
+                ? PaymentMethod.MBWAY
+                : PaymentMethod.CARD,
+          providerRef,
+          providerMetadata: {
+            ...("metadata" in paymentResult ? paymentResult.metadata : {}),
+            ...(paymentResult.method === "multibanco"
+              ? {
+                  entity: paymentResult.entity,
+                  reference: paymentResult.reference,
+                  amount: paymentResult.amount,
+                  expiresAt: paymentResult.expiresAt,
+                }
+              : {}),
+            ...(paymentResult.method === "mbway"
+              ? {
+                  transactionId: paymentResult.transactionId,
+                  statusUrl: paymentResult.statusUrl,
+                }
+              : {}),
+            ...(paymentResult.method === "card"
+              ? {
+                  transactionId: paymentResult.transactionId,
+                  paymentUrl: paymentResult.paymentUrl,
+                }
+              : {}),
           },
-        }) as Prisma.InputJsonValue,
-      },
-    });
+          contactEmail: payload.contact.email,
+          contactPhone: payload.contact.phone,
+          shippingAddress: payload.shipping,
+          billingAddress: payload.billing,
+          locale: payload.locale,
+          events: appendOrderEvent(null, {
+            type: "payment_created",
+            payload: {
+              ...orderEventPayload,
+            },
+          }) as Prisma.InputJsonValue,
+        },
+      });
 
-    await tx.orderItem.createMany({
-      data: payload.items.map((item) => ({
-        orderId: createdOrder.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: priceMap.get(item.productId) ?? 0,
-      })),
-    });
+      await tx.orderItem.createMany({
+        data: payload.items.map((item) => ({
+          orderId: createdOrder.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: priceMap.get(item.productId) ?? 0,
+        })),
+      });
 
-    return createdOrder;
+      return createdOrder;
+    });
+  } catch (error) {
+    await logPaymentEvent("error", "checkout_order_persist_error", {
+      orderId,
+      providerRef,
+      error: error instanceof Error ? error.message : "Failed to persist order.",
+    });
+    console.error("[Order] Failed to create order for EuPago payment", error);
+    return NextResponse.json(
+      { error: "Unable to save order. Please contact support." },
+      { status: 500 },
+    );
+  }
+
+  await logPaymentEvent("info", "checkout_order_created", {
+    orderId: order.id,
+    providerRef,
+    paymentMethod: paymentResult.method,
+    totalCents: order.totalAmount,
   });
 
   try {

@@ -1,0 +1,117 @@
+[Payments] checkout_request_received {
+  userId: 'cmhgg26m80000fm2czvcb8s6i',
+  orderId: '7e7f70f5-2f3a-40e3-8fd4-3b0c7ce9b703',
+  method: 'multibanco',
+  totals: {
+    itemsSubtotalCents: 3195,
+    discountCents: 0,
+    deliveryCents: 800,
+    totalCents: 3995,
+    vatAmount: 7.470325203252038
+  },
+  currency: 'EUR',
+  locale: 'en'
+}
+[Checkout] Creating EuPago payment {
+  method: 'multibanco',
+  orderId: '7e7f70f5-2f3a-40e3-8fd4-3b0c7ce9b703',
+  totalCents: 3995,
+  currency: 'EUR'
+}
+[EuPago] Live API endpoint configured while NODE_ENV !== production. Handle with care.
+[Payments] eupago_request {
+  url: 'https://clientes.eupago.pt/clientes/rest_api/multibanco/create',
+  headers: {
+    Accept: 'application/json',
+    'User-Agent': 'palmanhac-payments-adapter',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    ApiKey: undefined
+  },
+  body: {
+    id: '7e7f70f5-2f3a-40e3-8fd4-3b0c7ce9b703',
+    valor: '39.95',
+    descricao: 'Order 7e7f70f5-2f3a-40e3-8fd4-3b0c7ce9b703',
+    email: 'suren.norekyan123@gmail.com',
+    apiKey: '<redacted>'
+  },
+  mode: 'body',
+  format: 'form'
+}
+[Payments] eupago_response_success {
+  url: 'https://clientes.eupago.pt/clientes/rest_api/multibanco/create',
+  status: 200,
+  response: {
+    sucesso: false,
+    estado: -10,
+    resposta: 'Os dados inseridos não são válidos'
+  }
+}
+[Payments] checkout_eupago_error {
+  orderId: '7e7f70f5-2f3a-40e3-8fd4-3b0c7ce9b703',
+  method: 'multibanco',
+  error: 'EuPago Multibanco response is missing entity or reference.',
+  response: {
+    sucesso: false,
+    estado: -10,
+    resposta: 'Os dados inseridos não são válidos'
+  }
+}
+[EuPago] API error: EuPago Multibanco response is missing entity or reference. {
+  sucesso: false,
+  estado: -10,
+  resposta: 'Os dados inseridos não são válidos'
+}
+ POST /api/payments/eupago/create 502 in 619ms (compile: 140ms, proxy.ts: 6ms, render: 473ms)
+
+
+//object
+
+{
+    "status": 502,
+    "payload": {
+        "method": "multibanco",
+        "items": [
+            {
+                "productId": 39,
+                "quantity": 1
+            },
+            {
+                "productId": 41,
+                "quantity": 1
+            },
+            {
+                "productId": 33,
+                "quantity": 1
+            }
+        ],
+        "contact": {
+            "email": "suren.norekyan123@gmail.com",
+            "name": "Palmanhac Admin"
+        },
+        "shipping": {
+            "name": "Palmanhac Admin",
+            "line1": "Nairi Zaryan 2/18",
+            "city": "Yerevan",
+            "postalCode": "0012",
+            "country": "PT"
+        },
+        "billing": {
+            "name": "Palmanhac Admin",
+            "line1": "Nairi Zaryan 2/18",
+            "city": "Yerevan",
+            "postalCode": "0012",
+            "country": "PT"
+        },
+        "currency": "EUR",
+        "locale": "en",
+        "totals": {
+            "itemsSubtotalCents": 3195,
+            "deliveryCents": 800,
+            "discountCents": 0,
+            "totalCents": 3995
+        }
+    },
+    "result": {
+        "error": "Unable to initialize EuPago payment. Please try again."
+    }
+}

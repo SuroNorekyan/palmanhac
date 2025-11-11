@@ -1,0 +1,35 @@
+File: lib/payments/eupago.ts
+- Added centralized request/response logging, live-environment warning, MB WAY status logging, and provider reference normalization helpers.
+- Base URL normalization now only trims whitespace/trailing `/api` so EuPago requests keep whatever host the operator configured (e.g. `https://clientes.eupago.pt` or sandbox), avoiding marketing-site 404s.
+- Header-mode authentication now sends `ApiKey`, `Authorization: ApiKey …`, and `X-Api-Key` simultaneously (body-mode keeps `apiKey` in the form payload). Card/MB WAY payloads stay minimal but snake_case, Multibanco posts the lean form (`id`, `valor`, `descricao`, `email`, `currency`).
+
+File: app/api/payments/eupago/create/route.ts
+- Enforced ISO country validation, added structured logging, improved MB WAY phone handling, and hardened order persistence/error responses.
+
+File: app/api/payments/eupago/status/route.ts
+- Instrumented status polling with diagnostics and clearer fallbacks for MB WAY and Multibanco references.
+
+File: app/api/payments/eupago/webhook/route.ts
+- Added signature/payload logging, defensive error handling, and detailed status transition logs for future audits.
+
+File: lib/utils/payment-logger.ts
+- New helper that writes payment events to console and logs/payments.log (creation is lazy and failures are tolerated).
+
+File: lib/utils/country.ts
+- New ISO country normalizer shared by the API and Checkout UI (supports English/PT names and ISO codes).
+
+File: components/checkout/CheckoutView.tsx
+- Normalizes countries before submission, surfaces validation errors client side, and keeps payloads aligned with new backend schema.
+
+File: .env / .env.local
+- Switched both environments to the live EuPago base/key/return URL to match the current Cloudflare tunnel and restored `EUPAGO_API_BASE="https://clientes.eupago.pt"` so calls target EuPago’s API host.
+
+File: .gitignore
+- Ignoring logs/ so the structured payment log file is not committed accidentally.
+
+Auxiliary docs:
+- `eupago-test-requests.txt` now includes both the original mock walkthrough and the latest real `curl` captures (card/MB WAY return `AMOUNT_MISSING`, Multibanco returns `estado: -10` even though the API key is accepted). These upstream errors match what the checkout logs emit after the adapter fix, so merchants will need to confirm the channel configuration with EuPago if the provider keeps rejecting the amount.
+
+Tests
+- `pnpm typecheck`
+- Direct `curl` probes against `creditcard/create`, `mbway/create`, and `clientes/rest_api/multibanco/create` (documented in eupago-test-requests.txt) to verify that API key delivery is now correct.

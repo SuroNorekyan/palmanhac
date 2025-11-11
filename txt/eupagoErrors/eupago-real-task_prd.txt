@@ -1,0 +1,108 @@
+You are analyzing a Next.js + TypeScript full-stack project that implements EuPago payment integrations (Multibanco, MB WAY, and Card).
+The project already has a backend (app/api/payments/eupago/) and a frontend checkout flow (app/[locale]/checkout/), and the system is now connected to a real EuPago account.
+
+⚙️ Current Setup
+
+The local app runs on http://localhost:3000
+
+It is exposed publicly via Cloudflare Tunnel:
+https://human-managed-won-chemistry.trycloudflare.com/
+
+The EuPago Webhooks 2.0 endpoint has been correctly configured to:
+https://human-managed-won-chemistry.trycloudflare.com/api/payments/eupago/webhook
+
+The cryptographic key (EUPAGO_WEBHOOK_SHARED_SECRET) is already configured and working.
+
+Environment variables (.env and .env.local) exist and include database/auth configuration and EuPago env vars.
+
+The project root contains an eupago-errors.txt file showing logs from failed payment attempts (500 errors returned from /api/payments/eupago/create).
+
+🧩 Your Tasks
+
+Analyze the full project structure, focusing on:
+
+lib/payments/eupago.ts
+
+app/api/payments/eupago/create/route.ts
+
+app/api/payments/eupago/status/route.ts
+
+app/api/payments/eupago/webhook/route.ts
+
+app/[locale]/checkout/* (frontend payment and form logic)
+
+lib/utils/* and any DTO/validation schemas that might affect checkout payloads.
+
+The .env and .env.local files.
+
+Fix all payment flow issues referenced in eupago-errors.txt.
+
+Identify root causes of 500 Internal Server Error responses (validation, country codes, missing envs, or mismatched sandbox/live endpoints).
+
+Adjust the payload normalization logic so shipping/billing data is properly validated (use ISO codes like "PT" instead of full names like "Portugal").
+
+Verify that EUPAGO_API_BASE, EUPAGO_API_KEY, and EUPAGO_CARD_RETURN_URL match and are valid for the tunnel + real key combination.
+
+Ensure create route correctly builds the payload for all methods (Multibanco, MB WAY, Card).
+
+Validate webhook signature verification and order update logic.
+
+If necessary, modify .env to ensure it fully supports working payments via the tunnel and the real EuPago environment.
+
+Update or correct any conflicting values between .env.local and .env.
+
+Make sure both use consistent live or sandbox configurations.
+
+Add strong error logging and structured diagnostics to the payment flow:
+
+Log each major step: payment creation, EuPago response, webhook reception, order update, errors.
+
+Logs should be clear and actionable (include error type, request payload, and response).
+
+Ensure these logs are visible in the console or a logs/payments.log file.
+
+Perform mock test requests to the tunnel endpoint to validate each payment method end-to-end:
+
+Use the URL: https://human-managed-won-chemistry.trycloudflare.com/en/checkout
+
+Create sample requests for Multibanco, MB WAY, and Card with mock or EuPago sandbox values.
+
+Log every test request and its result (HTTP status, response data, errors, success states) in a new root file:
+
+eupago-test-requests.txt
+
+
+The final goal: all requests should succeed (200 responses), create valid orders, and trigger correct webhook updates with no console errors.
+
+Generate a summary log of code changes:
+
+Create a root file named:
+
+eupago-realApi-changes.txt
+
+
+For each modified file, write:
+
+File path
+
+Short summary of the change (e.g. “Added ISO country normalization in CheckoutView.tsx”, “Fixed API base mismatch for live key”, “Added verbose logging for payment creation and webhook handler”).
+
+Include a final note confirming that all methods (Multibanco, MB WAY, Card) were tested successfully.
+
+✅ Final Goal
+
+By the end of the run:
+
+Visiting https://human-managed-won-chemistry.trycloudflare.com/en/checkout should allow completing payments using Multibanco, MB WAY, or Card without 500 errors.
+
+The app should have clear and traceable error logs if any future issue arises.
+
+The files eupago-test-requests.txt and eupago-realApi-changes.txt should be generated at the project root, describing every test and every change respectively.
+
+🧭 Optional Enhancements (if you find them necessary)
+
+Add small visual feedback on the checkout page (e.g., loading state or error toast if payment initiation fails).
+
+Ensure that /orders correctly displays the order after returning from EuPago’s hosted card checkout.
+
+Add an environment safety check: warn developers when the live key is used in development mod

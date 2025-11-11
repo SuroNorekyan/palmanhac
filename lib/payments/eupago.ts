@@ -1,4 +1,6 @@
 // lib/payments/eupago.ts
+import { logPaymentEvent } from "@/lib/utils/payment-logger";
+
 export class EuPagoConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -63,12 +65,28 @@ export type EuPagoStatusResult = {
   raw?: Record<string, unknown>;
 };
 
-const normalizeBaseUrl = (v: string) => v.replace(/\s+/g, "").replace(/\/+$/, "");
+const normalizeBaseUrl = (value: string) =>
+  value
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/\/+$/, "")
+    .replace(/\/api$/i, "");
+const LIVE_BASE_CANDIDATES = ["https://clientes.eupago.pt", "https://eupago.pt"];
+let liveWarningIssued = false;
 
 const ensureBaseUrl = () => {
   const raw = process.env.EUPAGO_API_BASE;
   if (!raw) throw new EuPagoConfigurationError("EUPAGO_API_BASE is not defined.");
-  return normalizeBaseUrl(raw);
+  const normalized = normalizeBaseUrl(raw);
+  if (!liveWarningIssued && process.env.NODE_ENV !== "production") {
+    if (LIVE_BASE_CANDIDATES.some((candidate) => normalized.startsWith(candidate))) {
+      liveWarningIssued = true;
+      console.warn(
+        "[EuPago] Live API endpoint configured while NODE_ENV !== production. Handle with care.",
+      );
+    }
+  }
+  return normalized;
 };
 const ensureApiKey = () => {
   const key = process.env.EUPAGO_API_KEY;
@@ -94,10 +112,12 @@ const parseJsonSafely = async <T>(res: Response): Promise<T> => {
 
 type Mode = "header" | "body";
 type Format = "form" | "json";
+type EuPagoPayloadValue = string | number | boolean | null | undefined;
+type EuPagoPayload = Record<string, EuPagoPayloadValue>;
 
 const euPagoFetch = async <T>(
   path: string,
-  payload: Record<string, string>,
+  payload: EuPagoPayload,
   mode: Mode,
   format: Format,
 ) => {
@@ -108,15 +128,30 @@ const euPagoFetch = async <T>(
   };
   const key = ensureApiKey();
 
+  const toFormValue = (value: EuPagoPayloadValue) =>
+    typeof value === "string"
+      ? value
+      : value !== undefined && value !== null
+        ? String(value)
+        : undefined;
+
   const bodyParams = new URLSearchParams();
   for (const [k, v] of Object.entries(payload)) {
-    if (v !== undefined && v !== null) bodyParams.set(k, v);
+    const stringValue = toFormValue(v);
+    if (stringValue !== undefined) bodyParams.set(k, stringValue);
+  }
+
+  const jsonPayload: Record<string, EuPagoPayloadValue> = {};
+  for (const [k, v] of Object.entries(payload)) {
+    if (v !== undefined && v !== null) jsonPayload[k] = v;
   }
 
   if (mode === "header") {
-    headers["ApiKey"] = key; // EuPago docs: ApiKey header for ApiKey Auth endpoints
+    headers["ApiKey"] = key;
+    headers["Authorization"] = `ApiKey ${key}`;
+    headers["X-Api-Key"] = key;
   } else {
-    bodyParams.set("apiKey", key); // legacy/Multibanco body auth
+    bodyParams.set("apiKey", key);
   }
 
   if (format === "form") {
@@ -125,42 +160,68 @@ const euPagoFetch = async <T>(
     headers["Content-Type"] = "application/json";
   }
 
+  const redactPayload = (input: Record<string, EuPagoPayloadValue>) =>
+    Object.fromEntries(
+      Object.entries(input).map(([k, v]) =>
+        k.toLowerCase().includes("key") ? [k, "<redacted>"] : [k, v],
+      ),
+    );
+
   const debugBody =
     format === "form"
       ? Object.fromEntries(
           [...bodyParams.entries()].map(([k, v]) => [
             k,
-            k === "apiKey" ? "<redacted>" : v,
+            k.toLowerCase().includes("key") ? "<redacted>" : v,
           ]),
         )
-      : payload;
+      : redactPayload(jsonPayload);
 
-  if (process.env.NODE_ENV !== "production") {
-    console.debug("[EuPago] POST", url, {
-      headers: { ...headers, ApiKey: headers.ApiKey ? "<redacted>" : undefined },
-      body: debugBody,
-      mode,
-      format,
-    });
-  }
+  const loggedHeaders: Record<string, string | undefined> = { ...headers };
+  if (loggedHeaders.ApiKey) loggedHeaders.ApiKey = "<redacted>";
+  if (loggedHeaders.Authorization) loggedHeaders.Authorization = "<redacted>";
+  if (loggedHeaders["X-Api-Key"]) loggedHeaders["X-Api-Key"] = "<redacted>";
+
+  await logPaymentEvent("info", "eupago_request", {
+    url,
+    headers: loggedHeaders,
+    body: debugBody,
+    mode,
+    format,
+  });
 
   const res = await fetch(url, {
     method: "POST",
     headers,
-    body: format === "form" ? bodyParams.toString() : JSON.stringify(payload),
+    body: format === "form" ? bodyParams.toString() : JSON.stringify(jsonPayload),
     cache: "no-store",
   });
 
   if (!res.ok) {
-    const errorPayload = await res
-      .json()
-      .catch(async () => ({ message: await res.text() }));
+    const errorClone = res.clone();
+    const errorPayload = (await errorClone.json().catch(async () => {
+      const fallbackText = await res.text().catch(() => null);
+      return fallbackText
+        ? { message: fallbackText }
+        : { message: "EuPago error response was empty." };
+    })) ?? { message: "EuPago error response missing." };
+    await logPaymentEvent("error", "eupago_response_error", {
+      url,
+      status: res.status,
+      response: errorPayload,
+    });
     throw new EuPagoAPIError(
       `EuPago request failed with status ${res.status}.`,
       errorPayload,
     );
   }
-  return parseJsonSafely<T>(res);
+  const parsed = await parseJsonSafely<T>(res);
+  await logPaymentEvent("info", "eupago_response_success", {
+    url,
+    status: res.status,
+    response: parsed,
+  });
+  return parsed;
 };
 
 // ---------- Helpers
@@ -230,10 +291,10 @@ const normaliseStatusPayload = (p: Record<string, unknown>): EuPagoStatusResult 
 
 export const createCard = async (order: EuPagoOrderInput): Promise<EuPagoCardResult> => {
   const eur = Math.max(order.amountCents, 100) / 100;
-  const value = asTwoDecimals(eur); // string "66.49"
-  const payload: Record<string, string> = {
+  const value = asTwoDecimals(eur);
+  const payload: EuPagoPayload = {
     id: order.orderId,
-    value, // EuPago expects "value" in form body
+    value,
     currency: (order.currency || "EUR").toUpperCase(),
     description: order.description ?? `Order ${order.orderId}`,
     return_url: ensureCardReturnUrl(),
@@ -274,7 +335,7 @@ export const createMBWay = async (
 ): Promise<EuPagoMBWayResult> => {
   const eur = Math.max(order.amountCents, 100) / 100;
   const value = asTwoDecimals(eur);
-  const payload: Record<string, string> = {
+  const payload: EuPagoPayload = {
     id: order.orderId,
     value,
     currency: (order.currency || "EUR").toUpperCase(),
@@ -320,6 +381,7 @@ export const createMultibanco = async (
     valor: amount, // Multibanco uses "valor"
     descricao: order.description ?? `Order ${order.orderId}`,
     email: order.customer.email,
+    currency: (order.currency || "EUR").toUpperCase(),
   };
 
   const res = await euPagoFetch<Record<string, unknown>>(
@@ -370,6 +432,7 @@ export const fetchMBWayStatus = async (
   statusUrl: string,
 ): Promise<EuPagoStatusResult> => {
   const url = /^https?:\/\//i.test(statusUrl) ? statusUrl : buildUrl(statusUrl);
+  await logPaymentEvent("info", "eupago_status_request", { method: "mbway", url });
   const res = await fetch(url, {
     method: "GET",
     headers: {
@@ -381,12 +444,25 @@ export const fetchMBWayStatus = async (
   });
   if (!res.ok) {
     const e = await res.json().catch(async () => ({ message: await res.text() }));
+    await logPaymentEvent("error", "eupago_status_error", {
+      method: "mbway",
+      url,
+      status: res.status,
+      response: e,
+    });
     throw new EuPagoAPIError(
       `EuPago MB WAY status request failed with status ${res.status}.`,
       e,
     );
   }
-  return normaliseStatusPayload(await parseJsonSafely<Record<string, unknown>>(res));
+  const parsed = await parseJsonSafely<Record<string, unknown>>(res);
+  await logPaymentEvent("info", "eupago_status_success", {
+    method: "mbway",
+    url,
+    status: res.status,
+    response: parsed,
+  });
+  return normaliseStatusPayload(parsed);
 };
 
 export const fetchMultibancoInfo = async (params: {
@@ -425,8 +501,15 @@ export const deriveProviderReference = (result: {
   transactionId?: string;
 }) => {
   if (result.method === "multibanco" && result.reference)
-    return String(result.reference).replace(/[^0-9]/g, "");
+    return normaliseProviderReference(result.reference);
   if ((result.method === "card" || result.method === "mbway") && result.transactionId)
-    return String(result.transactionId);
+    return normaliseProviderReference(result.transactionId);
   return null;
+};
+
+export const normaliseProviderReference = (value: string | null | undefined) => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/[^0-9A-Za-z_-]/g, "").toUpperCase();
 };

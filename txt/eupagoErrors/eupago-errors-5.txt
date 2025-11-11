@@ -1,0 +1,222 @@
+[Payments] checkout_request_received {
+  userId: 'cmhgg26m80000fm2czvcb8s6i',
+  orderId: 'b6a514ce-2c69-4e9c-80e8-30bed400e428',
+  method: 'multibanco',
+  totals: {
+    itemsSubtotalCents: 3195,
+    discountCents: 0,
+    deliveryCents: 800,
+    totalCents: 3995,
+    vatAmount: 7.470325203252038
+  },
+  currency: 'EUR',
+  locale: 'en'
+}
+[Checkout] Creating EuPago payment {
+  method: 'multibanco',
+  orderId: 'b6a514ce-2c69-4e9c-80e8-30bed400e428',
+  totalCents: 3995,
+  currency: 'EUR'
+}
+[EuPago] Live API endpoint configured while NODE_ENV !== production. Handle with care.
+[Payments] eupago_request {
+  url: 'https://clientes.eupago.pt/clientes/rest_api/multibanco/create',
+  headers: {
+    Accept: 'application/json',
+    'User-Agent': 'palmanhac-payments-adapter',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    ApiKey: undefined
+  },
+  body: {
+    id: 'b6a514ce-2c69-4e9c-80e8-30bed400e428',
+    valor: '39.95',
+    descricao: 'Order b6a514ce-2c69-4e9c-80e8-30bed400e428',
+    email: 'suren.norekyan123@gmail.com',
+    apiKey: '<redacted>'
+  },
+  mode: 'body',
+  format: 'form'
+}
+[Payments] eupago_response_success {
+  url: 'https://clientes.eupago.pt/clientes/rest_api/multibanco/create',
+  status: 200,
+  response: {
+    sucesso: false,
+    estado: -10,
+    resposta: 'Os dados inseridos não são válidos'
+  }
+}
+[Payments] checkout_eupago_error {
+  orderId: 'b6a514ce-2c69-4e9c-80e8-30bed400e428',
+  method: 'multibanco',
+  error: 'EuPago Multibanco response is missing entity or reference.',
+  response: {
+    sucesso: false,
+    estado: -10,
+    resposta: 'Os dados inseridos não são válidos'
+  }
+}
+[EuPago] API error: EuPago Multibanco response is missing entity or reference. {
+  sucesso: false,
+  estado: -10,
+  resposta: 'Os dados inseridos não são válidos'
+}
+ POST /api/payments/eupago/create 502 in 729ms (compile: 136ms, proxy.ts: 6ms, render: 587ms)
+prisma:query SELECT 1
+prisma:query SELECT "public"."Product"."id", "public"."Product"."priceCents", "public"."Product"."name" FROM "public"."Product" WHERE "public"."Product"."id" IN ($1,$2,$3) OFFSET $4
+[Payments] checkout_request_received {
+  userId: 'cmhgg26m80000fm2czvcb8s6i',
+  orderId: '1a11ada2-68b4-40d0-a14c-b577fa62d386',
+  method: 'mbway',
+  totals: {
+    itemsSubtotalCents: 3195,
+    discountCents: 0,
+    deliveryCents: 800,
+    totalCents: 3995,
+    vatAmount: 7.470325203252038
+  },
+  currency: 'EUR',
+  locale: 'en'
+}
+[Checkout] Creating EuPago payment {
+  method: 'mbway',
+  orderId: '1a11ada2-68b4-40d0-a14c-b577fa62d386',
+  totalCents: 3995,
+  currency: 'EUR'
+}
+[Checkout] MB WAY payload {
+  orderId: '1a11ada2-68b4-40d0-a14c-b577fa62d386',
+  amount: 39.95,
+  phone: '912345678',
+  customer: {
+    email: 'suren.norekyan123@gmail.com',
+    name: 'Palmanhac Admin',
+    phone: undefined
+  },
+  locale: 'en'
+}
+[Payments] eupago_request {
+  url: 'https://clientes.eupago.pt/api/v1.02/mbway/create',
+  headers: {
+    Accept: 'application/json',
+    'User-Agent': 'palmanhac-payments-adapter',
+    ApiKey: '<redacted>',
+    'Content-Type': 'application/x-www-form-urlencoded'
+  },
+  body: {
+    id: '1a11ada2-68b4-40d0-a14c-b577fa62d386',
+    value: '39.95',
+    currency: 'EUR',
+    description: 'Order 1a11ada2-68b4-40d0-a14c-b577fa62d386',
+    customer_email: 'suren.norekyan123@gmail.com',
+    customer_name: 'Palmanhac Admin',
+    alias: '912345678',
+    locale: 'en'
+  },
+  mode: 'header',
+  format: 'form'
+}
+[Payments] eupago_response_error {
+  url: 'https://clientes.eupago.pt/api/v1.02/mbway/create',
+  status: 401,
+  response: {
+    transactionStatus: 'Rejected',
+    code: 'APIKEY_MISSING',
+    text: 'API Key was not available in the request'
+  }
+}
+[Payments] checkout_eupago_error {
+  orderId: '1a11ada2-68b4-40d0-a14c-b577fa62d386',
+  method: 'mbway',
+  error: 'EuPago request failed with status 401.',
+  response: {
+    transactionStatus: 'Rejected',
+    code: 'APIKEY_MISSING',
+    text: 'API Key was not available in the request'
+  }
+}
+[EuPago] API error: EuPago request failed with status 401. {
+  transactionStatus: 'Rejected',
+  code: 'APIKEY_MISSING',
+  text: 'API Key was not available in the request'
+}
+ POST /api/payments/eupago/create 502 in 121ms (compile: 4ms, proxy.ts: 4ms, render: 114ms)
+prisma:query SELECT 1
+prisma:query SELECT "public"."Product"."id", "public"."Product"."priceCents", "public"."Product"."name" FROM "public"."Product" WHERE "public"."Product"."id" IN ($1,$2,$3) OFFSET $4
+[Payments] checkout_request_received {
+  userId: 'cmhgg26m80000fm2czvcb8s6i',
+  orderId: 'cd9ce672-c881-4882-9284-22ff16a9015b',
+  method: 'card',
+  totals: {
+    itemsSubtotalCents: 3195,
+    discountCents: 0,
+    deliveryCents: 800,
+    totalCents: 3995,
+    vatAmount: 7.470325203252038
+  },
+  currency: 'EUR',
+  locale: 'en'
+}
+[Checkout] Creating EuPago payment {
+  method: 'card',
+  orderId: 'cd9ce672-c881-4882-9284-22ff16a9015b',
+  totalCents: 3995,
+  currency: 'EUR'
+}
+[Checkout] Card payload {
+  orderId: 'cd9ce672-c881-4882-9284-22ff16a9015b',
+  amount: 39.95,
+  customer: {
+    email: 'suren.norekyan123@gmail.com',
+    name: 'Palmanhac Admin',
+    phone: undefined
+  },
+  returnUrl: 'https://human-managed-won-chemistry.trycloudflare.com/orders',
+  locale: 'en'
+}
+[Payments] eupago_request {
+  url: 'https://clientes.eupago.pt/api/v1.02/creditcard/create',
+  headers: {
+    Accept: 'application/json',
+    'User-Agent': 'palmanhac-payments-adapter',
+    ApiKey: '<redacted>',
+    'Content-Type': 'application/x-www-form-urlencoded'
+  },
+  body: {
+    id: 'cd9ce672-c881-4882-9284-22ff16a9015b',
+    value: '39.95',
+    currency: 'EUR',
+    description: 'Order cd9ce672-c881-4882-9284-22ff16a9015b',
+    return_url: 'https://human-managed-won-chemistry.trycloudflare.com/orders',
+    customer_email: 'suren.norekyan123@gmail.com',
+    customer_name: 'Palmanhac Admin',
+    locale: 'en'
+  },
+  mode: 'header',
+  format: 'form'
+}
+[Payments] eupago_response_error {
+  url: 'https://clientes.eupago.pt/api/v1.02/creditcard/create',
+  status: 401,
+  response: {
+    transactionStatus: 'Rejected',
+    code: 'APIKEY_MISSING',
+    text: 'API Key was not available in the request'
+  }
+}
+[Payments] checkout_eupago_error {
+  orderId: 'cd9ce672-c881-4882-9284-22ff16a9015b',
+  method: 'card',
+  error: 'EuPago request failed with status 401.',
+  response: {
+    transactionStatus: 'Rejected',
+    code: 'APIKEY_MISSING',
+    text: 'API Key was not available in the request'
+  }
+}
+[EuPago] API error: EuPago request failed with status 401. {
+  transactionStatus: 'Rejected',
+  code: 'APIKEY_MISSING',
+  text: 'API Key was not available in the request'
+}
+ POST /api/payments/eupago/create 502 in 381ms (compile: 3ms, proxy.ts: 4ms, render: 374ms)

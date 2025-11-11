@@ -1,0 +1,117 @@
+[Payments] checkout_request_received {
+  userId: 'cmhgg26m80000fm2czvcb8s6i',
+  orderId: 'efc50b58-7076-4c81-983c-4674ff14bafb',
+  method: 'multibanco',
+  totals: {
+    itemsSubtotalCents: 3195,
+    discountCents: 0,
+    deliveryCents: 800,
+    totalCents: 3995,
+    vatAmount: 7.470325203252038
+  },
+  currency: 'EUR',
+  locale: 'en'
+}
+[Checkout] Creating EuPago payment {
+  method: 'multibanco',
+  orderId: 'efc50b58-7076-4c81-983c-4674ff14bafb',
+  totalCents: 3995,
+  currency: 'EUR'
+}
+[EuPago] Live API endpoint configured while NODE_ENV !== production. Handle with care.
+[Payments] eupago_request {
+  url: 'https://eupago.pt/clientes/rest_api/multibanco/create',
+  headers: {
+    Accept: 'application/json',
+    'User-Agent': 'palmanhac-payments-adapter',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    ApiKey: undefined
+  },
+  body: {
+    id: 'efc50b58-7076-4c81-983c-4674ff14bafb',
+    valor: '39.95',
+    descricao: 'Order efc50b58-7076-4c81-983c-4674ff14bafb',
+    email: 'suren.norekyan123@gmail.com',
+    apiKey: '<redacted>'
+  },
+  mode: 'body',
+  format: 'form'
+}
+[Payments] checkout_eupago_error {
+  orderId: 'efc50b58-7076-4c81-983c-4674ff14bafb',
+  method: 'multibanco',
+  error: 'Body is unusable: Body has already been read',
+  response: undefined
+}
+[EuPago] Unexpected error: TypeError: Body is unusable: Body has already been read
+    at <unknown> (lib/payments/eupago.ts:193:48)
+    at async euPagoFetch (lib/payments/eupago.ts:191:26)
+    at async createMultibanco (lib/payments/eupago.ts:372:15)
+    at async POST (app/api/payments/eupago/create/route.ts:168:23)
+  191 |     const errorPayload = await res
+  192 |       .json()
+> 193 |       .catch(async () => ({ message: await res.text() }));
+      |                                                ^
+  194 |     await logPaymentEvent("error", "eupago_response_error", {
+  195 |       url,
+  196 |       status: res.status,
+ POST /api/payments/eupago/create 500 in 827ms (compile: 138ms, proxy.ts: 6ms, render: 684ms)
+
+
+ //object
+
+
+/api/payments/eupago/create:1  Failed to load resource: the server responded with a status of 500 ()
+intercept-console-error.ts:42 [Checkout] Create payment failed Objectpayload: {method: 'multibanco', items: Array(3), contact: {…}, shipping: {…}, billing: {…}, …}responseText: undefinedresult: {error: 'Unexpected error starting payment.'}status: 500[[Prototype]]: Object
+error @ intercept-console-error.ts:42
+
+
+{
+    "status": 500,
+    "payload": {
+        "method": "multibanco",
+        "items": [
+            {
+                "productId": 39,
+                "quantity": 1
+            },
+            {
+                "productId": 41,
+                "quantity": 1
+            },
+            {
+                "productId": 33,
+                "quantity": 1
+            }
+        ],
+        "contact": {
+            "email": "suren.norekyan123@gmail.com",
+            "name": "Palmanhac Admin"
+        },
+        "shipping": {
+            "name": "Palmanhac Admin",
+            "line1": "Nairi Zaryan 2/18",
+            "city": "Yerevan",
+            "postalCode": "0012",
+            "country": "PT"
+        },
+        "billing": {
+            "name": "Palmanhac Admin",
+            "line1": "Nairi Zaryan 2/18",
+            "city": "Yerevan",
+            "postalCode": "0012",
+            "country": "PT"
+        },
+        "currency": "EUR",
+        "locale": "en",
+        "totals": {
+            "itemsSubtotalCents": 3195,
+            "deliveryCents": 800,
+            "discountCents": 0,
+            "totalCents": 3995
+        }
+    },
+    "result": {
+        "error": "Unexpected error starting payment."
+    }
+}
