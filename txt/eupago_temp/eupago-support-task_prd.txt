@@ -1,0 +1,133 @@
+Create a comprehensive, well-formatted text report named eupago-support-log.txt at the project root. This file will be shared with EuPago support. Follow these requirements precisely:
+
+Scope & context
+
+Production site: https://palmanhac-shop.pt
+
+Note up front (1–2 lines): EuPago confirmed Credit Card is an additional service pending approval; include this as the reason we are not expecting successful Card transactions today.
+
+What to include in eupago-support-log.txt
+
+Overview (human-readable)
+
+One paragraph summarizing current state: auth OK, Card pending approval, MB WAY and Multibanco returning errors; testing done from production domain; no tunnel.
+
+Bullet list of what EuPago requested and what this report contains.
+
+Environment snapshot
+
+Show EUPAGO_API_BASE, EUPAGO_CARD_RETURN_URL, domain, timestamp (UTC + local), and app version/commit if available.
+
+Show headers policy used by the adapter: ApiKey, Authorization: ApiKey …, X-Api-Key (values redacted except first/last 3 chars).
+
+Requests & responses (exact, reproducible)
+For each method below, provide two subsections:
+
+A. Direct API call via curl (full command the support can run)
+
+B. App-routed request (the payload your app sends to EuPago; show the final serialized body)
+
+MB WAY (v1.02)
+
+Endpoint: POST https://clientes.eupago.pt/api/v1.02/mbway/create
+
+Provide two test variants for the amount field to address support’s guidance:
+
+Variant 1: value:"39.95" (dot decimal)
+
+Variant 2: value:"39,95" (comma decimal)
+
+For each variant, include:
+
+Request headers (ApiKey/Authorization/X-Api-Key all present; redact as specified)
+
+JSON body (include value, currency:"EUR", description, customer_email, customer_name, alias if used, locale)
+
+HTTP response status and raw body exactly as received
+(e.g., {"code":"AMOUNT_MISSING"} or {"code":"APIKEY_MISSING"})
+
+Multibanco (legacy)
+
+Endpoint: POST https://clientes.eupago.pt/clientes/rest_api/multibanco/create
+
+Provide two test variants for amount formatting:
+
+Variant 1 form field: valor=39.95
+
+Variant 2 form field: valor=39,95
+
+Include:
+
+Form body (URL-encoded) fields: id, valor, descricao, email, optional currency, and apiKey in body if required by this endpoint style
+
+HTTP response with full body (e.g., {"sucesso":false,"estado":-10,"resposta":"Os dados inseridos não são válidos"})
+
+Credit Card (v1.02) — informational only
+
+Briefly note that per EuPago support, service not yet approved/activated for this account, so we did not expect successful responses; if a request was attempted, include the single representative curl and resulting response.
+
+Header & secret redaction rules
+
+In the log, show API key as: e9c2-89a9-20c2-39c9-2a6b
+
+
+3–5 bullet points asking EuPago to:
+a) Confirm MB WAY and Multibanco channel activation for this API key
+b) Confirm expected amount field name and decimal separator for both APIs
+c) Validate Multibanco Entidade/Subentidade mapping for this key
+d) Confirm whether any origin/domain allowlist is enforced for palmanhac-shop.pt
+e) Provide a working curl example for this merchant key (for each channel)
+
+Appendix
+
+Sanity: headers actually sent (names only + redacted values)
+
+Timestamps & request IDs (if available)
+
+HTTP trace: method, URL, status, elapsed ms per request
+
+Troubleshooting matrix: rows = test variant, cols = status, body excerpt, interpretation
+
+Additional deliverables
+
+Also create eupago-curl-examples.txt with the exact curl commands (ready to paste). Use placeholders where needed:
+
+
+Provide both dot and comma amount variants for MB WAY and Multibanco.
+
+Implementation notes
+
+print the exact payload and headers the adapter will send, and mark responses as “current observed” with the last known error body.
+
+Ensure no secrets are leaked; apply the redaction rules.
+
+Write both files with clean headings, fixed-width code blocks for requests/responses, and ISO timestamps.
+
+Return a short summary of the files created and their locations.
+
+
+Below is the mail sent by eupago support team, analyze it to understand what kind of info must be included
+
+__EUPAGO SUPPORT MAIL__
+
+Margarida Mota commented:
+
+Good afternoon,
+
+Thank you for contacting us.
+
+Regarding the credit card payment method, please note that this is an additional service subject to approval , which is why it is not currently included in your integration .
+
+Regarding MBWAY , we have identified two possible causes for the error presented:
+
+“Amount is missing” – indicates that the amount parameter is not being included in the request;
+“APIKEY_MISSING” – suggests that the API key was not included or that its format is invalid.
+Regarding the Multibanco request , we need you to send us the complete body of the request so that we can verify the submitted data.
+
+We also ask that you send us examples of requests sent and, if possible, we would like to know if it is possible for us to use your API key to perform tests .
+
+We await your reply.
+
+Thank you and best regards,
+
+Margarida Mota changed the status of this request to "Awaiting customer."

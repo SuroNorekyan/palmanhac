@@ -81,6 +81,27 @@ export default async function OrdersPage({
             "{count}",
             order.items.length.toString(),
           );
+          let paymentHint: string | null = null;
+          if (order.paymentStatus === "PAID") {
+            paymentHint = dictionary.orders.statusDetails.paid;
+          } else if (order.paymentMethod === "MBWAY") {
+            paymentHint = dictionary.orders.statusDetails.mbwayPending;
+          } else if (order.paymentMethod === "MULTIBANCO") {
+            paymentHint = dictionary.orders.statusDetails.multibancoPending;
+          } else if (order.paymentMethod === "CARD") {
+            paymentHint = dictionary.orders.statusDetails.cardPending;
+          }
+          const paymentMethodKey =
+            order.paymentMethod === "MBWAY"
+              ? "mbway"
+              : order.paymentMethod === "CARD"
+                ? "card"
+                : order.paymentMethod === "MULTIBANCO"
+                  ? "multibanco"
+                  : null;
+          const paymentMethodLabel = paymentMethodKey
+            ? dictionary.checkout.methods[paymentMethodKey]
+            : (order.paymentProvider ?? dictionary.orders.paymentMethodUnknown);
           return (
             <article
               key={order.id}
@@ -109,6 +130,12 @@ export default async function OrdersPage({
                   {dictionary.orders.total}: {formatCurrency(locale, order.totalAmount)}
                 </span>
               </div>
+              <div className="text-sm text-neutral-600">
+                {dictionary.orders.paymentMethodLabel}:{" "}
+                <span className="font-semibold text-neutral-900">
+                  {paymentMethodLabel}
+                </span>
+              </div>
               <ul className="space-y-3">
                 {order.items.length === 0 ? (
                   <li className="text-sm text-neutral-500">
@@ -135,6 +162,11 @@ export default async function OrdersPage({
                   ))
                 )}
               </ul>
+              {paymentHint ? (
+                <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
+                  {paymentHint}
+                </p>
+              ) : null}
             </article>
           );
         })}

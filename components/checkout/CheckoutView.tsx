@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,14 +79,6 @@ type EuPagoCreateResponse =
   | EuPagoMBWayResponse
   | EuPagoCardResponse;
 
-type EuPagoStatusResponse = {
-  status: {
-    status: string;
-    paidAt?: string;
-    error?: string;
-  };
-};
-
 type CheckoutProduct = {
   id: number;
   slug: string;
@@ -104,13 +98,37 @@ type AddressState = {
 
 const paymentOptions: PaymentMethodOption[] = ["multibanco", "mbway", "card"];
 
-export function CheckoutView({
-  dictionary,
-  locale,
-}: {
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
+const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
+
+type CheckoutFormProps = {
   dictionary: Dictionary;
   locale: Locale;
-}) {
+  stripeUnavailable?: boolean;
+};
+
+export function CheckoutView(props: { dictionary: Dictionary; locale: Locale }) {
+  if (!stripePromise) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[Checkout] Stripe publishable key missing. Card payments disabled.");
+    }
+    return <CheckoutForm {...props} stripeUnavailable />;
+  }
+
+  return (
+    <Elements stripe={stripePromise}>
+      <CheckoutForm {...props} />
+    </Elements>
+  );
+}
+
+function CheckoutForm({
+  dictionary,
+  locale,
+  stripeUnavailable = false,
+}: CheckoutFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
   const router = useRouter();
   const { data: session, status } = useSession();
   useAnonCartImport({ status, userId: session?.user?.id });
@@ -147,12 +165,12 @@ export function CheckoutView({
   const [notes, setNotes] = useState("");
   const [mbwayPhone, setMbwayPhone] = useState("");
   const [paymentResult, setPaymentResult] = useState<EuPagoCreateResponse | null>(null);
-  const [mbwayStatus, setMbwayStatus] = useState<string | null>(null);
-  const [pollingState, setPollingState] = useState<
-    "idle" | "polling" | "complete" | "failed"
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [cardStatus, setCardStatus] = useState<
+    "idle" | "processing" | "pending" | "succeeded"
   >("idle");
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const pollingAttemptsRef = useRef(0);
+  const [cardStatusMessage, setCardStatusMessage] = useState<string | null>(null);
+  const [isCardComplete, setIsCardComplete] = useState(false);
   const hasClearedCartRef = useRef(false);
 
   const [serverError, setServerError] = useState<string | null>(null);
@@ -226,24 +244,10 @@ export function CheckoutView({
   }, [items, locale]);
 
   useEffect(() => {
-    if (paymentResult?.method !== "mbway") {
-      setMbwayStatus(null);
-    }
-  }, [paymentResult?.method]);
-
-  useEffect(() => {
     if (!mbwayPhone && contact.phone) {
       setMbwayPhone(contact.phone);
     }
   }, [contact.phone, mbwayPhone]);
-
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, []);
 
   const totals = useMemo(() => calculateCartTotals(items, products), [items, products]);
 
@@ -296,6 +300,43 @@ export function CheckoutView({
     };
   }, [billingSameAsShipping, billing, shipping]);
 
+  const stripeBillingDetails = useMemo(() => {
+    const fallback = {
+      ...normalisedBilling,
+      country: normalisedBilling.country.trim(),
+    };
+    try {
+      return {
+        ...fallback,
+        country: normalizeCountryInput(normalisedBilling.country),
+      };
+    } catch {
+      return {
+        ...fallback,
+        country: "PT",
+      };
+    }
+  }, [normalisedBilling]);
+
+  const cardElementOptions = useMemo(
+    () => ({
+      hidePostalCode: true,
+      style: {
+        base: {
+          fontSize: "16px",
+          color: "#1f2937",
+          "::placeholder": {
+            color: "#9ca3af",
+          },
+        },
+        invalid: {
+          color: "#dc2626",
+        },
+      },
+    }),
+    [],
+  );
+
   const buildCheckoutPayload = () => {
     const normalizeAddressCountry = (address: typeof normalisedShipping) => ({
       ...address,
@@ -330,13 +371,6 @@ export function CheckoutView({
     return base;
   };
 
-  const stopPolling = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-  };
-
   const clearCartOnce = () => {
     if (!hasClearedCartRef.current) {
       clearCart();
@@ -344,77 +378,138 @@ export function CheckoutView({
     }
   };
 
-  const startMbWayPolling = (transactionId: string) => {
-    stopPolling();
-    pollingAttemptsRef.current = 0;
-    setPollingState("polling");
-    setMbwayStatus(dictionary.checkout.mbwayAwaiting);
-
-    const poll = async () => {
-      pollingAttemptsRef.current += 1;
-      try {
-        const response = await fetch(
-          `/api/payments/eupago/status?transactionId=${encodeURIComponent(transactionId)}`,
-          { cache: "no-store" },
-        );
-        const result = (await response.json()) as EuPagoStatusResponse & {
-          error?: string;
-          requiresConfiguration?: boolean;
-        };
-
-        if (!response.ok) {
-          stopPolling();
-          setPollingState("failed");
-          setServerError(result.error ?? dictionary.checkout.paymentServiceUnavailable);
-          return;
-        }
-
-        const rawStatus = result.status.status.toLowerCase();
-        if (rawStatus.includes("paid") || rawStatus === "ok" || rawStatus === "success") {
-          stopPolling();
-          setPollingState("complete");
-          clearCartOnce();
-          router.push(withLocale(locale, "/orders"));
-          return;
-        }
-
-        if (rawStatus.includes("fail") || rawStatus.includes("error")) {
-          stopPolling();
-          setPollingState("failed");
-          setServerError(dictionary.checkout.statusFailed);
-          return;
-        }
-
-        setMbwayStatus(rawStatus);
-      } catch (error) {
-        console.error("[EuPago] MB WAY status error", error);
-        stopPolling();
-        setPollingState("failed");
-        setServerError(dictionary.checkout.paymentServiceUnavailable);
-      }
-
-      if (pollingAttemptsRef.current >= 24) {
-        stopPolling();
-        setPollingState("idle");
-        setMbwayStatus(dictionary.checkout.statusPollingTimedOut);
-      }
-    };
-
-    poll();
-    pollingIntervalRef.current = setInterval(poll, 5000);
+  const resetPaymentState = () => {
+    setPaymentResult(null);
+    setCardStatus("idle");
+    setCardStatusMessage(null);
+    setCardError(null);
+    setIsCardComplete(false);
+    hasClearedCartRef.current = false;
   };
 
-  const resetPaymentState = () => {
-    stopPolling();
-    setPaymentResult(null);
-    setMbwayStatus(null);
-    setPollingState("idle");
-    hasClearedCartRef.current = false;
+  const handleStripePayment = async (
+    payload: ReturnType<typeof buildCheckoutPayload>,
+  ) => {
+    if (stripeUnavailable) {
+      setServerError(dictionary.checkout.cardUnavailable);
+      return;
+    }
+    if (!stripe || !elements) {
+      setServerError(dictionary.checkout.cardInitializing);
+      return;
+    }
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      setServerError(dictionary.checkout.cardElementUnavailable);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/payments/stripe/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = (await response.json()) as {
+        error?: string;
+        orderId?: string;
+        paymentIntentId?: string;
+        clientSecret?: string;
+      };
+
+      if (!response.ok || !result.clientSecret || !result.orderId) {
+        setServerError(result.error ?? dictionary.checkout.paymentServiceUnavailable);
+        setCardStatus("idle");
+        return;
+      }
+
+      setCardStatus("processing");
+      setServerError(null);
+      setCardStatusMessage(dictionary.checkout.cardProcessingMessage);
+
+      const confirmation = await stripe.confirmCardPayment(result.clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: stripeBillingDetails.name,
+            email: contact.email,
+            phone: contact.phone || undefined,
+            address: {
+              line1: stripeBillingDetails.line1,
+              line2: stripeBillingDetails.line2,
+              city: stripeBillingDetails.city,
+              postal_code: stripeBillingDetails.postalCode,
+              country: stripeBillingDetails.country,
+            },
+          },
+        },
+      });
+
+      if (confirmation.error) {
+        setServerError(
+          confirmation.error.message ?? dictionary.checkout.cardErrorFallback,
+        );
+        setCardStatus("idle");
+        return;
+      }
+
+      const paymentIntent = confirmation.paymentIntent;
+      if (!paymentIntent) {
+        setServerError(dictionary.checkout.paymentServiceUnavailable);
+        setCardStatus("idle");
+        return;
+      }
+
+      if (paymentIntent.status === "succeeded") {
+        setServerError(null);
+        setCardStatus("succeeded");
+        setCardStatusMessage(dictionary.checkout.cardSuccessMessage);
+        try {
+          const finalizeResponse = await fetch("/api/payments/stripe/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId: result.orderId,
+              paymentIntentId: paymentIntent.id,
+            }),
+          });
+          if (!finalizeResponse.ok) {
+            console.warn(
+              "[Stripe] Failed to confirm order status",
+              await finalizeResponse.text(),
+            );
+            setCardStatusMessage(dictionary.checkout.cardFinalizeWarning);
+          }
+        } catch (error) {
+          console.error("[Stripe] Failed to finalize order", error);
+          setCardStatusMessage(dictionary.checkout.cardFinalizeWarning);
+        }
+        cardElement.clear();
+        setIsCardComplete(false);
+        clearCartOnce();
+        setTimeout(() => router.push(withLocale(locale, "/orders")), 1800);
+        return;
+      }
+
+      const friendlyStatus = paymentIntent.status.replace(/_/g, " ");
+      const pendingMessage =
+        paymentIntent.status === "processing"
+          ? dictionary.checkout.cardPendingProcessing
+          : dictionary.checkout.cardPendingGeneric.replace("{status}", friendlyStatus);
+      setCardStatus("pending");
+      setServerError(null);
+      setCardStatusMessage(pendingMessage);
+    } catch (error) {
+      console.error("[Stripe] Checkout error", error);
+      setServerError(dictionary.checkout.paymentServiceUnavailable);
+      setCardStatus("idle");
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setServerError(null);
+    setCardError(null);
 
     if (!items.length) {
       setServerError(dictionary.checkout.summaryEmpty);
@@ -441,6 +536,17 @@ export function CheckoutView({
           ? error.message
           : dictionary.checkout.paymentServiceUnavailable;
       setServerError(message);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (selectedMethod === "card") {
+      if (!isCardComplete) {
+        setServerError(dictionary.checkout.cardDetailsIncomplete);
+        setIsSubmitting(false);
+        return;
+      }
+      await handleStripePayment(payload);
       setIsSubmitting(false);
       return;
     }
@@ -473,17 +579,21 @@ export function CheckoutView({
         return;
       }
 
+      if (result.method === "mbway") {
+        const pendingUrl = withLocale(
+          locale,
+          `/checkout/pending?orderId=${encodeURIComponent(
+            result.orderId,
+          )}&transactionId=${encodeURIComponent(result.transactionId ?? "")}`,
+        );
+        router.push(pendingUrl);
+        return;
+      }
+
       setPaymentResult(result);
 
       if (result.method === "multibanco") {
         setTimeout(() => clearCartOnce(), 300);
-      }
-
-      if (result.method === "mbway") {
-        if (result.transactionId) {
-          startMbWayPolling(result.transactionId);
-        }
-        return;
       }
 
       if (result.method === "card") {
@@ -537,6 +647,37 @@ export function CheckoutView({
   });
 
   const renderPaymentResult = () => {
+    if (selectedMethod === "card" && cardStatus !== "idle") {
+      const isSuccess = cardStatus === "succeeded";
+      const heading = isSuccess
+        ? dictionary.checkout.cardSuccessHeading
+        : dictionary.checkout.cardPendingHeading;
+      const description =
+        cardStatus === "processing"
+          ? dictionary.checkout.cardStatusProcessing
+          : isSuccess
+            ? dictionary.checkout.cardStatusSuccess
+            : dictionary.checkout.cardStatusPending;
+      return (
+        <Card className="border border-neutral-200 bg-neutral-50">
+          <CardHeader>
+            <CardTitle>{heading}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-neutral-700">
+            <p className="rounded-lg bg-white p-3 text-neutral-600">
+              {cardStatusMessage ?? dictionary.checkout.cardProcessingMessage}
+            </p>
+            <Button asChild className="w-full sm:w-auto">
+              <Link href={withLocale(locale, "/orders")}>
+                {dictionary.checkout.viewOrdersCta}
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+
     if (!paymentResult) {
       return null;
     }
@@ -603,50 +744,6 @@ export function CheckoutView({
       );
     }
 
-    if (paymentResult.method === "mbway") {
-      return (
-        <Card className="border border-neutral-200 bg-neutral-50">
-          <CardHeader>
-            <CardTitle>{dictionary.checkout.resultHeading}</CardTitle>
-            <CardDescription>
-              {dictionary.checkout.resultInstructions.mbway}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-neutral-700">
-            <p className="rounded-lg bg-white p-3 text-neutral-600">
-              {dictionary.checkout.mbwayPrompt}
-            </p>
-            {mbwayStatus ? (
-              <p className="text-xs uppercase tracking-wide text-neutral-500">
-                {`${dictionary.checkout.statusLabel}: ${mbwayStatus}`}
-              </p>
-            ) : null}
-            {pollingState === "polling" ? (
-              <p className="text-xs text-neutral-500">
-                {dictionary.checkout.statusCheckInProgress}
-              </p>
-            ) : null}
-            {pollingState === "failed" ? (
-              <p className="text-xs text-red-600">{dictionary.checkout.statusFailed}</p>
-            ) : null}
-            {pollingState === "complete" ? (
-              <p className="text-xs text-neutral-600">{dictionary.checkout.statusPaid}</p>
-            ) : null}
-            {paymentResult.statusUrl ? (
-              <a
-                href={paymentResult.statusUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-semibold text-neutral-900 underline-offset-4 hover:underline"
-              >
-                {dictionary.checkout.mbwayStatusLink}
-              </a>
-            ) : null}
-          </CardContent>
-        </Card>
-      );
-    }
-
     return (
       <Card className="border border-neutral-200 bg-neutral-50">
         <CardHeader>
@@ -661,6 +758,12 @@ export function CheckoutView({
       </Card>
     );
   };
+
+  const isCardFlow = selectedMethod === "card";
+  const isCardReady = !stripeUnavailable && Boolean(stripe && elements);
+  const submitDisabled =
+    isSubmitting ||
+    (isCardFlow && (!isCardReady || !isCardComplete || cardStatus === "processing"));
 
   const buttonLabel = isSubmitting
     ? dictionary.checkout.processingPayment
@@ -942,6 +1045,32 @@ export function CheckoutView({
                     />
                   </div>
                 ) : null}
+                {selectedMethod === "card" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="card-element">
+                      {dictionary.checkout.cardDetailsLabel}
+                    </Label>
+                    {stripeUnavailable ? (
+                      <p className="text-sm text-neutral-600">
+                        {dictionary.checkout.cardUnavailable}
+                      </p>
+                    ) : (
+                      <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+                        <CardElement
+                          id="card-element"
+                          options={cardElementOptions}
+                          onChange={(event) => {
+                            setIsCardComplete(event.complete);
+                            setCardError(event.error?.message ?? null);
+                          }}
+                        />
+                      </div>
+                    )}
+                    {cardError ? (
+                      <p className="text-sm text-red-600">{cardError}</p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="checkout-notes">{dictionary.checkout.notesLabel}</Label>
                   <Textarea
@@ -955,7 +1084,7 @@ export function CheckoutView({
                 {serverError ? (
                   <p className="text-sm text-red-600">{serverError}</p>
                 ) : null}
-                <Button type="submit" disabled={isSubmitting} className="w-full">
+                <Button type="submit" disabled={submitDisabled} className="w-full">
                   {buttonLabel}
                 </Button>
               </CardContent>

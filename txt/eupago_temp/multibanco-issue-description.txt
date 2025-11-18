@@ -1,0 +1,42 @@
+Multibanco Issue Summary
+========================
+
+Date: 2025-11-13  
+API key: `e9c2-89a9-20c2-39c9-2a6b`  
+Endpoint: `https://clientes.eupago.pt/clientes/rest_api/multibanco/create`
+
+What we implemented
+-------------------
+1. Switched the adapter to send the exact JSON payload EuPago support shared:
+   ```json
+   {
+     "key": "e9c2-89a9-20c2-39c9-2a6b",
+     "value": 39.95,
+     "id": "test"
+   }
+   ```
+   (No additional headers, no `apiKey` body parameter.)
+2. Added `curl` tests with the same body and with variations (`value` as string, comma decimal, smaller value, extra headers) to ensure the request that leaves our app matches their example.
+3. Wired the checkout flow to send that JSON structure server-side so Multibanco traffic from `/api/payments/eupago/create` is identical to the successful sample EuPago provided.
+
+Observed behaviour
+------------------
+- Every request (both from the CLI and from the app) returns:
+  ```json
+  {"sucesso":false,"estado":-10,"resposta":"Os dados inseridos não são válidos"}
+  ```
+  even though the payload matches the “working” example EuPago sent us.
+- Adding or removing headers (`ApiKey`, `Authorization`, `X-Api-Key`) does not change the response.
+- Sending the amount as integer cents, as a string, or using a comma decimal also returns `estado=-10`.
+
+Why we cannot fix it locally
+---------------------------
+- EuPago support confirmed they can generate references with the same API key, which implies there is a server-side configuration difference (entidade/subentidade mapping or IP/domain allowlist) between their environment and ours.
+- Since the very same payload returns `estado=-10` when issued from the Palmanhac infrastructure, there is no additional field we can add from our side to unblock it—we are already sending only `key`, `value`, and `id`, exactly as instructed.
+- The response body does not expose any extra diagnostics beyond “invalid data”; further troubleshooting requires EuPago to inspect server logs for API key `e9c2-89a9-20c2-39c9-2a6b`.
+
+Next steps for EuPago
+---------------------
+1. Verify that the Multibanco contract (entidade/subentidade) is correctly linked to API key `e9c2-89a9-20c2-39c9-2a6b`.
+2. Confirm that requests arriving from `palmanhac-shop.pt` (and its server IP) are authorized to create references.
+3. Provide any additional mandatory fields (if the live endpoint expects more than `key`, `value`, `id`), or share a successful `curl` command executed from their side so we can compare headers and payloads byte-for-byte.

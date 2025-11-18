@@ -171,6 +171,17 @@ export type Dictionary = {
     mbwayPhoneLabel: string;
     mbwayPhonePlaceholder: string;
     mbwayPhoneRequired: string;
+    pendingHeading: string;
+    pendingSubheading: string;
+    pendingDescription: string;
+    pendingStatusLabel: string;
+    pendingStatusAwaiting: string;
+    pendingStatusPaid: string;
+    pendingStatusFailed: string;
+    pendingHint: string;
+    pendingRefresh: string;
+    pendingOrdersCta: string;
+    pendingMissingOrder: string;
     methods: Record<"multibanco" | "mbway" | "card", string>;
     methodDescriptions: Record<"multibanco" | "mbway" | "card", string>;
     resultHeading: string;
@@ -195,6 +206,22 @@ export type Dictionary = {
     statusPaid: string;
     statusPollingTimedOut: string;
     cardRedirectMessage: string;
+    cardDetailsLabel: string;
+    cardUnavailable: string;
+    cardInitializing: string;
+    cardElementUnavailable: string;
+    cardDetailsIncomplete: string;
+    cardErrorFallback: string;
+    cardProcessingMessage: string;
+    cardStatusProcessing: string;
+    cardStatusSuccess: string;
+    cardStatusPending: string;
+    cardSuccessHeading: string;
+    cardSuccessMessage: string;
+    cardPendingHeading: string;
+    cardPendingProcessing: string;
+    cardPendingGeneric: string;
+    cardFinalizeWarning: string;
     viewOrdersCta: string;
     summary: string;
     summaryItems: string;
@@ -227,6 +254,14 @@ export type Dictionary = {
       string
     >;
     paymentStatus: Record<"UNPAID" | "PENDING" | "PAID" | "FAILED" | "REFUNDED", string>;
+    statusDetails: {
+      mbwayPending: string;
+      multibancoPending: string;
+      cardPending: string;
+      paid: string;
+    };
+    paymentMethodLabel: string;
+    paymentMethodUnknown: string;
     viewDetails: string;
   };
   twoFactor: {
@@ -672,15 +707,31 @@ const dictionaries: Record<Locale, Dictionary> = {
       notesPlaceholder: "Share delivery preferences or gift messages.",
       paymentDetails: "Payment",
       paymentMethodDescription:
-        "Pay securely with EuPago (Multibanco, MB WAY, or Cards).",
+        "Pay securely via EuPago (Multibanco / MB WAY) or Stripe for cards.",
       paymentMethodLabel: "Choose a payment method",
       paymentServiceUnavailable:
         "Payments are unavailable right now. Please try again shortly.",
       startPaymentCta: "Place order",
       processingPayment: "Processing payment...",
       mbwayPhoneLabel: "MB WAY phone number",
-      mbwayPhonePlaceholder: "e.g. 912345678",
+      mbwayPhonePlaceholder: "e.g. +351912345678",
       mbwayPhoneRequired: "Please provide a phone number for MB WAY.",
+      pendingHeading: "Order placed — confirm the payment",
+      pendingSubheading:
+        "We’ll keep checking with EuPago until the payment is confirmed.",
+      pendingDescription:
+        "Approve the MB WAY request on your phone. If you already approved it, keep this tab open or go to Orders to see the latest status.",
+      pendingStatusLabel: "Live status",
+      pendingStatusAwaiting: "Awaiting approval in the MB WAY app.",
+      pendingStatusPaid: "Payment confirmed. Redirecting to Orders…",
+      pendingStatusFailed:
+        "The payment was not approved. Choose a different method in the Orders page.",
+      pendingHint:
+        "Need to double-check? Open the Orders page to review the latest payment status.",
+      pendingRefresh: "Refresh status",
+      pendingOrdersCta: "Go to Orders",
+      pendingMissingOrder:
+        "We could not find that order reference. Please return to checkout and try again.",
       methods: {
         multibanco: "Multibanco",
         mbway: "MB WAY",
@@ -690,13 +741,13 @@ const dictionaries: Record<Locale, Dictionary> = {
         multibanco:
           "Pay later at an ATM or online banking using the generated reference.",
         mbway: "Approve the request in your MB WAY app to complete the order instantly.",
-        card: "Secure card payment via EuPago’s hosted checkout.",
+        card: "Secure card payment powered by Stripe.",
       },
       resultHeading: "Payment instructions",
       resultInstructions: {
         multibanco: "Use these references to complete the payment via Multibanco.",
         mbway: "Approve the payment in your MB WAY app to confirm your order.",
-        card: "You will be redirected to EuPago’s secure card checkout.",
+        card: "Enter your card details below to pay with Stripe.",
       },
       resultFields: {
         entity: "Entity",
@@ -718,7 +769,31 @@ const dictionaries: Record<Locale, Dictionary> = {
       statusPollingTimedOut:
         "We could not confirm the payment automatically. Please review the Orders page for the latest status.",
       cardRedirectMessage:
-        "You’ll be redirected to EuPago’s secure card page to finish the payment.",
+        "Confirm the payment in the card form above. Stripe may ask for additional verification.",
+      cardDetailsLabel: "Card details",
+      cardUnavailable:
+        "Card payments are temporarily unavailable. Please select another method.",
+      cardInitializing: "Stripe is still loading. Please wait a moment.",
+      cardElementUnavailable:
+        "Unable to initialize the card form. Refresh the page and try again.",
+      cardDetailsIncomplete: "Please complete your card details before continuing.",
+      cardErrorFallback:
+        "Unable to confirm the card payment. Please try again with another card.",
+      cardProcessingMessage: "Confirming your card payment securely via Stripe.",
+      cardStatusProcessing:
+        "Confirming the payment with Stripe. This only takes a moment.",
+      cardStatusSuccess: "Payment confirmed. Redirecting to Orders…",
+      cardStatusPending: "Payment created — we’re finalising the status.",
+      cardSuccessHeading: "Payment confirmed",
+      cardSuccessMessage:
+        "Thanks! Your payment went through and we’re preparing your order. You can review the latest details from the Orders page.",
+      cardPendingHeading: "Payment pending",
+      cardPendingProcessing:
+        "Stripe is still processing this payment. This usually takes less than a minute.",
+      cardPendingGeneric:
+        "Stripe marked this payment as “{status}”. We’ll update your Orders page automatically once it changes.",
+      cardFinalizeWarning:
+        "The payment succeeded but we could not refresh the order automatically. Please review the Orders page for the latest status.",
       viewOrdersCta: "Go to Orders",
       summary: "Order summary",
       summaryItems: "{count} items",
@@ -759,6 +834,17 @@ const dictionaries: Record<Locale, Dictionary> = {
         PAID: "Paid",
         FAILED: "Payment failed",
         REFUNDED: "Refunded",
+      },
+      paymentMethodLabel: "Payment method",
+      paymentMethodUnknown: "Not specified",
+      statusDetails: {
+        mbwayPending:
+          "Awaiting approval in the MB WAY app. Confirm the payment on your phone or wait for EuPago to update the status automatically.",
+        multibancoPending:
+          "Awaiting Multibanco payment. Use the generated reference and the order will update once the payment is confirmed.",
+        cardPending:
+          "Awaiting Stripe confirmation. Complete the card payment to update this order.",
+        paid: "Payment received. No further action is required.",
       },
       viewDetails: "View details",
     },
@@ -1221,15 +1307,31 @@ const dictionaries: Record<Locale, Dictionary> = {
       notesPlaceholder: "Partilhe preferências de entrega ou mensagens de oferta.",
       paymentDetails: "Pagamento",
       paymentMethodDescription:
-        "Pague com segurança através da EuPago (Multibanco, MB WAY ou Cartões).",
+        "Pague com segurança via EuPago (Multibanco / MB WAY) ou Stripe para cartões.",
       paymentMethodLabel: "Escolha o método de pagamento",
       paymentServiceUnavailable:
         "Os pagamentos não estão disponíveis neste momento. Tente novamente em breve.",
       startPaymentCta: "Finalizar encomenda",
       processingPayment: "A processar pagamento...",
       mbwayPhoneLabel: "Telemóvel MB WAY",
-      mbwayPhonePlaceholder: "ex.: 912345678",
+      mbwayPhonePlaceholder: "ex.: +351912345678",
       mbwayPhoneRequired: "Indique um número de telefone para MB WAY.",
+      pendingHeading: "Encomenda registada — confirme o pagamento",
+      pendingSubheading:
+        "Atualizaremos o estado automaticamente assim que a EuPago confirmar.",
+      pendingDescription:
+        "Aprove o pedido na app MB WAY. Se já confirmou, mantenha esta página aberta ou visite as encomendas para acompanhar o estado.",
+      pendingStatusLabel: "Estado em tempo real",
+      pendingStatusAwaiting: "A aguardar aprovação na app MB WAY.",
+      pendingStatusPaid: "Pagamento confirmado. A redirecionar para Encomendas…",
+      pendingStatusFailed:
+        "O pagamento não foi aprovado. Pode escolher outro método na página de Encomendas.",
+      pendingHint:
+        "Já confirmou o pagamento? Visite a página de Encomendas para ver o estado mais recente.",
+      pendingRefresh: "Atualizar estado",
+      pendingOrdersCta: "Ver Encomendas",
+      pendingMissingOrder:
+        "Não encontrámos a referência da encomenda. Volte a tentar a partir do checkout.",
       methods: {
         multibanco: "Multibanco",
         mbway: "MB WAY",
@@ -1239,13 +1341,13 @@ const dictionaries: Record<Locale, Dictionary> = {
         multibanco:
           "Pague mais tarde no Multibanco ou homebanking com a referência gerada.",
         mbway: "Aprove o pedido na app MB WAY para confirmar de imediato.",
-        card: "Pagamento seguro com cartão através da EuPago.",
+        card: "Pagamento seguro com cartão através da Stripe.",
       },
       resultHeading: "Instruções de pagamento",
       resultInstructions: {
         multibanco: "Use estes dados para concluir o pagamento via Multibanco.",
         mbway: "Aprove o pagamento na app MB WAY para confirmar a encomenda.",
-        card: "Será redirecionado para o checkout seguro da EuPago.",
+        card: "Introduza os dados do cartão abaixo para pagar com a Stripe.",
       },
       resultFields: {
         entity: "Entidade",
@@ -1267,7 +1369,32 @@ const dictionaries: Record<Locale, Dictionary> = {
       statusPollingTimedOut:
         "Não foi possível confirmar automaticamente. Consulte a página de Encomendas para o estado atual.",
       cardRedirectMessage:
-        "Será redirecionado para a página segura da EuPago para concluir o pagamento.",
+        "Conclua o pagamento no formulário acima. A Stripe pode pedir uma verificação adicional.",
+      cardDetailsLabel: "Dados do cartão",
+      cardUnavailable:
+        "Os pagamentos com cartão estão temporariamente indisponíveis. Escolha outro método.",
+      cardInitializing: "O Stripe ainda está a carregar. Aguarde um momento.",
+      cardElementUnavailable:
+        "Não foi possível iniciar o formulário do cartão. Atualize a página e tente novamente.",
+      cardDetailsIncomplete: "Preencha os dados do cartão antes de continuar.",
+      cardErrorFallback:
+        "Não foi possível confirmar o pagamento com cartão. Tente novamente com outro cartão.",
+      cardProcessingMessage:
+        "A confirmar o pagamento com cartão de forma segura através da Stripe.",
+      cardStatusProcessing:
+        "A confirmar o pagamento com a Stripe. Normalmente demora apenas alguns segundos.",
+      cardStatusSuccess: "Pagamento confirmado. A redirecionar para Encomendas…",
+      cardStatusPending: "Pagamento criado — a atualizar o estado.",
+      cardSuccessHeading: "Pagamento confirmado",
+      cardSuccessMessage:
+        "Obrigado! O pagamento foi concluído e estamos a preparar a encomenda. Consulte os detalhes mais recentes na página de Encomendas.",
+      cardPendingHeading: "Pagamento pendente",
+      cardPendingProcessing:
+        "A Stripe ainda está a processar este pagamento. Normalmente demora menos de um minuto.",
+      cardPendingGeneric:
+        "A Stripe identificou este pagamento como “{status}”. Atualizaremos automaticamente a página de Encomendas assim que houver alterações.",
+      cardFinalizeWarning:
+        "O pagamento foi concluído, mas não conseguimos atualizar a encomenda automaticamente. Verifique a página de Encomendas para confirmar o estado.",
       viewOrdersCta: "Ir para Encomendas",
       summary: "Resumo da encomenda",
       summaryItems: "{count} artigos",
@@ -1308,6 +1435,17 @@ const dictionaries: Record<Locale, Dictionary> = {
         PAID: "Pago",
         FAILED: "Pagamento falhou",
         REFUNDED: "Reembolsado",
+      },
+      paymentMethodLabel: "Método de pagamento",
+      paymentMethodUnknown: "Não indicado",
+      statusDetails: {
+        mbwayPending:
+          "A aguardar aprovação na app MB WAY. Confirme o pagamento no telemóvel ou aguarde a atualização automática.",
+        multibancoPending:
+          "A aguardar pagamento Multibanco. Utilize a referência gerada e a encomenda atualizará automaticamente após o pagamento.",
+        cardPending:
+          "A aguardar confirmação do cartão na Stripe. Termine o pagamento para atualizar esta encomenda.",
+        paid: "Pagamento recebido. Não é necessária nenhuma ação adicional.",
       },
       viewDetails: "Ver detalhes",
     },

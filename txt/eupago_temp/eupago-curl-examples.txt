@@ -1,0 +1,61 @@
+MB WAY (value with dot)
+```bash
+curl -i -X POST https://clientes.eupago.pt/api/v1.02/mbway/create \
+  -H "Content-Type: application/json" \
+  -H "ApiKey: e9c2-89a9-20c2-39c9-2a6b" \
+  -H "Authorization: ApiKey e9c2-89a9-20c2-39c9-2a6b" \
+  -H "X-Api-Key: e9c2-89a9-20c2-39c9-2a6b" \
+  -d '{
+    "id": "support-mbway-1",
+    "value": "39.95",
+    "currency": "EUR",
+    "description": "Support MB WAY Test",
+    "customer_email": "suren.norekyan123@gmail.com",
+    "customer_name": "Palmanhac Admin",
+    "alias": "912345678",
+    "locale": "en"
+  }'
+```
+
+MB WAY (value with comma)
+```bash
+curl -i -X POST https://clientes.eupago.pt/api/v1.02/mbway/create \
+  -H "Content-Type: application/json" \
+  -H "ApiKey: e9c2-89a9-20c2-39c9-2a6b" \
+  -H "Authorization: ApiKey e9c2-89a9-20c2-39c9-2a6b" \
+  -H "X-Api-Key: e9c2-89a9-20c2-39c9-2a6b" \
+  -d '{
+    "id": "support-mbway-2",
+    "value": "39,95",
+    "currency": "EUR",
+    "description": "Support MB WAY Test",
+    "customer_email": "suren.norekyan123@gmail.com",
+    "customer_name": "Palmanhac Admin",
+    "alias": "912345678",
+    "locale": "en"
+  }'
+```
+
+Multibanco (valor with dot)
+```bash
+curl -i -X POST https://clientes.eupago.pt/clientes/rest_api/multibanco/create \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data "apiKey=e9c2-89a9-20c2-39c9-2a6b&id=support-mb-1&valor=39.95&descricao=Support+Multibanco+Test&email=suren.norekyan123@gmail.com&currency=EUR"
+```
+
+Multibanco (valor with comma)
+```bash
+curl -i -X POST https://clientes.eupago.pt/clientes/rest_api/multibanco/create \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data "apiKey=e9c2-89a9-20c2-39c9-2a6b&id=support-mb-2&valor=39,95&descricao=Support+Multibanco+Test&email=suren.norekyan123@gmail.com&currency=EUR"
+```
+
+Credit Card (informational – service pending approval)
+```bash
+curl -i -X POST https://clientes.eupago.pt/api/v1.02/creditcard/create \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -H "ApiKey: e9c2-89a9-20c2-39c9-2a6b" \
+  -H "Authorization: ApiKey e9c2-89a9-20c2-39c9-2a6b" \
+  -H "X-Api-Key: e9c2-89a9-20c2-39c9-2a6b" \
+  --data "id=support-card-1&value=39.95&currency=EUR&description=Support+Card+Test&return_url=https://palmanhac-shop.pt/orders&customer_email=suren.norekyan123@gmail.com&customer_name=Palmanhac+Admin&locale=en"
+```

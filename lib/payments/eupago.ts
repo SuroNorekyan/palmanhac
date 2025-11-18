@@ -1,5 +1,12 @@
 // lib/payments/eupago.ts
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { redactForLogging } from "@/lib/utils/redact";
+
+const logEuPagoEvent = (
+  level: Parameters<typeof logPaymentEvent>[0],
+  event: string,
+  details: Record<string, unknown> = {},
+) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
 
 export class EuPagoConfigurationError extends Error {
   constructor(message: string) {
@@ -112,14 +119,25 @@ const parseJsonSafely = async <T>(res: Response): Promise<T> => {
 
 type Mode = "header" | "body";
 type Format = "form" | "json";
-type EuPagoPayloadValue = string | number | boolean | null | undefined;
-type EuPagoPayload = Record<string, EuPagoPayloadValue>;
+type EuPagoSerializable =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | EuPagoSerializable[]
+  | { [key: string]: EuPagoSerializable };
+type EuPagoPayload = Record<string, EuPagoSerializable>;
+type EuPagoFetchOptions = {
+  disableAuthInjection?: boolean;
+};
 
 const euPagoFetch = async <T>(
   path: string,
   payload: EuPagoPayload,
   mode: Mode,
   format: Format,
+  options: EuPagoFetchOptions = {},
 ) => {
   const url = buildUrl(path);
   const headers: Record<string, string> = {
@@ -128,12 +146,16 @@ const euPagoFetch = async <T>(
   };
   const key = ensureApiKey();
 
-  const toFormValue = (value: EuPagoPayloadValue) =>
-    typeof value === "string"
-      ? value
-      : value !== undefined && value !== null
-        ? String(value)
-        : undefined;
+  const toFormValue = (value: EuPagoSerializable) => {
+    if (
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      return String(value);
+    }
+    return undefined;
+  };
 
   const bodyParams = new URLSearchParams();
   for (const [k, v] of Object.entries(payload)) {
@@ -141,16 +163,16 @@ const euPagoFetch = async <T>(
     if (stringValue !== undefined) bodyParams.set(k, stringValue);
   }
 
-  const jsonPayload: Record<string, EuPagoPayloadValue> = {};
+  const jsonPayload: Record<string, EuPagoSerializable> = {};
   for (const [k, v] of Object.entries(payload)) {
     if (v !== undefined && v !== null) jsonPayload[k] = v;
   }
 
-  if (mode === "header") {
+  if (mode === "header" && !options.disableAuthInjection) {
     headers["ApiKey"] = key;
     headers["Authorization"] = `ApiKey ${key}`;
     headers["X-Api-Key"] = key;
-  } else {
+  } else if (mode === "body" && !options.disableAuthInjection) {
     bodyParams.set("apiKey", key);
   }
 
@@ -160,7 +182,7 @@ const euPagoFetch = async <T>(
     headers["Content-Type"] = "application/json";
   }
 
-  const redactPayload = (input: Record<string, EuPagoPayloadValue>) =>
+  const redactPayload = (input: Record<string, EuPagoSerializable>) =>
     Object.fromEntries(
       Object.entries(input).map(([k, v]) =>
         k.toLowerCase().includes("key") ? [k, "<redacted>"] : [k, v],
@@ -182,7 +204,7 @@ const euPagoFetch = async <T>(
   if (loggedHeaders.Authorization) loggedHeaders.Authorization = "<redacted>";
   if (loggedHeaders["X-Api-Key"]) loggedHeaders["X-Api-Key"] = "<redacted>";
 
-  await logPaymentEvent("info", "eupago_request", {
+  await logEuPagoEvent("info", "eupago_request", {
     url,
     headers: loggedHeaders,
     body: debugBody,
@@ -205,7 +227,7 @@ const euPagoFetch = async <T>(
         ? { message: fallbackText }
         : { message: "EuPago error response was empty." };
     })) ?? { message: "EuPago error response missing." };
-    await logPaymentEvent("error", "eupago_response_error", {
+    await logEuPagoEvent("error", "eupago_response_error", {
       url,
       status: res.status,
       response: errorPayload,
@@ -216,7 +238,7 @@ const euPagoFetch = async <T>(
     );
   }
   const parsed = await parseJsonSafely<T>(res);
-  await logPaymentEvent("info", "eupago_response_success", {
+  await logEuPagoEvent("info", "eupago_response_success", {
     url,
     status: res.status,
     response: parsed,
@@ -331,31 +353,33 @@ export const createCard = async (order: EuPagoOrderInput): Promise<EuPagoCardRes
 };
 
 export const createMBWay = async (
-  order: EuPagoOrderInput & { phone: string },
+  order: EuPagoOrderInput & { phone: string; countryCode: string },
 ): Promise<EuPagoMBWayResult> => {
   const eur = Math.max(order.amountCents, 100) / 100;
-  const value = asTwoDecimals(eur);
+  const value = Number.parseFloat(asTwoDecimals(eur));
   const payload: EuPagoPayload = {
-    id: order.orderId,
-    value,
-    currency: (order.currency || "EUR").toUpperCase(),
-    description: order.description ?? `Order ${order.orderId}`,
-    customer_email: order.customer.email,
-    customer_name: order.customer.name ?? "",
-    alias: order.phone, // MB WAY phone
-    locale: order.locale ?? "en",
+    payment: {
+      amount: {
+        currency: (order.currency || "EUR").toUpperCase(),
+        value,
+      },
+      identifier: order.orderId,
+      customerPhone: order.phone,
+      countryCode: order.countryCode,
+    },
   };
 
   const res = await euPagoFetch<Record<string, unknown>>(
     "/api/v1.02/mbway/create",
     payload,
     "header",
-    "form",
+    "json",
   );
 
   const transactionId =
     (typeof res.transactionId === "string" && res.transactionId) ||
     (typeof res.transaction_id === "string" && res.transaction_id) ||
+    (typeof res.transactionID === "string" && res.transactionID) ||
     (typeof res.id === "string" && res.id) ||
     null;
   if (!transactionId)
@@ -375,20 +399,19 @@ export const createMBWay = async (
 export const createMultibanco = async (
   order: EuPagoOrderInput,
 ): Promise<EuPagoMultibancoResult> => {
-  const amount = asTwoDecimals(Math.max(order.amountCents, 100) / 100);
-  const payload: Record<string, string> = {
+  const amount = Number.parseFloat(asTwoDecimals(Math.max(order.amountCents, 100) / 100));
+  const payload: EuPagoPayload = {
+    key: ensureApiKey(),
+    value: amount,
     id: order.orderId,
-    valor: amount, // Multibanco uses "valor"
-    descricao: order.description ?? `Order ${order.orderId}`,
-    email: order.customer.email,
-    currency: (order.currency || "EUR").toUpperCase(),
   };
 
   const res = await euPagoFetch<Record<string, unknown>>(
     "/clientes/rest_api/multibanco/create",
     payload,
-    "body", // multibanco uses apiKey in body
-    "form",
+    "body",
+    "json",
+    { disableAuthInjection: true },
   );
 
   const entity =
@@ -432,7 +455,7 @@ export const fetchMBWayStatus = async (
   statusUrl: string,
 ): Promise<EuPagoStatusResult> => {
   const url = /^https?:\/\//i.test(statusUrl) ? statusUrl : buildUrl(statusUrl);
-  await logPaymentEvent("info", "eupago_status_request", { method: "mbway", url });
+  await logEuPagoEvent("info", "eupago_status_request", { method: "mbway", url });
   const res = await fetch(url, {
     method: "GET",
     headers: {
@@ -444,7 +467,7 @@ export const fetchMBWayStatus = async (
   });
   if (!res.ok) {
     const e = await res.json().catch(async () => ({ message: await res.text() }));
-    await logPaymentEvent("error", "eupago_status_error", {
+    await logEuPagoEvent("error", "eupago_status_error", {
       method: "mbway",
       url,
       status: res.status,
@@ -456,7 +479,7 @@ export const fetchMBWayStatus = async (
     );
   }
   const parsed = await parseJsonSafely<Record<string, unknown>>(res);
-  await logPaymentEvent("info", "eupago_status_success", {
+  await logEuPagoEvent("info", "eupago_status_success", {
     method: "mbway",
     url,
     status: res.status,

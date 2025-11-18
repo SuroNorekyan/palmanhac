@@ -9,6 +9,16 @@ import {
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { redactForLogging } from "@/lib/utils/redact";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const logStatusEvent = (
+  level: Parameters<typeof logPaymentEvent>[0],
+  event: string,
+  details: Record<string, unknown> = {},
+) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
 
 const normaliseTransactionId = (value: string) => value.replace(/[^0-9A-Za-z_-]/g, "");
 const normalizeReferenceDigits = (value: string | null | undefined) =>
@@ -29,19 +39,23 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const transactionId = searchParams.get("transactionId");
   if (!transactionId) {
-    await logPaymentEvent("warn", "checkout_status_missing_transaction", {
+    await logStatusEvent("warn", "checkout_status_missing_transaction", {
       userId: session.user.id,
     });
     return NextResponse.json({ error: "transactionId is required." }, { status: 400 });
   }
 
-  const candidateRefs = Array.from(
-    new Set(
-      [transactionId, normaliseTransactionId(transactionId)]
-        .filter((value): value is string => Boolean(value))
-        .map((value) => value.trim()),
-    ),
+  const baseCandidates = [transactionId, normaliseTransactionId(transactionId)].filter(
+    (value): value is string => Boolean(value),
   );
+  const candidateSet = new Set<string>();
+  for (const candidate of baseCandidates) {
+    const trimmed = candidate.trim();
+    if (!trimmed) continue;
+    candidateSet.add(trimmed);
+    candidateSet.add(trimmed.toUpperCase());
+  }
+  const candidateRefs = Array.from(candidateSet);
 
   const order = await prisma.order.findFirst({
     where: {
@@ -61,7 +75,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!order) {
-    await logPaymentEvent("warn", "checkout_status_order_not_found", {
+    await logStatusEvent("warn", "checkout_status_order_not_found", {
       userId: session.user.id,
       transactionId,
       candidateRefs,
@@ -69,7 +83,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
-  await logPaymentEvent("info", "checkout_status_request", {
+  await logStatusEvent("info", "checkout_status_request", {
     userId: session.user.id,
     orderId: order.id,
     providerRef: order.providerRef,
@@ -81,7 +95,7 @@ export async function GET(request: NextRequest) {
   const providerMetadata = asRecord(order.providerMetadata);
 
   if (order.paymentStatus === PaymentStatus.PAID) {
-    await logPaymentEvent("info", "checkout_status_cached_paid", {
+    await logStatusEvent("info", "checkout_status_cached_paid", {
       orderId: order.id,
       providerRef: order.providerRef,
     });
@@ -102,7 +116,7 @@ export async function GET(request: NextRequest) {
       const statusUrl =
         asString(providerMetadata.statusUrl) ?? asString(providerMetadata.status_url);
       if (!statusUrl) {
-        await logPaymentEvent("warn", "checkout_status_missing_status_url", {
+        await logStatusEvent("warn", "checkout_status_missing_status_url", {
           orderId: order.id,
           providerRef: order.providerRef,
           method: "mbway",
@@ -116,7 +130,7 @@ export async function GET(request: NextRequest) {
         });
       }
       const status = await fetchMBWayStatus(statusUrl);
-      await logPaymentEvent("info", "checkout_status_polled", {
+      await logStatusEvent("info", "checkout_status_polled", {
         orderId: order.id,
         providerRef: order.providerRef,
         method: "mbway",
@@ -135,7 +149,7 @@ export async function GET(request: NextRequest) {
         ) ?? normalizeReferenceDigits(transactionId);
 
       if (!reference) {
-        await logPaymentEvent("warn", "checkout_status_missing_reference", {
+        await logStatusEvent("warn", "checkout_status_missing_reference", {
           orderId: order.id,
           providerRef: order.providerRef,
           transactionId,
@@ -175,7 +189,7 @@ export async function GET(request: NextRequest) {
         transactionId: transactionId,
         amount,
       });
-      await logPaymentEvent("info", "checkout_status_polled", {
+      await logStatusEvent("info", "checkout_status_polled", {
         orderId: order.id,
         providerRef: order.providerRef,
         method: "multibanco",
@@ -196,7 +210,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    await logPaymentEvent("error", "checkout_status_error", {
+    await logStatusEvent("error", "checkout_status_error", {
       orderId: order.id,
       providerRef: order.providerRef,
       error: error instanceof Error ? error.message : "Unknown status error.",
@@ -208,7 +222,7 @@ export async function GET(request: NextRequest) {
       );
     }
     if (error instanceof EuPagoAPIError) {
-      console.error("[EuPago] Status error:", error.message, error.response);
+      console.error("[EuPago] Status error:", error.message);
       return NextResponse.json(
         { error: "Unable to fetch payment status." },
         { status: 502 },

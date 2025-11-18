@@ -85,7 +85,11 @@ const runSimulation = async () => {
   const cardResult = await createCard(baseOrder);
   console.log("[Simulation] Card result", cardResult);
 
-  const mbwayResult = await createMBWay({ ...baseOrder, phone: "911234567" });
+  const mbwayResult = await createMBWay({
+    ...baseOrder,
+    phone: "911234567",
+    countryCode: "351",
+  });
   console.log("[Simulation] MB WAY result", mbwayResult);
 
   const multibancoResult = await createMultibanco(baseOrder);

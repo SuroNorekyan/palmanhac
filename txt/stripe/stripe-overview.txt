@@ -1,0 +1,40 @@
+Stripe Integration Overview
+===========================
+
+Flow summary
+------------
+1. Checkout uses `components/checkout/CheckoutView` with Stripe Elements. Selecting **Card** mounts the `CardElement`, gathers billing/contact details, and POSTs to `/api/payments/stripe/create`.
+2. `/api/payments/stripe/create` (Node runtime) validates the payload, creates a Stripe Payment Intent with the configured secret key, persists an order (provider `STRIPE`, method `CARD`, status `PENDING` or `PROCESSING`), sends the default admin email, and returns `{ orderId, clientSecret, paymentIntentId }`.
+3. The client calls `stripe.confirmCardPayment(clientSecret, …)`. On `succeeded` it POSTs to `/api/payments/stripe/confirm`, which re-fetches the Payment Intent, marks the order as `PAID`/`PROCESSING`, stamps `paidAt`, appends an order event, and emails the admin again signalling the confirmed payment.
+4. Any non-card method continues to flow through EuPago as before, so Multibanco/MB WAY behaviour is unaffected.
+
+Environment variables
+---------------------
+- `STRIPE_SECRET_KEY`: server-side key for Payment Intent creation/confirmation.
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: client-side key used by Stripe.js.
+Both keys exist in `.env`, `.env.local`, and `.env.example`. When moving to production keys simply replace those values and redeploy; no code changes are required.
+
+Testing notes
+-------------
+- Curl sanity check (already executed):
+  ```bash
+  source .env.local && \
+  curl -s https://api.stripe.com/v1/payment_intents \
+    -u ${STRIPE_SECRET_KEY}: \
+    -d amount=1999 \
+    -d currency=eur \
+    -d "payment_method_types[]=card"
+  ```
+  The command returned a test intent (`status: requires_payment_method`), proving the keys are valid.
+- UI verification: run `pnpm dev`, log in with any account, go to `/checkout`, choose **Card**, enter Stripe test data (e.g. card `4242 4242 4242 4242`, any future expiry/CVC, postal code optional), and submit. The UI now normalizes the billing country to an ISO-2 code for Stripe, displays a friendly success/pending card with a “Go to Orders” button, sends both admin emails, and redirects to `/orders` once the payment is confirmed.
+- Manual retry checklist:
+  1. Test a failed card (`4000 0000 0000 0002`) to see the inline error.
+  2. Refresh `/orders` to ensure the payment method label shows **Card** and the payment status updates to *Paid* after confirmation.
+
+Swapping in live keys later
+---------------------------
+1. In `.env`/`.env.local`, swap the provided test keys for the live `sk_live_…` and `pk_live_…` values from the Stripe dashboard.
+2. Redeploy / restart the app so both API routes and the client bundle pick up the new keys.
+3. Update the curl test above with the live secret to verify connectivity (Stripe recommends creating a small test charge on live before opening to the public).
+4. Double-check the email recipient (`ADMIN_EMAIL`) and SMTP credentials, because the integration now fire-and-forgets emails on both order creation and payment success.
+5. Optional: configure Stripe webhooks for redundancy. The current flow relies on client-side confirmation + `/api/payments/stripe/confirm`, so a webhook can be added later by extending `app/api/payments/stripe/confirm` or adding a dedicated webhook handler.

@@ -6,11 +6,22 @@ import {
   EmailConfigurationError,
   formatEmailBlock,
   sendAdminEmail,
+  sendEmail,
 } from "@/lib/email/mailer";
 import { normaliseProviderReference } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { appendOrderEvent } from "@/lib/utils/order-events";
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { redactForLogging } from "@/lib/utils/redact";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const logWebhookEvent = (
+  level: Parameters<typeof logPaymentEvent>[0],
+  event: string,
+  details: Record<string, unknown> = {},
+) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
 
 /**
  * EuPago sandbox setup:
@@ -99,31 +110,31 @@ export async function POST(request: NextRequest) {
   const secret = process.env.EUPAGO_WEBHOOK_SHARED_SECRET;
   if (!secret) {
     console.error("[EuPago] Webhook secret is not configured.");
-    await logPaymentEvent("error", "eupago_webhook_secret_missing");
+    await logWebhookEvent("error", "eupago_webhook_secret_missing");
     return NextResponse.json({ error: "Webhook secret missing." }, { status: 500 });
   }
 
   const rawBody = await request.text();
   if (!rawBody) {
-    await logPaymentEvent("warn", "eupago_webhook_empty_payload");
+    await logWebhookEvent("warn", "eupago_webhook_empty_payload");
     return NextResponse.json({ error: "Empty payload." }, { status: 400 });
   }
 
   const signature = getSignature(request);
   if (!signature) {
-    await logPaymentEvent("warn", "eupago_webhook_missing_signature");
+    await logWebhookEvent("warn", "eupago_webhook_missing_signature");
     return NextResponse.json({ error: "Missing signature." }, { status: 400 });
   }
 
   const expectedSignature = createHmac("sha256", secret).update(rawBody).digest("hex");
   if (!signaturesMatch(signature, expectedSignature)) {
-    await logPaymentEvent("warn", "eupago_webhook_invalid_signature", {
+    await logWebhookEvent("warn", "eupago_webhook_invalid_signature", {
       signature: `${signature.slice(0, 8)}...`,
     });
     return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
   }
 
-  await logPaymentEvent("info", "eupago_webhook_verified", {
+  await logWebhookEvent("info", "eupago_webhook_verified", {
     signature: `${signature.slice(0, 8)}...`,
     rawBodyLength: rawBody.length,
   });
@@ -133,7 +144,7 @@ export async function POST(request: NextRequest) {
     payload = JSON.parse(rawBody) as Record<string, unknown>;
   } catch (error) {
     console.error("[EuPago] Failed to parse webhook payload:", error);
-    await logPaymentEvent("error", "eupago_webhook_invalid_json", {
+    await logWebhookEvent("error", "eupago_webhook_invalid_json", {
       error: error instanceof Error ? error.message : "Invalid JSON",
     });
     return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
@@ -141,15 +152,15 @@ export async function POST(request: NextRequest) {
 
   const providerRef = extractProviderRef(payload);
   if (!providerRef) {
-    console.error("[EuPago] Webhook missing provider reference.", payload);
-    await logPaymentEvent("error", "eupago_webhook_missing_provider_ref", {
+    console.error("[EuPago] Webhook missing provider reference.");
+    await logWebhookEvent("error", "eupago_webhook_missing_provider_ref", {
       payload,
     });
     return NextResponse.json({ error: "Missing provider reference." }, { status: 400 });
   }
 
   const status = deriveStatus(payload);
-  await logPaymentEvent("info", "eupago_webhook_payload_parsed", {
+  await logWebhookEvent("info", "eupago_webhook_payload_parsed", {
     providerRef,
     status,
     payload,
@@ -172,8 +183,8 @@ export async function POST(request: NextRequest) {
   });
 
   if (!order) {
-    console.warn("[EuPago] Order not found for providerRef:", providerRef);
-    await logPaymentEvent("warn", "eupago_webhook_order_not_found", {
+    console.warn("[EuPago] Order not found for providerRef.");
+    await logWebhookEvent("warn", "eupago_webhook_order_not_found", {
       providerRef,
       payload,
     });
@@ -190,7 +201,7 @@ export async function POST(request: NextRequest) {
       where: { id: order.id },
       data: { events: baseEvents as Prisma.InputJsonValue },
     });
-    await logPaymentEvent("info", "eupago_webhook_already_paid", {
+    await logWebhookEvent("info", "eupago_webhook_already_paid", {
       orderId: order.id,
       providerRef,
     });
@@ -221,7 +232,7 @@ export async function POST(request: NextRequest) {
     })) as Prisma.OrderGetPayload<{
       include: { user: { select: { name: true; email: true } } };
     }>;
-    await logPaymentEvent("info", "eupago_webhook_payment_captured", {
+    await logWebhookEvent("info", "eupago_webhook_payment_captured", {
       orderId: updatedOrder.id,
       providerRef,
       paidAt: paidAt.toISOString(),
@@ -242,17 +253,40 @@ export async function POST(request: NextRequest) {
           `Email: ${updatedOrder.contactEmail ?? updatedOrder.user?.email ?? "—"}`,
         ]),
       });
+
+      const customerEmail =
+        updatedOrder.contactEmail ?? updatedOrder.user?.email ?? undefined;
+      if (customerEmail) {
+        await sendEmail({
+          to: customerEmail,
+          subject: `Payment confirmed for order ${updatedOrder.id}`,
+          text: formatEmailBlock([
+            `Olá ${updatedOrder.user?.name ?? "cliente"},`,
+            "",
+            "Recebemos o pagamento da sua encomenda Palmanhac e estamos a preparar o envio.",
+            `Total: €${(updatedOrder.totalAmount / 100).toFixed(2)}`,
+            updatedOrder.paidAt
+              ? `Confirmado em: ${updatedOrder.paidAt.toLocaleString("en-GB", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}`
+              : "",
+            "",
+            "Pode acompanhar o estado da encomenda na área de Encomendas.",
+          ]),
+        });
+      }
     } catch (error) {
       if (error instanceof EmailConfigurationError) {
         console.warn("[Email] Payment confirmation notification skipped:", error.message);
-        await logPaymentEvent("warn", "eupago_webhook_email_skipped", {
+        await logWebhookEvent("warn", "eupago_webhook_email_skipped", {
           orderId: order.id,
           providerRef,
           error: error.message,
         });
       } else {
         console.error("[Email] Failed to send payment confirmation email:", error);
-        await logPaymentEvent("error", "eupago_webhook_email_failed", {
+        await logWebhookEvent("error", "eupago_webhook_email_failed", {
           orderId: order.id,
           providerRef,
           error: error instanceof Error ? error.message : "Unknown email error",
@@ -274,7 +308,7 @@ export async function POST(request: NextRequest) {
         }) as Prisma.InputJsonValue,
       },
     });
-    await logPaymentEvent("warn", "eupago_webhook_payment_failed", {
+    await logWebhookEvent("warn", "eupago_webhook_payment_failed", {
       orderId: order.id,
       providerRef,
     });
@@ -293,7 +327,7 @@ export async function POST(request: NextRequest) {
         }) as Prisma.InputJsonValue,
       },
     });
-    await logPaymentEvent("info", "eupago_webhook_payment_status_update", {
+    await logWebhookEvent("info", "eupago_webhook_payment_status_update", {
       orderId: order.id,
       providerRef,
       status,
@@ -305,7 +339,7 @@ export async function POST(request: NextRequest) {
     where: { id: order.id },
     data: { events: baseEvents as Prisma.InputJsonValue },
   });
-  await logPaymentEvent("info", "eupago_webhook_event_recorded", {
+  await logWebhookEvent("info", "eupago_webhook_event_recorded", {
     orderId: order.id,
     providerRef,
     status,

@@ -1,0 +1,38 @@
+2025-11-13 Fixes after EuPago Response
+=====================================
+
+Code changes
+------------
+- `lib/payments/eupago.ts`
+  * Added flexible payload typing and optional auth injection so legacy endpoints can embed the API key in the request body (`key` field) instead of the old `apiKey`.
+  * MB WAY now posts the JSON structure EuPago sent (`payment.amount`, `identifier`, `customerPhone`, `countryCode`) and accepts new response shapes (`transactionID`).
+  * Multibanco now issues JSON requests with `{ key, value, id }` and skips extra auth headers to match EuPago’s successful sample.
+  * Card + status helpers still run through the shared logging/redaction layer.
+- `app/api/payments/eupago/create/route.ts`
+  * Added `parseMbwayPhone` so the MB WAY branch can split the user’s input into `countryCode` + 9-digit MSISDN before calling `createMBWay`.
+  * Updated logging to show the parsed pair instead of the raw string and tightened validation error messaging.
+- `lib/i18n/dictionaries.ts`
+  * Clarified the MB WAY placeholder so users include the country prefix (`e.g. +351912345678`) and added copy for the new pending confirmation page plus the Orders status hints.
+- `components/checkout/CheckoutView.tsx` & new route `app/[locale]/checkout/pending/page.tsx`
+  * Removed the in-place MB WAY polling (which previously surfaced the misleading “Order not found” message) and now route shoppers to `/checkout/pending` after an MB WAY order is created. That page runs the status checks, keeps the live status banner updated, and links straight to `/orders`.
+- `components/checkout/MbwayPendingView.tsx`
+  * New client view used by `/checkout/pending`; handles periodic status checks and redirects to `/orders` once EuPago reports “paid”.
+- `app/[locale]/orders/page.tsx`
+  * Shows contextual hints (e.g., “approve the MB WAY request”, “complete the Multibanco payment”) based on the payment method/status so users know what action is required.
+- `components/account/AccountDashboard.tsx`
+  * “Go to Admin Panel” now only appears for users whose role is ADMIN.
+- `scripts/eupago-simulate.ts`
+  * Simulation harness now passes a `countryCode` and exercises the new MB WAY payload shape.
+- `lib/utils/redact.ts`
+  * Hardened email masking so redaction can safely handle empty/malformed local parts after we started logging MB WAY structures.
+
+Tests performed
+---------------
+1. `pnpm typecheck`
+2. Direct MB WAY curl call using EuPago’s format (amount dot decimal) returned `HTTP 201` with `transactionStatus: "Success"` and a real `transactionID`.
+3. Same call with `value: 39.95` confirmed the adapter format is accepted (`transactionStatus: "Success"`). Multibanco JSON requests still return `estado=-10`, so that remains with EuPago for follow-up.
+
+Next steps
+----------
+- Redeploy/start the app so these changes load, then retry `/en/checkout` MB WAY. Requests will now match EuPago’s sample (country code + phone separated, JSON envelope).
+- Share the updated Multibanco payload (now `{key,value,id}`) with EuPago if `estado=-10` persists; it’s identical to what they documented, so further action is on their side.*** End Patch*** End Patch

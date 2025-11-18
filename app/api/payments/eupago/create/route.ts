@@ -2,13 +2,18 @@ import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { PaymentMethod, PaymentProvider, PaymentStatus } from "@prisma/client";
-import { z } from "zod";
 import { auth } from "@/auth";
 import {
   EmailConfigurationError,
   formatEmailBlock,
   sendAdminEmail,
+  sendEmail,
 } from "@/lib/email/mailer";
+import {
+  checkoutPayloadSchema,
+  normalizeCurrency,
+  parseMbwayPhone,
+} from "@/lib/payments/checkout-schema";
 import {
   createCard,
   createMBWay,
@@ -20,59 +25,18 @@ import {
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { calculateCartTotals } from "@/lib/utils/cart-totals";
-import { normalizeCountryInput } from "@/lib/utils/country";
 import { appendOrderEvent } from "@/lib/utils/order-events";
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { redactForLogging } from "@/lib/utils/redact";
 
-const countryCodeSchema = z
-  .string()
-  .min(2)
-  .max(120)
-  .transform((value, ctx) => {
-    try {
-      return normalizeCountryInput(value);
-    } catch (error) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: error instanceof Error ? error.message : "Invalid country.",
-      });
-      return z.NEVER;
-    }
-  });
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const addressSchema = z.object({
-  name: z.string().min(1).max(120),
-  line1: z.string().min(1).max(200),
-  line2: z.string().max(200).optional(),
-  city: z.string().min(1).max(120),
-  postalCode: z.string().min(1).max(60),
-  country: countryCodeSchema,
-});
-
-const payloadSchema = z.object({
-  method: z.enum(["multibanco", "mbway", "card"]),
-  items: z
-    .array(
-      z.object({
-        productId: z.number().int().min(1),
-        quantity: z.number().int().min(1).max(99),
-      }),
-    )
-    .min(1),
-  contact: z.object({
-    email: z.string().email(),
-    phone: z.string().max(50).optional(),
-    name: z.string().max(120).optional(),
-  }),
-  shipping: addressSchema,
-  billing: addressSchema,
-  notes: z.string().max(500).optional(),
-  currency: z.string().default("EUR"),
-  locale: z.string().optional(),
-  mbwayPhone: z.string().max(20).optional(),
-});
-
-const normalizeCurrency = (currency: string) => currency.trim().toUpperCase() || "EUR";
+const logCheckoutEvent = (
+  level: Parameters<typeof logPaymentEvent>[0],
+  event: string,
+  details: Record<string, unknown> = {},
+) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -81,9 +45,9 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = payloadSchema.safeParse(body);
+  const parsed = checkoutPayloadSchema.safeParse(body);
   if (!parsed.success) {
-    await logPaymentEvent("warn", "checkout_invalid_payload", {
+    await logCheckoutEvent("warn", "checkout_invalid_payload", {
       userId: session.user.id,
       issues: parsed.error.flatten(),
     });
@@ -140,7 +104,7 @@ export async function POST(request: NextRequest) {
     },
   };
 
-  await logPaymentEvent("info", "checkout_request_received", {
+  await logCheckoutEvent("info", "checkout_request_received", {
     userId: session.user.id,
     orderId,
     method: payload.method,
@@ -155,7 +119,7 @@ export async function POST(request: NextRequest) {
     | Awaited<ReturnType<typeof createCard>>;
 
   if (process.env.NODE_ENV !== "production") {
-    console.debug("[Checkout] Creating EuPago payment", {
+    await logCheckoutEvent("debug", "checkout_payment_attempt", {
       method: payload.method,
       orderId,
       totalCents: totals.totalCents,
@@ -174,19 +138,35 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
+      let parsedPhone: { phone: string; countryCode: string };
+      try {
+        parsedPhone = parseMbwayPhone(phone);
+      } catch {
+        return NextResponse.json(
+          {
+            error:
+              "Please provide a valid MB WAY phone number (include country code, e.g. +351912345678).",
+          },
+          { status: 400 },
+        );
+      }
       if (process.env.NODE_ENV !== "production") {
-        console.debug("[Checkout] MB WAY payload", {
+        await logCheckoutEvent("debug", "checkout_mbway_payload", {
           orderId,
           amount: orderInput.amountCents / 100,
-          phone,
+          phone: parsedPhone,
           customer: orderInput.customer,
           locale: orderInput.locale,
         });
       }
-      paymentResult = await createMBWay({ ...orderInput, phone });
+      paymentResult = await createMBWay({
+        ...orderInput,
+        phone: parsedPhone.phone,
+        countryCode: parsedPhone.countryCode,
+      });
     } else {
       if (process.env.NODE_ENV !== "production") {
-        console.debug("[Checkout] Card payload", {
+        await logCheckoutEvent("debug", "checkout_card_payload", {
           orderId,
           amount: orderInput.amountCents / 100,
           customer: orderInput.customer,
@@ -197,7 +177,7 @@ export async function POST(request: NextRequest) {
       paymentResult = await createCard(orderInput);
     }
   } catch (error) {
-    await logPaymentEvent("error", "checkout_eupago_error", {
+    await logCheckoutEvent("error", "checkout_eupago_error", {
       orderId,
       method: payload.method,
       error:
@@ -211,7 +191,7 @@ export async function POST(request: NextRequest) {
       );
     }
     if (error instanceof EuPagoAPIError) {
-      console.error("[EuPago] API error:", error.message, error.response);
+      console.error("[EuPago] API error:", error.message);
       return NextResponse.json(
         { error: "Unable to initialize EuPago payment. Please try again." },
         { status: 502 },
@@ -242,7 +222,7 @@ export async function POST(request: NextRequest) {
             paymentUrl: paymentResult.paymentUrl,
           };
 
-  await logPaymentEvent("info", "checkout_eupago_payment_created", {
+  await logCheckoutEvent("info", "checkout_eupago_payment_created", {
     orderId,
     method: paymentResult.method,
     ...paymentLogDetails,
@@ -325,7 +305,7 @@ export async function POST(request: NextRequest) {
       return createdOrder;
     });
   } catch (error) {
-    await logPaymentEvent("error", "checkout_order_persist_error", {
+    await logCheckoutEvent("error", "checkout_order_persist_error", {
       orderId,
       providerRef,
       error: error instanceof Error ? error.message : "Failed to persist order.",
@@ -337,7 +317,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await logPaymentEvent("info", "checkout_order_created", {
+  await logCheckoutEvent("info", "checkout_order_created", {
     orderId: order.id,
     providerRef,
     paymentMethod: paymentResult.method,
@@ -352,6 +332,14 @@ export async function POST(request: NextRequest) {
       const name = nameMap.get(item.productId) ?? `Product ${item.productId}`;
       return `- ${name} × ${item.quantity}`;
     });
+    const summaryLines = [
+      `Order ID: ${order.id}`,
+      `Total: €${(totals.totalCents / 100).toFixed(2)}`,
+      `Payment method: ${paymentResult.method.toUpperCase()}`,
+      "",
+      "Items:",
+      ...itemLines,
+    ];
 
     await sendAdminEmail({
       subject: `New order ${order.id}`,
@@ -368,6 +356,43 @@ export async function POST(request: NextRequest) {
         ...itemLines,
       ]),
     });
+
+    if (payload.contact.email) {
+      const methodInstructions =
+        paymentResult.method === "multibanco"
+          ? [
+              "How to pay via Multibanco:",
+              `Entity: ${paymentResult.entity}`,
+              `Reference: ${paymentResult.reference}`,
+              paymentResult.expiresAt ? `Expires: ${paymentResult.expiresAt}` : "",
+              "",
+              "Complete the payment at an ATM or your online banking to confirm the order.",
+            ]
+          : paymentResult.method === "mbway"
+            ? [
+                "Approve the MB WAY request we just sent to your phone.",
+                "Once approved, we’ll update the order automatically and email you again.",
+              ]
+            : [
+                "Finish the secure card payment on the page that just opened.",
+                "We’ll email you again as soon as the payment is confirmed.",
+              ];
+
+      await sendEmail({
+        to: payload.contact.email,
+        subject: `We received your order ${order.id}`,
+        text: formatEmailBlock([
+          `Hi ${customerName},`,
+          "",
+          "Thank you for ordering from Palmanhac!",
+          ...methodInstructions,
+          "",
+          ...summaryLines,
+          "",
+          "You can follow the latest updates anytime from your Orders page.",
+        ]),
+      });
+    }
   } catch (error) {
     if (error instanceof EmailConfigurationError) {
       console.warn("[Email] Order creation notification skipped:", error.message);

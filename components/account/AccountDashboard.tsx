@@ -20,6 +20,7 @@ type DashboardProps = {
     id: string;
     name: string | null | undefined;
     email: string | null | undefined;
+    role?: string | null;
   };
 };
 
@@ -109,9 +110,11 @@ export function AccountDashboard({ dictionary, locale, user }: DashboardProps) {
           <Button variant="ghost" onClick={handleSignOut}>
             {dictionary.account.logout}
           </Button>
-          <Button asChild variant="outline">
-            <Link href="/admin">Go to Admin Panel</Link>
-          </Button>
+          {(user.role ?? "").toUpperCase() === "ADMIN" ? (
+            <Button asChild variant="outline">
+              <Link href="/admin">Go to Admin Panel</Link>
+            </Button>
+          ) : null}
         </div>
       </header>
       <form

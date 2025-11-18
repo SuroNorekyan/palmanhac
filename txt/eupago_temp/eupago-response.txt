@@ -1,0 +1,62 @@
+here is what response i got from eupago. what this implies? what i was doing wrong on my side?
+
+__RESPONSE__
+Good afternoon,
+
+We apologize for the delay in our response.
+
+We conducted two tests, one for each payment method, Multibanco and MBWay respectively, with their respective API keys, and obtained a successful response in both cases.
+
+We send the body requests so that they can try to replicate our requests.
+
+ATM:
+
+Endpoint - https://clientes.eupago.pt/clientes/rest_api/multibanco/create
+
+Order details:
+
+ {
+  "key": "e9c2-89a9-20c2-39c9-2a6b",
+  "value": 39.95,
+  "id": "test"
+}
+Response:
+
+ {
+    "success": true,
+    "state": 0,
+    "Response": "OK"
+    "reference": "150757847",
+    "value": "39.95000",
+    "entity": "12592"
+}
+In ATM, the API key is inserted into the request body.
+
+MBWay:
+
+Endpoint - https://clientes.eupago.pt/api/v1.02/mbway/create
+Order details:
+
+ {
+  "payment": {
+    "amount": {
+      "currency": "EUR",
+      "value": 2
+    },
+    "identifier": "Test",
+    "customerPhone": "966875837",
+    "countryCode": "351"
+  }
+}
+Response:
+
+ {
+    "transactionStatus": "Success",
+    "transactionID": "019a82ce9c197fb18f8ef9651a59fe2e",
+    "reference": "53200815"
+}
+We kindly request that you try to replicate this from your side.
+
+If you have any further questions, please get back to us.
+
+Thanks.

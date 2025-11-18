@@ -1,0 +1,186 @@
+Note: EuPago already confirmed that the Credit Card product is an add-on still pending approval for this merchant, so we do not expect successful card authorizations until that service is activated.
+
+Overview
+--------
+Authentication from https://palmanhac-shop.pt is working (all requests reach `https://clientes.eupago.pt` and the adapter now sends `ApiKey`, `Authorization: ApiKey …`, and `X-Api-Key`). 
+Credit Card remains pending approval, while both MB WAY and Multibanco continue to fail despite valid headers: MB WAY rejects the request with:
+
+`CUSTOMERPHONE_MISSING`, and Multibanco returns `estado=-10 / Os dados inseridos não são válidos`. 
+
+All tests below were executed directly against the production domain (no tunnel) on 2025‑11‑13.
+
+This report contains:
+- Environment snapshot (base URLs, return URL, timestamps, commit).
+- The exact headers/payloads used by the adapter (values redacted where required).
+- Direct `curl` commands (dot and comma amount variants) plus the raw HTTP responses.
+- The serialized payloads the application sends when routing through `/api/payments/eupago/create`.
+- A troubleshooting appendix with timings, headers, and interpretation, plus explicit asks for EuPago support.
+
+Environment Snapshot
+--------------------
+- Production domain: `https://palmanhac-shop.pt`
+- `EUPAGO_API_BASE`: `https://clientes.eupago.pt`
+- `EUPAGO_CARD_RETURN_URL`: `https://palmanhac-shop.pt/orders`
+- Timestamp (UTC): 2025-11-13 10:56:41Z
+- Timestamp (local, +04): 2025-11-13 14:56:47 +04
+- App commit: `958662c9`
+- Adapter header policy (values redacted except first/last 3 chars):
+  * `ApiKey: e9c*********************************2a6b`
+  * `Authorization: ApiKey e9c*********************************2a6b`
+  * `X-Api-Key: e9c*********************************2a6b`
+
+Requests & Responses
+--------------------
+### MB WAY (POST https://clientes.eupago.pt/api/v1.02/mbway/create)
+
+Variant 1 – `value:"39.95"`
+**A. Direct curl command**
+```bash
+curl -i -X POST https://clientes.eupago.pt/api/v1.02/mbway/create \
+  -H "Content-Type: application/json" \
+  -H "ApiKey: e9c2-89a9-20c2-39c9-2a6b" \
+  -H "Authorization: ApiKey e9c2-89a9-20c2-39c9-2a6b" \
+  -H "X-Api-Key: e9c2-89a9-20c2-39c9-2a6b" \
+  -d '{
+    "id": "support-mbway-1",
+    "value": "39.95",
+    "currency": "EUR",
+    "description": "Support MB WAY Test",
+    "customer_email": "suren.norekyan123@gmail.com",
+    "customer_name": "Palmanhac Admin",
+    "alias": "912345678",
+    "locale": "en"
+  }'
+```
+**Response (HTTP 400, 222 ms)**
+```json
+{"transactionStatus":"Rejected","code":"CUSTOMERPHONE_MISSING","text":"CustomerPhone was not available in the request"}
+```
+
+**B. App-routed payload (form-encoded)**
+```
+id=support-mbway-1&value=39.95&currency=EUR&description=Support%20MB%20WAY%20Test&customer_email=suren.norekyan123%40gmail.com&customer_name=Palmanhac%20Admin&alias=912345678&locale=en
+```
+**Observed response (via `/api/payments/eupago/create`)**: EuPago returns `{"code":"CUSTOMERPHONE_MISSING"}`, so the checkout surfaces “Unable to initialize EuPago payment”.
+
+Variant 2 – `value:"39,95"`
+**A. Direct curl command**
+```bash
+curl -i -X POST https://clientes.eupago.pt/api/v1.02/mbway/create \
+  -H "Content-Type: application/json" \
+  -H "ApiKey: e9c2-89a9-20c2-39c9-2a6b" \
+  -H "Authorization: ApiKey e9c2-89a9-20c2-39c9-2a6b" \
+  -H "X-Api-Key: e9c2-89a9-20c2-39c9-2a6b" \
+  -d '{
+    "id": "support-mbway-2",
+    "value": "39,95",
+    "currency": "EUR",
+    "description": "Support MB WAY Test",
+    "customer_email": "suren.norekyan123@gmail.com",
+    "customer_name": "Palmanhac Admin",
+    "alias": "912345678",
+    "locale": "en"
+  }'
+```
+**Response (HTTP 400, 303 ms)**
+```json
+{"transactionStatus":"Rejected","code":"CUSTOMERPHONE_MISSING","text":"CustomerPhone was not available in the request"}
+```
+
+**B. App-routed payload**
+```
+id=support-mbway-2&value=39,95&currency=EUR&description=Support%20MB%20WAY%20Test&customer_email=suren.norekyan123%40gmail.com&customer_name=Palmanhac%20Admin&alias=912345678&locale=en
+```
+**Observed response**: identical `CUSTOMERPHONE_MISSING`.
+
+### Multibanco (POST https://clientes.eupago.pt/clientes/rest_api/multibanco/create)
+
+Variant 1 – `valor=39.95`
+**A. Direct curl command**
+```bash
+curl -i -X POST https://clientes.eupago.pt/clientes/rest_api/multibanco/create \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data "apiKey=e9c2-89a9-20c2-39c9-2a6b&id=support-mb-1&valor=39.95&descricao=Support+Multibanco+Test&email=suren.norekyan123@gmail.com&currency=EUR"
+```
+**Response (HTTP 200, 152 ms)**
+```json
+{"sucesso":false,"estado":-10,"resposta":"Os dados inseridos não são válidos"}
+```
+
+**B. App-routed payload**
+```
+id=support-mb-1&valor=39.95&descricao=Support%20Multibanco%20Test&email=suren.norekyan123%40gmail.com&currency=EUR&apiKey=<injected server-side>
+```
+**Observed response**: identical `estado=-10`.
+
+Variant 2 – `valor=39,95`
+**A. Direct curl command**
+```bash
+curl -i -X POST https://clientes.eupago.pt/clientes/rest_api/multibanco/create \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data "apiKey=e9c2-89a9-20c2-39c9-2a6b&id=support-mb-2&valor=39,95&descricao=Support+Multibanco+Test&email=suren.norekyan123@gmail.com&currency=EUR"
+```
+**Response (HTTP 200, 116 ms)**
+```json
+{"sucesso":false,"estado":-10,"resposta":"Os dados inseridos não são válidos"}
+```
+
+**B. App-routed payload**
+```
+id=support-mb-2&valor=39,95&descricao=Support%20Multibanco%20Test&email=suren.norekyan123%40gmail.com&currency=EUR&apiKey=<injected server-side>
+```
+**Observed response**: identical `estado=-10`.
+
+### Credit Card (POST https://clientes.eupago.pt/api/v1.02/creditcard/create)
+- Service status: pending approval per EuPago support, so this is informational only.
+- Sample curl (dot decimal):
+```bash
+curl -i -X POST https://clientes.eupago.pt/api/v1.02/creditcard/create \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -H "ApiKey: e9c2-89a9-20c2-39c9-2a6b" \
+  -H "Authorization: ApiKey e9c2-89a9-20c2-39c9-2a6b" \
+  -H "X-Api-Key: e9c2-89a9-20c2-39c9-2a6b" \
+  --data "id=support-card-1&value=39.95&currency=EUR&description=Support+Card+Test&return_url=https://palmanhac-shop.pt/orders&customer_email=suren.norekyan123@gmail.com&customer_name=Palmanhac+Admin&locale=en"
+```
+**Response (HTTP 400, 128 ms)**:
+```json
+{"transactionStatus":"Rejected","code":"AMOUNT_MISSING","text":"Amount was not available in the request"}
+```
+
+Requests for EuPago Support
+---------------------------
+- Confirm that MB WAY and Multibanco services are fully activated for API key `e9c2-89a9-20c2-39c9-2a6b` and that the `alias`/phone field is sufficient (or clarify if an additional `customerPhone` field is required).
+- Confirm the expected amount field name/format (dot vs comma) for both APIs and provide the exact schema the production gateway enforces.
+- Validate that the Multibanco Entidade/Subentidade mapping associated with this API key is correct (current responses suggest the contract is not linked).
+- Confirm whether palmanhac-shop.pt must be whitelisted as an allowed origin/return URL.
+- Provide a working `curl` example for this merchant’s API key for each enabled channel so we can mirror it precisely.
+
+Appendix
+--------
+**Headers sent (names + redacted values):**
+- `ApiKey: e9c*********************************2a6b`
+- `Authorization: ApiKey e9c*********************************2a6b`
+- `X-Api-Key: e9c*********************************2a6b`
+
+**Timestamps & request IDs:**
+- All tests executed on 2025-11-13 between 10:55Z and 10:59Z. (EuPago did not return request IDs.)
+
+**HTTP trace (elapsed ms):**
+
+| Variant | Method | URL | Status | Time (ms) |
+|---------|--------|-----|--------|-----------|
+| MB WAY value=39.95 | POST | `/api/v1.02/mbway/create` | 400 | 222 |
+| MB WAY value=39,95 | POST | `/api/v1.02/mbway/create` | 400 | 303 |
+| Multibanco valor=39.95 | POST | `/clientes/rest_api/multibanco/create` | 200 | 152 |
+| Multibanco valor=39,95 | POST | `/clientes/rest_api/multibanco/create` | 200 | 117 |
+| Card value=39.95 | POST | `/api/v1.02/creditcard/create` | 400 | 128 |
+
+**Troubleshooting matrix:**
+
+| Variant | Status | Body excerpt | Interpretation |
+|---------|--------|--------------|----------------|
+| MB WAY value=39.95 | 400 | `code":"CUSTOMERPHONE_MISSING"` | EuPago rejects before amount validation even though alias is supplied; need clarification on required phone field. |
+| MB WAY value=39,95 | 400 | `code":"CUSTOMERPHONE_MISSING"` | Same error with comma decimal; still blocked upstream. |
+| Multibanco valor=39.95 | 200 | `estado":-10` | EuPago deems the payload invalid; typically indicates contract not linked to API key. |
+| Multibanco valor=39,95 | 200 | `estado":-10` | Same response with comma decimal. |
+| Card value=39.95 | 400 | `code":"AMOUNT_MISSING"` | Expected until the credit card service is approved/enabled. |

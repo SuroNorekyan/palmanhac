@@ -1,3 +1,4 @@
+// lib/email/mailer.ts
 import nodemailer from "nodemailer";
 
 export class EmailConfigurationError extends Error {
@@ -27,8 +28,10 @@ const resolveTransporter = async () => {
     const user = process.env.SMTP_USER?.trim();
     const pass = process.env.SMTP_PASS?.trim();
 
-    if (!host || !portRaw) {
-      throw new EmailConfigurationError("SMTP_HOST and SMTP_PORT must be configured.");
+    if (!host || !portRaw || !user || !pass) {
+      throw new EmailConfigurationError(
+        "SMTP is not fully configured. Please set SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS env variables.",
+      );
     }
 
     const port = Number.parseInt(portRaw, 10);
@@ -39,13 +42,22 @@ const resolveTransporter = async () => {
     const transporter = nodemailer.createTransport({
       host,
       port,
-      secure: port === 465,
-      auth: user && pass ? { user, pass } : undefined,
+      secure: port === 465, // true for 465 (SSL), false for 587 (TLS STARTTLS)
+      auth: {
+        user,
+        pass,
+      },
     });
 
-    await transporter.verify().catch((error: unknown) => {
-      console.warn("[Email] Transport verification failed", error);
-    });
+    try {
+      await transporter.verify();
+      console.log("[Email] SMTP transport verified successfully");
+    } catch (error) {
+      console.error("[Email] SMTP transport verification failed", error);
+      throw new EmailConfigurationError(
+        "Failed to verify SMTP connection. Check your SMTP_* env vars.",
+      );
+    }
 
     return transporter;
   })();
@@ -54,10 +66,10 @@ const resolveTransporter = async () => {
 };
 
 export const sendEmail = async ({ to, subject, text, html }: EmailMessage) => {
-  const from = process.env.EMAIL_FROM?.trim();
-  if (!from) {
-    throw new EmailConfigurationError("EMAIL_FROM must be configured.");
-  }
+  const from =
+    process.env.EMAIL_FROM?.trim() ??
+    process.env.ADMIN_EMAIL?.trim() ??
+    "no-reply@palmanhac-shop.pt";
 
   const transporter = await resolveTransporter();
 
@@ -75,10 +87,7 @@ export const sendAdminEmail = async ({
   text,
   html,
 }: Omit<EmailMessage, "to">) => {
-  const adminEmail = process.env.ADMIN_EMAIL?.trim();
-  if (!adminEmail) {
-    throw new EmailConfigurationError("ADMIN_EMAIL must be configured.");
-  }
+  const adminEmail = process.env.ADMIN_EMAIL?.trim() || "suren.norekyan123@gmail.com";
   await sendEmail({ to: adminEmail, subject, text, html });
 };
 
