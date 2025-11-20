@@ -14,6 +14,7 @@ type MbwayPendingViewProps = {
   locale: Locale;
   orderId: string;
   transactionId?: string;
+  statusUrl?: string;
 };
 
 type StatusState = "pending" | "paid" | "failed";
@@ -23,14 +24,26 @@ export function MbwayPendingView({
   locale,
   orderId,
   transactionId,
+  statusUrl,
 }: MbwayPendingViewProps) {
   const router = useRouter();
   const clearCart = useCartStore((state) => state.clear);
+  const friendlyOrderCode = `#${orderId.slice(0, 8).toUpperCase()}`;
   const [statusState, setStatusState] = useState<StatusState>("pending");
   const [statusMessage, setStatusMessage] = useState(
     dictionary.checkout.pendingStatusAwaiting,
   );
   const [isChecking, setIsChecking] = useState(false);
+  const [showSupportMessage, setShowSupportMessage] = useState(false);
+  const thankYouHref = withLocale(
+    locale,
+    orderId ? `/checkout/thank-you?orderId=${encodeURIComponent(orderId)}` : "/orders",
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowSupportMessage(true), 60000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!transactionId) return;
@@ -52,6 +65,7 @@ export function MbwayPendingView({
         if (!response.ok) {
           setStatusState("pending");
           setStatusMessage(dictionary.checkout.pendingStatusAwaiting);
+          setShowSupportMessage(true);
           return;
         }
 
@@ -61,7 +75,7 @@ export function MbwayPendingView({
           setStatusMessage(dictionary.checkout.pendingStatusPaid);
           clearCart();
           setTimeout(() => {
-            router.push(withLocale(locale, "/orders"));
+            router.push(thankYouHref);
           }, 1500);
           return;
         }
@@ -71,19 +85,26 @@ export function MbwayPendingView({
           setStatusMessage(
             payload.status?.error ?? dictionary.checkout.pendingStatusFailed,
           );
+          setShowSupportMessage(true);
           return;
         }
 
+        const pendingError = payload.status?.error ?? "";
+        const shouldShowError =
+          pendingError &&
+          !pendingError.toLowerCase().includes("status url unavailable") &&
+          !pendingError.toLowerCase().includes("await webhook");
         setStatusState("pending");
         setStatusMessage(
-          payload.status?.error
-            ? `${dictionary.checkout.pendingStatusAwaiting} (${payload.status.error})`
+          shouldShowError
+            ? `${dictionary.checkout.pendingStatusAwaiting} (${pendingError})`
             : dictionary.checkout.pendingStatusAwaiting,
         );
       } catch {
         if (!cancelled) {
           setStatusState("pending");
           setStatusMessage(dictionary.checkout.pendingStatusAwaiting);
+          setShowSupportMessage(true);
         }
       } finally {
         if (!cancelled) setIsChecking(false);
@@ -102,8 +123,8 @@ export function MbwayPendingView({
     dictionary.checkout.pendingStatusFailed,
     dictionary.checkout.pendingStatusPaid,
     clearCart,
-    locale,
     router,
+    thankYouHref,
   ]);
 
   return (
@@ -135,6 +156,26 @@ export function MbwayPendingView({
       </div>
       {statusState !== "paid" ? (
         <p className="text-sm text-neutral-500">{dictionary.checkout.pendingHint}</p>
+      ) : null}
+      {statusUrl ? (
+        <p className="text-sm text-neutral-600">
+          <a
+            href={statusUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-neutral-900 underline-offset-4 hover:underline"
+          >
+            {dictionary.checkout.mbwayStatusLink}
+          </a>
+        </p>
+      ) : null}
+      {showSupportMessage && statusState !== "paid" ? (
+        <p className="text-sm text-neutral-600">
+          {dictionary.checkout.pendingSupportMessage.replace(
+            "{orderId}",
+            friendlyOrderCode,
+          )}
+        </p>
       ) : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
         <Button

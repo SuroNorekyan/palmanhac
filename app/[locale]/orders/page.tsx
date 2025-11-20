@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { extractLocale } from "@/config/site";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { getOrdersForUser } from "@/lib/server/orders";
@@ -19,12 +21,29 @@ const formatDate = (locale: keyof typeof localeFormatMap, value: Date) =>
 
 export default async function OrdersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const locale = await extractLocale(params);
   const dictionary = getDictionary(locale);
   const session = await auth();
+  const resolvedSearch = (await searchParams) ?? {};
+  const highlightParam =
+    typeof resolvedSearch.orderId === "string"
+      ? resolvedSearch.orderId
+      : typeof resolvedSearch.highlight === "string"
+        ? resolvedSearch.highlight
+        : undefined;
+  const highlightNormalized = highlightParam?.toLowerCase();
+  const searchValueRaw =
+    typeof resolvedSearch.q === "string"
+      ? resolvedSearch.q.trim()
+      : Array.isArray(resolvedSearch.q)
+        ? resolvedSearch.q[0]?.trim()
+        : "";
+  const searchQuery = (searchValueRaw || "").toLowerCase();
 
   if (!session?.user) {
     return (
@@ -47,14 +66,45 @@ export default async function OrdersPage({
   }
 
   const orders = await getOrdersForUser(session.user.id);
+  const filteredOrders = searchQuery
+    ? orders.filter((order) => {
+        const haystack = [
+          order.id,
+          order.providerRef ?? "",
+          order.contactEmail ?? "",
+          order.contactPhone ?? "",
+          order.items.map((item) => item.product.name).join(" "),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(searchQuery);
+      })
+    : orders;
 
-  if (!orders.length) {
+  if (!filteredOrders.length) {
     return (
       <section className="mx-auto max-w-3xl space-y-4 text-center">
         <h1 className="text-3xl font-semibold text-neutral-900">
           {dictionary.orders.heading}
         </h1>
-        <p className="text-neutral-600">{dictionary.orders.empty}</p>
+        <p className="text-neutral-600">
+          {orders.length === 0 ? dictionary.orders.empty : dictionary.orders.searchEmpty}
+        </p>
+        <form className="mx-auto flex max-w-md flex-col gap-3" method="GET">
+          <Input
+            name="q"
+            defaultValue={searchValueRaw}
+            placeholder={dictionary.orders.searchPlaceholder}
+          />
+          <Button type="submit" variant="secondary">
+            {dictionary.orders.searchLabel}
+          </Button>
+          {searchQuery ? (
+            <Button type="button" variant="ghost" asChild>
+              <Link href={withLocale(locale, "/orders")}>Clear</Link>
+            </Button>
+          ) : null}
+        </form>
         <Link
           href={withLocale(locale, "/")}
           className="font-semibold text-neutral-900 underline-offset-4 hover:underline"
@@ -75,8 +125,29 @@ export default async function OrdersPage({
           {dictionary.account.dashboard.manageAccount}
         </p>
       </header>
+      <form className="flex flex-col gap-2 sm:flex-row sm:items-center" method="GET">
+        <Input
+          name="q"
+          defaultValue={searchValueRaw}
+          placeholder={dictionary.orders.searchPlaceholder}
+          className="sm:max-w-sm"
+        />
+        <div className="flex gap-2">
+          <Button type="submit" variant="secondary">
+            {dictionary.orders.searchLabel}
+          </Button>
+          {searchQuery ? (
+            <Button type="button" variant="ghost" asChild>
+              <Link href={withLocale(locale, "/orders")}>Clear</Link>
+            </Button>
+          ) : null}
+        </div>
+      </form>
       <div className="space-y-6">
-        {orders.map((order) => {
+        {filteredOrders.map((order) => {
+          const isHighlighted = highlightNormalized
+            ? order.id.toLowerCase().startsWith(highlightNormalized)
+            : false;
           const itemCount = dictionary.orders.itemCount.replace(
             "{count}",
             order.items.length.toString(),
@@ -102,10 +173,21 @@ export default async function OrdersPage({
           const paymentMethodLabel = paymentMethodKey
             ? dictionary.checkout.methods[paymentMethodKey]
             : (order.paymentProvider ?? dictionary.orders.paymentMethodUnknown);
+          const friendlyOrderCode = `#${order.id.slice(0, 8).toUpperCase()}`;
+          const pendingSupportMessage =
+            order.paymentStatus === "PAID"
+              ? null
+              : dictionary.orders.pendingSupportMessage.replace(
+                  "{orderId}",
+                  friendlyOrderCode,
+                );
           return (
             <article
               key={order.id}
-              className="space-y-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm"
+              id={`order-${order.id}`}
+              className={`space-y-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm ${
+                isHighlighted ? "ring-2 ring-neutral-900" : ""
+              }`}
             >
               <div className="flex flex-wrap justify-between gap-3 text-sm text-neutral-600">
                 <div>
@@ -165,6 +247,11 @@ export default async function OrdersPage({
               {paymentHint ? (
                 <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
                   {paymentHint}
+                </p>
+              ) : null}
+              {pendingSupportMessage ? (
+                <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
+                  {pendingSupportMessage}
                 </p>
               ) : null}
             </article>

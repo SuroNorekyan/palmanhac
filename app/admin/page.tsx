@@ -34,6 +34,7 @@ export default async function AdminDashboardPage() {
           totalAmount: true,
           paymentStatus: true,
           paymentMethod: true,
+          taxId: true,
           createdAt: true,
           user: { select: { name: true, email: true } },
         },
@@ -97,6 +98,9 @@ export default async function AdminDashboardPage() {
                   <p className="text-sm text-neutral-600">
                     {order.user?.name ?? order.user?.email ?? "Guest"}
                   </p>
+                  {order.taxId ? (
+                    <p className="text-xs text-neutral-500">NIF/TIN: {order.taxId}</p>
+                  ) : null}
                 </div>
                 <div className="text-right text-sm text-neutral-600">
                   <p className="font-semibold text-neutral-900">

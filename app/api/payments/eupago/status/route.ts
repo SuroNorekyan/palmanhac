@@ -1,11 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { PaymentMethod, PaymentProvider, PaymentStatus } from "@prisma/client";
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentProvider,
+  PaymentStatus,
+} from "@prisma/client";
 import { auth } from "@/auth";
 import {
   EuPagoAPIError,
   EuPagoConfigurationError,
   fetchMBWayStatus,
   fetchMultibancoInfo,
+  type EuPagoStatusResult,
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
@@ -29,6 +35,54 @@ const asRecord = (value: unknown) =>
     : {};
 const asString = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim().length > 0 ? value : undefined;
+
+const markOrderStatusFromPayment = async (
+  order: {
+    id: string;
+    paymentStatus: PaymentStatus;
+    status: OrderStatus;
+  },
+  status: EuPagoStatusResult,
+) => {
+  if (status.status === "paid" && order.paymentStatus !== PaymentStatus.PAID) {
+    const paidAt =
+      status.paidAt && !Number.isNaN(Date.parse(status.paidAt))
+        ? new Date(status.paidAt)
+        : new Date();
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentStatus: PaymentStatus.PAID,
+        status: OrderStatus.PROCESSING,
+        paidAt,
+      },
+    });
+    await logStatusEvent("info", "checkout_status_marked_paid", {
+      orderId: order.id,
+      paidAt: paidAt.toISOString(),
+    });
+    return;
+  }
+
+  if (
+    (status.status === "failed" ||
+      status.status === "cancelled" ||
+      status.status === "expired") &&
+    order.paymentStatus === PaymentStatus.PENDING
+  ) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentStatus: PaymentStatus.FAILED,
+        status: OrderStatus.CANCELLED,
+      },
+    });
+    await logStatusEvent("info", "checkout_status_marked_failed", {
+      orderId: order.id,
+      paymentStatus: status.status,
+    });
+  }
+};
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -65,6 +119,7 @@ export async function GET(request: NextRequest) {
     },
     select: {
       id: true,
+      status: true,
       paymentMethod: true,
       paymentStatus: true,
       providerMetadata: true,
@@ -136,6 +191,7 @@ export async function GET(request: NextRequest) {
         method: "mbway",
         status,
       });
+      await markOrderStatusFromPayment(order, status);
       return NextResponse.json({ status });
     }
 
@@ -195,6 +251,7 @@ export async function GET(request: NextRequest) {
         method: "multibanco",
         status,
       });
+      await markOrderStatusFromPayment(order, status);
       return NextResponse.json({ status });
     }
 

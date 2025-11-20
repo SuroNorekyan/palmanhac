@@ -27,9 +27,8 @@ export function Toaster() {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="pointer-events-auto"
           >
-            <button
-              type="button"
-              onClick={() => dismiss(toast.id)}
+            <div
+              role="status"
               className={cn(
                 "mb-3 flex w-[min(360px,90vw)] items-start gap-3 rounded-2xl border border-[rgb(var(--border))] bg-white p-4 text-left shadow-lg transition hover:border-neutral-800",
                 toast.variant === "destructive" && "border-red-200 bg-red-50",
@@ -49,7 +48,15 @@ export function Toaster() {
                   </span>
                 ) : null}
               </span>
-            </button>
+              <button
+                type="button"
+                onClick={() => dismiss(toast.id)}
+                className="ml-2 rounded-full p-1 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-900/10 hover:text-neutral-900"
+                aria-label="Dismiss notification"
+              >
+                ×
+              </button>
+            </div>
           </motion.div>
         ))}
       </AnimatePresence>

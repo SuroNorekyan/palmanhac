@@ -92,3 +92,43 @@ export const sendAdminEmail = async ({
 };
 
 export const formatEmailBlock = (lines: string[]) => lines.filter(Boolean).join("\n");
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const toHtmlWithBold = (line: string) => {
+  const boldPattern = /\*\*(.+?)\*\*/g;
+  let result = "";
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = boldPattern.exec(line)) !== null) {
+    if (match.index > lastIndex) {
+      result += escapeHtml(line.slice(lastIndex, match.index));
+    }
+    const boldText = match[1] ?? "";
+    result += `<strong>${escapeHtml(boldText)}</strong>`;
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < line.length) {
+    result += escapeHtml(line.slice(lastIndex));
+  }
+  if (!result) {
+    result = escapeHtml(line);
+  }
+  return result;
+};
+
+export const formatEmailHtml = (lines: string[]) => {
+  return lines
+    .map((line) =>
+      line.trim()
+        ? `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;">${toHtmlWithBold(line)}</p>`
+        : `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;">&nbsp;</p>`,
+    )
+    .join("");
+};

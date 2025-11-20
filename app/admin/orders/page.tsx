@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { ADMIN_PAGE_SIZE, AdminPagination } from "@/components/admin/AdminPagination";
+import { DeleteOrderButton } from "@/components/admin/orders/DeleteOrderButton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { defaultLocale } from "@/config/site";
 import { prisma } from "@/lib/server/db";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -28,22 +32,39 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
     : resolvedParams.page;
   const currentPage = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const skip = (currentPage - 1) * ADMIN_PAGE_SIZE;
+  const searchQueryRaw =
+    typeof resolvedParams.q === "string"
+      ? resolvedParams.q.trim()
+      : Array.isArray(resolvedParams.q)
+        ? resolvedParams.q[0]?.trim()
+        : "";
+  const searchQuery = searchQueryRaw || "";
+  const whereClause: Prisma.OrderWhereInput = searchQuery
+    ? {
+        OR: [
+          { id: { contains: searchQuery, mode: "insensitive" as const } },
+          { providerRef: { contains: searchQuery, mode: "insensitive" as const } },
+          { contactEmail: { contains: searchQuery, mode: "insensitive" as const } },
+          { contactPhone: { contains: searchQuery, mode: "insensitive" as const } },
+          {
+            user: {
+              OR: [
+                { name: { contains: searchQuery, mode: "insensitive" as const } },
+                { email: { contains: searchQuery, mode: "insensitive" as const } },
+              ],
+            },
+          },
+        ],
+      }
+    : {};
 
   const [orders, totalOrders] = await Promise.all([
     prisma.order.findMany({
+      where: whereClause,
       orderBy: { createdAt: "desc" },
       skip,
       take: ADMIN_PAGE_SIZE,
-      select: {
-        id: true,
-        totalAmount: true,
-        paymentStatus: true,
-        status: true,
-        paymentProvider: true,
-        paymentMethod: true,
-        providerRef: true,
-        paidAt: true,
-        createdAt: true,
+      include: {
         user: {
           select: {
             name: true,
@@ -52,7 +73,7 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
         },
       },
     }),
-    prisma.order.count(),
+    prisma.order.count({ where: whereClause }),
   ]);
 
   return (
@@ -65,6 +86,24 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
           </p>
         </div>
       </header>
+      <form className="flex flex-col gap-2 sm:flex-row sm:items-center" method="GET">
+        <Input
+          name="q"
+          defaultValue={searchQuery}
+          placeholder="Search by order ID, customer, or email"
+          className="sm:max-w-xs"
+        />
+        <div className="flex gap-2">
+          <Button type="submit" variant="secondary">
+            Search
+          </Button>
+          {searchQuery ? (
+            <Button type="button" variant="ghost" asChild>
+              <Link href="/admin/orders">Clear</Link>
+            </Button>
+          ) : null}
+        </div>
+      </form>
       <div className="overflow-hidden rounded-3xl border border-[rgb(var(--border))] bg-white shadow-sm">
         <table className="min-w-full divide-y divide-neutral-100 text-sm">
           <thead className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -116,6 +155,9 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
                       <p className="text-xs text-neutral-500">
                         {order.user?.email ?? "—"}
                       </p>
+                      {order.taxId ? (
+                        <p className="text-xs text-neutral-500">NIF/TIN: {order.taxId}</p>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-4 py-3 font-semibold text-neutral-900">
@@ -146,12 +188,18 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/admin/orders/${order.id}`}
-                      className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
-                    >
-                      View
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/admin/orders/${order.id}`}
+                        className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
+                      >
+                        View
+                      </Link>
+                      <DeleteOrderButton
+                        orderId={order.id}
+                        orderLabel={`#${order.id.slice(0, 8).toUpperCase()}`}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))

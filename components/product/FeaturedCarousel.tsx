@@ -57,11 +57,19 @@ export function FeaturedCarousel({
       </div>
       <div
         ref={scrollerRef}
-        className="flex gap-6 overflow-x-auto pb-4 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-6 overflow-x-auto pb-6 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {products.map((product) => (
-          <div key={product.id} className="w-[82%] min-w-[260px] max-w-xs sm:w-[320px]">
-            <ProductCard product={product} dictionary={dictionary} locale={locale} />
+          <div
+            key={product.id}
+            className="w-[88%] min-w-[300px] max-w-sm sm:w-[360px] xl:w-[380px]"
+          >
+            <ProductCard
+              product={product}
+              dictionary={dictionary}
+              locale={locale}
+              variant="featured"
+            />
           </div>
         ))}
       </div>

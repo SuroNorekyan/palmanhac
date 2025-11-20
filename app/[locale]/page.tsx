@@ -2,8 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { HeroSection } from "@/components/home/HeroSection";
 import { FeaturedCarousel } from "@/components/product/FeaturedCarousel";
-import { ProductGrid } from "@/components/product/ProductGrid";
-import { ProductSortControl } from "@/components/product/ProductSortControl";
+import { ProductListingSection } from "@/components/product/ProductListingSection";
 import { Button } from "@/components/ui/button";
 import { navConfig } from "@/config/nav";
 import { extractLocale } from "@/config/site";
@@ -49,28 +48,12 @@ export default async function HomePage({
         scrollTargetId="product-list"
       />
 
-      <section id="product-list" className="space-y-10">
-        <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-4">
-            <span className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500">
-              {dictionary.home.allProductsEyebrow}
-            </span>
-            <h2 className="text-3xl font-semibold text-neutral-900 sm:text-4xl">
-              {dictionary.home.allProductsTitle}
-            </h2>
-            <p className="max-w-2xl text-neutral-600">
-              {dictionary.home.allProductsDescription}
-            </p>
-          </div>
-          <ProductSortControl
-            sortLabel={dictionary.catalog.sortLabel}
-            ascLabel={dictionary.catalog.priceSort.asc}
-            descLabel={dictionary.catalog.priceSort.desc}
-            initialSort={sortParam}
-          />
-        </header>
-        <ProductGrid products={products} dictionary={dictionary} locale={locale} />
-      </section>
+      <ProductListingSection
+        products={products}
+        dictionary={dictionary}
+        locale={locale}
+        initialSort={sortParam}
+      />
 
       <section className="space-y-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">

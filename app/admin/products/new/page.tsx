@@ -10,7 +10,7 @@ export default async function AdminProductCreatePage() {
   if (!session?.user || session.user.role !== "ADMIN") {
     redirect("/account");
   }
-  if (session.user.twoFAEnabled && !session.twoFAVerified) {
+  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
     redirect("/admin/2fa/challenge");
   }
 

@@ -18,6 +18,23 @@ const localeStringArraySchema = z.object({
   pt: z.array(z.string()).default([]),
 });
 
+const imageUrlOrPathSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      if (!value) return false;
+      if (/^\/(assets|images)\//i.test(value)) return true;
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Provide an absolute URL or a path like /assets/file.png" },
+  );
+
 const updateSchema = z
   .object({
     name: z.string().min(2).optional(),
@@ -28,8 +45,8 @@ const updateSchema = z
       .optional(),
     category: z.string().min(2).optional(),
     priceCents: z.number().int().min(0).optional(),
-    image: z.string().url().optional(),
-    galleryImages: z.array(z.string().url()).optional(),
+    image: imageUrlOrPathSchema.optional(),
+    galleryImages: z.array(imageUrlOrPathSchema).optional(),
     volumeMl: z.number().int().min(0).optional(),
     abv: z.number().min(0).max(100).optional(),
     stock: z.number().int().min(0).optional(),

@@ -32,13 +32,11 @@ const imageUrlOrPath = z
     { message: "Enter a valid image URL or a path like /assets/file.png" },
   );
 
-// convert root-relative -> absolute (server requires absolute)
-const toAbsoluteUrl = (v: string) => {
-  if (!v) return v;
-  if (typeof window !== "undefined" && v.startsWith("/")) {
-    return `${window.location.origin}${v}`;
-  }
-  return v;
+const CATEGORY_OPTIONS = ["licor", "aguardente", "bebida-espirituosa"] as const;
+const CATEGORY_LABELS: Record<(typeof CATEGORY_OPTIONS)[number], string> = {
+  licor: "Licor",
+  aguardente: "Aguardente",
+  "bebida-espirituosa": "Bebida Espirituosa",
 };
 
 const productFormSchema = z.object({
@@ -49,7 +47,12 @@ const productFormSchema = z.object({
     .regex(slugPattern, "Slug must use lowercase letters, numbers or hyphens.")
     .optional()
     .or(z.literal("")),
-  category: z.string().min(2, "Category is required"),
+  category: z
+    .string()
+    .refine(
+      (value) => CATEGORY_OPTIONS.includes(value as (typeof CATEGORY_OPTIONS)[number]),
+      "Select a category",
+    ),
   price: z
     .string()
     .min(1, "Price is required")
@@ -197,23 +200,20 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     startTransition(async () => {
       try {
         const galleryImagesRaw = parseGallery(parsed.data.galleryImages);
-        const galleryImagesAbs = galleryImagesRaw.map(toAbsoluteUrl);
         const priceFloat = Number.parseFloat(parsed.data.price.replace(",", "."));
         const priceCents = Math.round(priceFloat * 100);
         if (!Number.isFinite(priceCents) || priceCents < 0) {
           throw new Error("Unable to parse price.");
         }
 
-        // Match server contract: absolute URLs + object fields
+        // Match server contract: structured JSON payload
         const payload = {
           name: parsed.data.name,
           slug: parsed.data.slug?.trim() || undefined,
           category: parsed.data.category,
           priceCents,
-          image: toAbsoluteUrl(parsed.data.image),
-          galleryImages: galleryImagesAbs.length
-            ? galleryImagesAbs
-            : [toAbsoluteUrl(parsed.data.image)],
+          image: parsed.data.image,
+          galleryImages: galleryImagesRaw.length ? galleryImagesRaw : [parsed.data.image],
           volumeMl: Number.parseInt(parsed.data.volumeMl || "0", 10) || 0,
           abv: Number.parseFloat(parsed.data.abv || "0") || 0,
           stock: Number.parseInt(parsed.data.stock || "0", 10) || 0,
@@ -334,12 +334,24 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         </Field>
 
         <Field label="Category" error={errors.category}>
-          <Input
-            className={cn(errors.category && "ring-1 ring-red-500")}
+          <select
+            className={cn(
+              "w-full appearance-none rounded-xl border border-[rgb(var(--border))] bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-sm transition focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10",
+              errors.category && "ring-1 ring-red-500",
+            )}
             required
             value={form.category}
             onChange={(e) => handleChange("category", e.target.value)}
-          />
+          >
+            <option value="" disabled hidden>
+              Select a category
+            </option>
+            {CATEGORY_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {CATEGORY_LABELS[option]}
+              </option>
+            ))}
+          </select>
         </Field>
 
         <Field label="Price (€)" error={errors.price}>

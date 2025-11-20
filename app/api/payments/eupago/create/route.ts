@@ -3,12 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { PaymentMethod, PaymentProvider, PaymentStatus } from "@prisma/client";
 import { auth } from "@/auth";
+import { EmailConfigurationError } from "@/lib/email/mailer";
 import {
-  EmailConfigurationError,
-  formatEmailBlock,
-  sendAdminEmail,
-  sendEmail,
-} from "@/lib/email/mailer";
+  sendOrderCreationNotifications,
+  type BilingualInstructions,
+} from "@/lib/email/order-notifications";
 import {
   checkoutPayloadSchema,
   normalizeCurrency,
@@ -37,6 +36,77 @@ const logCheckoutEvent = (
   event: string,
   details: Record<string, unknown> = {},
 ) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
+
+type EuPagoPaymentResult =
+  | Awaited<ReturnType<typeof createMultibanco>>
+  | Awaited<ReturnType<typeof createMBWay>>
+  | Awaited<ReturnType<typeof createCard>>;
+
+const formatEuroFromCents = (cents: number) => `€${(cents / 100).toFixed(2)}`;
+
+const formatEuPagoAmount = (amount: number | undefined, totalCents: number) => {
+  if (typeof amount === "number" && Number.isFinite(amount)) {
+    return `€${amount.toFixed(2)}`;
+  }
+  return formatEuroFromCents(totalCents);
+};
+
+const buildEupagoInstructions = (
+  result: EuPagoPaymentResult,
+  totalCents: number,
+): BilingualInstructions | undefined => {
+  if (result.method === "multibanco") {
+    const amount = formatEuPagoAmount(result.amount, totalCents);
+    return {
+      pt: [
+        "Como concluir o pagamento via Multibanco:",
+        `Entidade: ${result.entity}`,
+        `Referência: ${result.reference}`,
+        `Valor: ${amount}`,
+        result.expiresAt ? `Disponível até: ${result.expiresAt}` : "",
+        "Finalize o pagamento num terminal Multibanco ou no seu banco online para confirmar a encomenda.",
+      ],
+      en: [
+        "How to finish your Multibanco payment:",
+        `Entity: ${result.entity}`,
+        `Reference: ${result.reference}`,
+        `Amount: ${amount}`,
+        result.expiresAt ? `Expires on: ${result.expiresAt}` : "",
+        "Complete the payment at an ATM or via your online banking to confirm the order.",
+      ],
+    };
+  }
+
+  if (result.method === "mbway") {
+    return {
+      pt: [
+        "Abra a app MB WAY e confirme o pedido que acabou de receber.",
+        `ID da transação: ${result.transactionId}`,
+        result.statusUrl ? `Estado em tempo real: ${result.statusUrl}` : "",
+      ],
+      en: [
+        "Open your MB WAY app and approve the request we just sent.",
+        `Transaction ID: ${result.transactionId}`,
+        result.statusUrl ? `Live status: ${result.statusUrl}` : "",
+      ],
+    };
+  }
+
+  if (result.method === "card") {
+    return {
+      pt: [
+        "Conclua o pagamento com cartão através da página segura que abriu no browser.",
+        "Caso a janela tenha sido fechada, utilize o link mostrado no checkout para voltar a abri-la.",
+      ],
+      en: [
+        "Finish the secure card payment in the page that just opened in your browser.",
+        "If you closed the window, reopen the link provided on the checkout page to continue.",
+      ],
+    };
+  }
+
+  return undefined;
+};
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -281,6 +351,7 @@ export async function POST(request: NextRequest) {
           },
           contactEmail: payload.contact.email,
           contactPhone: payload.contact.phone,
+          taxId: payload.taxId,
           shippingAddress: payload.shipping,
           billingAddress: payload.billing,
           locale: payload.locale,
@@ -328,71 +399,32 @@ export async function POST(request: NextRequest) {
     const nameMap = new Map(products.map((product) => [product.id, product.name]));
     const customerName =
       payload.shipping.name || payload.contact.name || session.user.name || "Customer";
-    const itemLines = payload.items.map((item) => {
-      const name = nameMap.get(item.productId) ?? `Product ${item.productId}`;
-      return `- ${name} × ${item.quantity}`;
+    const itemSummaries = payload.items.map((item) => ({
+      name: nameMap.get(item.productId) ?? `Product ${item.productId}`,
+      quantity: item.quantity,
+    }));
+    const paymentSummary =
+      paymentResult.method === "multibanco"
+        ? "MULTIBANCO (EuPago)"
+        : paymentResult.method === "mbway"
+          ? "MB WAY (EuPago)"
+          : "CARD (EuPago)";
+
+    await sendOrderCreationNotifications({
+      orderId: order.id,
+      totalCents: totals.totalCents,
+      items: itemSummaries,
+      customerName,
+      customerEmail: payload.contact.email,
+      customerPhone: payload.contact.phone,
+      shippingCity: payload.shipping.city,
+      paymentSummary,
+      nif: payload.taxId,
+      notes: payload.notes,
+      methodInstructions: buildEupagoInstructions(paymentResult, totals.totalCents),
+      adminSubject: `New order ${order.id}`,
+      customerSubject: `We received your order ${order.id}`,
     });
-    const summaryLines = [
-      `Order ID: ${order.id}`,
-      `Total: €${(totals.totalCents / 100).toFixed(2)}`,
-      `Payment method: ${paymentResult.method.toUpperCase()}`,
-      "",
-      "Items:",
-      ...itemLines,
-    ];
-
-    await sendAdminEmail({
-      subject: `New order ${order.id}`,
-      text: formatEmailBlock([
-        `Order ID: ${order.id}`,
-        `Payment method: ${paymentResult.method.toUpperCase()}`,
-        `Total: €${(totals.totalCents / 100).toFixed(2)}`,
-        `Customer: ${customerName}`,
-        `Email: ${payload.contact.email}`,
-        payload.contact.phone ? `Phone: ${payload.contact.phone}` : "",
-        payload.shipping.city ? `City: ${payload.shipping.city}` : "",
-        "",
-        "Items:",
-        ...itemLines,
-      ]),
-    });
-
-    if (payload.contact.email) {
-      const methodInstructions =
-        paymentResult.method === "multibanco"
-          ? [
-              "How to pay via Multibanco:",
-              `Entity: ${paymentResult.entity}`,
-              `Reference: ${paymentResult.reference}`,
-              paymentResult.expiresAt ? `Expires: ${paymentResult.expiresAt}` : "",
-              "",
-              "Complete the payment at an ATM or your online banking to confirm the order.",
-            ]
-          : paymentResult.method === "mbway"
-            ? [
-                "Approve the MB WAY request we just sent to your phone.",
-                "Once approved, we’ll update the order automatically and email you again.",
-              ]
-            : [
-                "Finish the secure card payment on the page that just opened.",
-                "We’ll email you again as soon as the payment is confirmed.",
-              ];
-
-      await sendEmail({
-        to: payload.contact.email,
-        subject: `We received your order ${order.id}`,
-        text: formatEmailBlock([
-          `Hi ${customerName},`,
-          "",
-          "Thank you for ordering from Palmanhac!",
-          ...methodInstructions,
-          "",
-          ...summaryLines,
-          "",
-          "You can follow the latest updates anytime from your Orders page.",
-        ]),
-      });
-    }
   } catch (error) {
     if (error instanceof EmailConfigurationError) {
       console.warn("[Email] Order creation notification skipped:", error.message);

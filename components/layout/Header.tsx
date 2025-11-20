@@ -21,12 +21,26 @@ export function Header({
   dictionary: Dictionary;
   locale: Locale;
 }) {
+  const aboutFirstMain = (() => {
+    const about = nav.main.find((item) => item.href === "/about");
+    if (!about) {
+      return nav.main;
+    }
+    const rest = nav.main.filter((item) => item.href !== "/about");
+    return [about, ...rest];
+  })();
+
+  const reorderedNav: NavConfig = {
+    ...nav,
+    main: aboutFirstMain,
+  };
+
   return (
     <header className="relative z-40 border-b border-white/80 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur">
       <div className="container flex items-center gap-4 py-4">
         <div className="flex items-center gap-3 lg:gap-6">
           <div className="lg:hidden">
-            <MobileMenu nav={nav} dictionary={dictionary} locale={locale} />
+            <MobileMenu nav={reorderedNav} dictionary={dictionary} locale={locale} />
           </div>
           <Link
             href={withLocale(locale, "/")}
@@ -35,7 +49,7 @@ export function Header({
             Palmanhac
           </Link>
         </div>
-        <DesktopNav items={nav.main} locale={locale} />
+        <DesktopNav items={aboutFirstMain} locale={locale} />
         <div className="ml-auto hidden lg:flex lg:flex-1 lg:justify-center">
           <Suspense
             fallback={

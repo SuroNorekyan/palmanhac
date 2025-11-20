@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
+import { DeleteOrderButton } from "@/components/admin/orders/DeleteOrderButton";
 import { OrderStatusForm } from "@/components/admin/orders/OrderStatusForm";
 import { defaultLocale } from "@/config/site";
 import { prisma } from "@/lib/server/db";
@@ -117,12 +118,18 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             })}
           </p>
         </div>
-        <Link
-          href="/admin/orders"
-          className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
-        >
-          Back to orders
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/orders"
+            className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
+          >
+            Back to orders
+          </Link>
+          <DeleteOrderButton
+            orderId={order.id}
+            orderLabel={`#${order.id.slice(0, 8).toUpperCase()}`}
+          />
+        </div>
       </header>
 
       <section className="grid gap-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm md:grid-cols-2">
@@ -133,6 +140,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           </p>
           <p>{order.contactEmail ?? order.user?.email ?? "—"}</p>
           <p>{order.contactPhone ?? "—"}</p>
+          <p>NIF/TIN: {order.taxId ?? "—"}</p>
         </div>
         <div className="space-y-2 text-sm text-neutral-700">
           <p className="text-xs uppercase tracking-wide text-neutral-500">Payment</p>

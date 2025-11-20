@@ -111,3 +111,20 @@ export async function PATCH(
     return handleError(error, "Failed to update order.");
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdminSession();
+    const { id } = await context.params;
+    await prisma.order.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+    return handleError(error, "Failed to delete order.");
+  }
+}

@@ -9,6 +9,9 @@ export type Dictionary = {
   };
   banner: {
     freeShipping: string;
+    shippingIntro: string;
+    shippingContact: string;
+    dismissLabel: string;
   };
   ageGate: {
     title: string;
@@ -148,9 +151,14 @@ export type Dictionary = {
   checkout: {
     heading: string;
     subheading: string;
+    shippingNoticeTitle: string;
+    multibancoNoticeTitle: string;
+    multibancoNotice: string;
     contactInformation: string;
     contactEmailLabel: string;
     contactPhoneLabel: string;
+    taxIdLabel: string;
+    taxIdHelper: string;
     shippingAddress: string;
     shippingNameLabel: string;
     shippingAddress1Label: string;
@@ -181,6 +189,7 @@ export type Dictionary = {
     pendingHint: string;
     pendingRefresh: string;
     pendingOrdersCta: string;
+    pendingSupportMessage: string;
     pendingMissingOrder: string;
     methods: Record<"multibanco" | "mbway" | "card", string>;
     methodDescriptions: Record<"multibanco" | "mbway" | "card", string>;
@@ -222,6 +231,11 @@ export type Dictionary = {
     cardPendingProcessing: string;
     cardPendingGeneric: string;
     cardFinalizeWarning: string;
+    thankYouHeading: string;
+    thankYouSubheading: string;
+    thankYouOrdersCta: string;
+    thankYouTrackCta: string;
+    thankYouOrderLabel: string;
     viewOrdersCta: string;
     summary: string;
     summaryItems: string;
@@ -260,9 +274,13 @@ export type Dictionary = {
       cardPending: string;
       paid: string;
     };
+    pendingSupportMessage: string;
     paymentMethodLabel: string;
     paymentMethodUnknown: string;
     viewDetails: string;
+    searchLabel: string;
+    searchPlaceholder: string;
+    searchEmpty: string;
   };
   twoFactor: {
     setupTitle: string;
@@ -341,6 +359,10 @@ const dictionaries: Record<Locale, Dictionary> = {
     },
     banner: {
       freeShipping: "Free shipping from €50",
+      shippingIntro: "Currently, we ship to mainland Portugal, Madeira, and Spain.",
+      shippingContact:
+        "For other international orders, please contact us at info@palmanhac-shop.pt to check the possibility of shipping.",
+      dismissLabel: "Close announcement",
     },
     ageGate: {
       title: "Are you of legal drinking age?",
@@ -381,8 +403,8 @@ const dictionaries: Record<Locale, Dictionary> = {
         contact: [
           {
             label: "Email",
-            value: "info@palmanhac.pt",
-            href: "mailto:info@palmanhac.pt",
+            value: "info@palmanhac-shop.pt",
+            href: "mailto:info@palmanhac-shop.pt",
           },
           {
             label: "Phone / WhatsApp",
@@ -430,7 +452,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "How can I contact you?",
                 answer: [
-                  "You can contact us by email at info@palmanhac.pt or by phone/WhatsApp at (+351) 964 690 254.",
+                  "You can contact us by email at info@palmanhac-shop.pt or by phone/WhatsApp at (+351) 964 690 254.",
                   "We are available Monday to Friday, from 9:00 AM to 6:00 PM.",
                 ],
               },
@@ -455,7 +477,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "How can I edit or delete my account?",
                 answer: [
-                  "To delete your account, please send an email to info@palmanhac.pt from your registered address requesting deletion.",
+                  "To delete your account, please send an email to info@palmanhac-shop.pt from your registered address requesting deletion.",
                   'To update your details or password, access your personal area ("My Account") and edit the desired information.',
                 ],
               },
@@ -530,7 +552,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 question: "Which countries do you ship to?",
                 answer: [
                   "Currently, we ship to mainland Portugal, Madeira, and Spain.",
-                  "For other international orders, please contact us at info@palmanhac.pt to check the possibility of shipping.",
+                  "For other international orders, please contact us at info@palmanhac-shop.pt to check the possibility of shipping.",
                 ],
               },
               {
@@ -615,7 +637,7 @@ const dictionaries: Record<Locale, Dictionary> = {
           supportTitle: "Need assistance?",
           supportDetails: [
             "If the product is defective, damaged during shipping, or sent incorrectly, Palmanhac will provide a full replacement or refund.",
-            "Return requests should be sent to info@palmanhac.pt or +351 964 690 254 (business days, 9:00 AM – 6:00 PM).",
+            "Return requests should be sent to info@palmanhac-shop.pt or +351 964 690 254 (business days, 9:00 AM – 6:00 PM).",
             "Refunds will be processed within a maximum of 30 days after receipt and verification of the returned item.",
             "If the order arrives in unsuitable condition, photograph the item and the back label (where the seal is visible) and email the images so we can arrange collection and replacement.",
           ],
@@ -691,9 +713,15 @@ const dictionaries: Record<Locale, Dictionary> = {
     checkout: {
       heading: "Checkout",
       subheading: "Confirm your details and complete your Palmanhac order.",
+      shippingNoticeTitle: "Shipping availability",
+      multibancoNoticeTitle: "Multibanco temporarily unavailable",
+      multibancoNotice:
+        "Multibanco payments are currently unavailable while we work on a fix. You can continue using MB WAY and card payments. For any questions, please contact info@palmanhac-shop.pt and we will be happy to assist.",
       contactInformation: "Contact information",
       contactEmailLabel: "Email address",
       contactPhoneLabel: "Phone (optional)",
+      taxIdLabel: "Tax ID (NIF / TIN, optional)",
+      taxIdHelper: "Included on your confirmation emails when provided.",
       shippingAddress: "Shipping address",
       shippingNameLabel: "Full name",
       shippingAddress1Label: "Address line 1",
@@ -730,6 +758,8 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Need to double-check? Open the Orders page to review the latest payment status.",
       pendingRefresh: "Refresh status",
       pendingOrdersCta: "Go to Orders",
+      pendingSupportMessage:
+        "If you have already confirmed the payment in your MB WAY app but the status is not updating here, please contact us at info@palmanhac-shop.pt with your order reference {orderId}. We will be happy to assist you.",
       pendingMissingOrder:
         "We could not find that order reference. Please return to checkout and try again.",
       methods: {
@@ -794,6 +824,12 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Stripe marked this payment as “{status}”. We’ll update your Orders page automatically once it changes.",
       cardFinalizeWarning:
         "The payment succeeded but we could not refresh the order automatically. Please review the Orders page for the latest status.",
+      thankYouHeading: "Thank you for your purchase!",
+      thankYouSubheading:
+        "We’re preparing your Palmanhac order. You can track the latest updates whenever you need.",
+      thankYouOrdersCta: "Return to my orders",
+      thankYouTrackCta: "Track this order",
+      thankYouOrderLabel: "Order reference",
       viewOrdersCta: "Go to Orders",
       summary: "Order summary",
       summaryItems: "{count} items",
@@ -846,7 +882,12 @@ const dictionaries: Record<Locale, Dictionary> = {
           "Awaiting Stripe confirmation. Complete the card payment to update this order.",
         paid: "Payment received. No further action is required.",
       },
+      pendingSupportMessage:
+        "If you already confirmed this payment but it still shows as pending, please email info@palmanhac-shop.pt with order reference {orderId} and we will assist you right away.",
       viewDetails: "View details",
+      searchLabel: "Search orders",
+      searchPlaceholder: "Search by order ID, reference, or product",
+      searchEmpty: "No orders matched that search.",
     },
     twoFactor: {
       setupTitle: "Secure Admin Access",
@@ -885,7 +926,7 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Post Code 2950-019",
         "Tel: T.964 690 254",
         "Site: www.palmanhac.pt",
-        "Mail: info@palmanhac.pt",
+        "Mail: info@palmanhac-shop.pt",
         "Working hours: 09.00 - 18.00",
       ],
       complaintsBook: "Livro de Reclamações",
@@ -938,6 +979,11 @@ const dictionaries: Record<Locale, Dictionary> = {
     },
     banner: {
       freeShipping: "Portes grátis a partir de 50 €",
+      shippingIntro:
+        "Neste momento enviamos para Portugal continental, Madeira e Espanha.",
+      shippingContact:
+        "Para outras encomendas internacionais, contacte-nos através de info@palmanhac-shop.pt para verificarmos a possibilidade de envio.",
+      dismissLabel: "Fechar aviso",
     },
     ageGate: {
       title: "Tem idade legal para o consumo de bebidas alcoólicas?",
@@ -978,8 +1024,8 @@ const dictionaries: Record<Locale, Dictionary> = {
         contact: [
           {
             label: "Email",
-            value: "info@palmanhac.pt",
-            href: "mailto:info@palmanhac.pt",
+            value: "info@palmanhac-shop.pt",
+            href: "mailto:info@palmanhac-shop.pt",
           },
           {
             label: "Telefone / WhatsApp",
@@ -1027,7 +1073,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "Como posso entrar em contacto convosco?",
                 answer: [
-                  "Pode contactar-nos por e-mail através de info@palmanhac.pt ou por telefone/WhatsApp pelo (+351) 964 690 254.",
+                  "Pode contactar-nos por e-mail através de info@palmanhac-shop.pt ou por telefone/WhatsApp pelo (+351) 964 690 254.",
                   "Estamos disponíveis de segunda a sexta-feira, das 9h00 às 18h00.",
                 ],
               },
@@ -1052,7 +1098,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "Como posso alterar ou eliminar a minha conta?",
                 answer: [
-                  "Para eliminar a sua conta, envie um e-mail para info@palmanhac.pt a partir do endereço registado, solicitando a eliminação.",
+                  "Para eliminar a sua conta, envie um e-mail para info@palmanhac-shop.pt a partir do endereço registado, solicitando a eliminação.",
                   'Para atualizar os seus dados ou palavra-passe, aceda à sua área pessoal ("Minha Conta") e edite as informações desejadas.',
                 ],
               },
@@ -1127,7 +1173,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 question: "Para que países enviam encomendas?",
                 answer: [
                   "Atualmente, enviamos para Portugal Continental, Madeira e Espanha.",
-                  "Para outros destinos internacionais, contacte-nos através de info@palmanhac.pt para verificar a possibilidade de envio.",
+                  "Para outros destinos internacionais, contacte-nos através de info@palmanhac-shop.pt para verificar a possibilidade de envio.",
                 ],
               },
               {
@@ -1214,7 +1260,7 @@ const dictionaries: Record<Locale, Dictionary> = {
           supportTitle: "Precisa de ajuda?",
           supportDetails: [
             "Se o produto estiver defeituoso, danificado durante o transporte ou se houver erro no envio, a Palmanhac procederá à substituição ou reembolso total.",
-            "O pedido de devolução deve ser enviado para info@palmanhac.pt ou +351 964 690 254 (dias úteis, das 9h00 às 18h00).",
+            "O pedido de devolução deve ser enviado para info@palmanhac-shop.pt ou +351 964 690 254 (dias úteis, das 9h00 às 18h00).",
             "Os reembolsos serão processados no prazo máximo de 30 dias após a receção e verificação do artigo devolvido.",
             "Caso a encomenda chegue em condições inadequadas, fotografe o artigo e a etiqueta traseira (onde o selo é visível) e envie as imagens por e-mail para que possamos agendar a recolha e substituição.",
           ],
@@ -1291,9 +1337,15 @@ const dictionaries: Record<Locale, Dictionary> = {
     checkout: {
       heading: "Checkout",
       subheading: "Confirme os seus dados e finalize a encomenda Palmanhac.",
+      shippingNoticeTitle: "Disponibilidade de envios",
+      multibancoNoticeTitle: "Multibanco temporariamente indisponível",
+      multibancoNotice:
+        "Os pagamentos por Multibanco estão temporariamente indisponíveis enquanto resolvemos o problema. Pode continuar a utilizar MB WAY e pagamentos por cartão. Para qualquer questão contacte info@palmanhac-shop.pt e teremos todo o gosto em ajudar.",
       contactInformation: "Informações de contacto",
       contactEmailLabel: "Email",
       contactPhoneLabel: "Telefone (opcional)",
+      taxIdLabel: "NIF / TIN (opcional)",
+      taxIdHelper: "Incluído no email e no comprovativo caso seja preenchido.",
       shippingAddress: "Morada de envio",
       shippingNameLabel: "Nome completo",
       shippingAddress1Label: "Morada linha 1",
@@ -1330,6 +1382,8 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Já confirmou o pagamento? Visite a página de Encomendas para ver o estado mais recente.",
       pendingRefresh: "Atualizar estado",
       pendingOrdersCta: "Ver Encomendas",
+      pendingSupportMessage:
+        "Se já confirmou o pagamento na aplicação MB WAY mas o estado não está a atualizar aqui, por favor contacte-nos através de info@palmanhac-shop.pt com a referência {orderId}. Teremos todo o gosto em ajudar.",
       pendingMissingOrder:
         "Não encontrámos a referência da encomenda. Volte a tentar a partir do checkout.",
       methods: {
@@ -1395,6 +1449,12 @@ const dictionaries: Record<Locale, Dictionary> = {
         "A Stripe identificou este pagamento como “{status}”. Atualizaremos automaticamente a página de Encomendas assim que houver alterações.",
       cardFinalizeWarning:
         "O pagamento foi concluído, mas não conseguimos atualizar a encomenda automaticamente. Verifique a página de Encomendas para confirmar o estado.",
+      thankYouHeading: "Obrigado pela sua compra!",
+      thankYouSubheading:
+        "Estamos a preparar a sua encomenda Palmanhac. Pode acompanhar as atualizações sempre que precisar.",
+      thankYouOrdersCta: "Voltar às minhas encomendas",
+      thankYouTrackCta: "Acompanhar esta encomenda",
+      thankYouOrderLabel: "Referência da encomenda",
       viewOrdersCta: "Ir para Encomendas",
       summary: "Resumo da encomenda",
       summaryItems: "{count} artigos",
@@ -1447,7 +1507,12 @@ const dictionaries: Record<Locale, Dictionary> = {
           "A aguardar confirmação do cartão na Stripe. Termine o pagamento para atualizar esta encomenda.",
         paid: "Pagamento recebido. Não é necessária nenhuma ação adicional.",
       },
+      pendingSupportMessage:
+        "Se já confirmou este pagamento mas continua pendente, envie um email para info@palmanhac-shop.pt com a referência {orderId} e teremos todo o gosto em ajudar.",
       viewDetails: "Ver detalhes",
+      searchLabel: "Pesquisar encomendas",
+      searchPlaceholder: "Procure por nº de encomenda, referência ou produto",
+      searchEmpty: "Nenhuma encomenda corresponde a essa pesquisa.",
     },
     twoFactor: {
       setupTitle: "Proteger acesso de administrador",
@@ -1486,7 +1551,7 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Código Postal 2950-019",
         "Tel.: T.964 690 254",
         "Site: www.palmanhac.pt",
-        "Email: info@palmanhac.pt",
+        "Email: info@palmanhac-shop.pt",
         "Horário: 09h00 - 18h00",
       ],
       complaintsBook: "Livro de Reclamações",

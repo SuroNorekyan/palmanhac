@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 export const dynamic = "force-dynamic";
 
 type ProductsPageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function AdminProductsPage({ searchParams }: ProductsPageProps) {
@@ -18,11 +18,11 @@ export default async function AdminProductsPage({ searchParams }: ProductsPagePr
   if (!session?.user || session.user.role !== "ADMIN") {
     redirect("/account");
   }
-  if (session.user.twoFAEnabled && !session.twoFAVerified) {
+  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
     redirect("/admin/2fa/challenge");
   }
 
-  const resolvedParams = searchParams ?? {};
+  const resolvedParams = (await searchParams) ?? {};
   const pageParam = Array.isArray(resolvedParams.page)
     ? resolvedParams.page[0]
     : resolvedParams.page;

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/server/db";
 export const dynamic = "force-dynamic";
 
 type Params = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export default async function AdminProductEditPage({ params }: Params) {
@@ -16,11 +16,12 @@ export default async function AdminProductEditPage({ params }: Params) {
   if (!session?.user || session.user.role !== "ADMIN") {
     redirect("/account");
   }
-  if (session.user.twoFAEnabled && !session.twoFAVerified) {
+  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
     redirect("/admin/2fa/challenge");
   }
 
-  const productId = Number.parseInt(params.id, 10);
+  const { id } = await params;
+  const productId = Number.parseInt(id, 10);
   if (!Number.isInteger(productId)) {
     notFound();
   }

@@ -8,6 +8,9 @@ import {
   getRelatedProducts,
 } from "@/lib/server/products";
 
+export const dynamicParams = true;
+export const revalidate = 0;
+
 export async function generateStaticParams() {
   const slugs = await getAllProductSlugs();
   return locales.flatMap((locale) => slugs.map((slug) => ({ locale, slug })));

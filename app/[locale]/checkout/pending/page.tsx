@@ -7,7 +7,11 @@ export default async function MbwayPendingPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams?: Promise<{ orderId?: string; transactionId?: string }>;
+  searchParams?: Promise<{
+    orderId?: string;
+    transactionId?: string;
+    statusUrl?: string;
+  }>;
 }) {
   const locale = await extractLocale(params);
   const dictionary = getDictionary(locale);
@@ -23,12 +27,18 @@ export default async function MbwayPendingPage({
     );
   }
 
+  const statusUrl =
+    typeof resolvedSearch.statusUrl === "string" && resolvedSearch.statusUrl.trim()
+      ? resolvedSearch.statusUrl.trim()
+      : undefined;
+
   return (
     <MbwayPendingView
       dictionary={dictionary}
       locale={locale}
       orderId={resolvedSearch.orderId}
       transactionId={resolvedSearch.transactionId}
+      statusUrl={statusUrl}
     />
   );
 }

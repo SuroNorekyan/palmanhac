@@ -8,6 +8,8 @@ type ProductSortControlProps = {
   ascLabel: string;
   descLabel: string;
   initialSort: "price-asc" | "price-desc";
+  value?: "price-asc" | "price-desc";
+  onValueChange?: (value: "price-asc" | "price-desc") => void;
 };
 
 export function ProductSortControl({
@@ -15,23 +17,33 @@ export function ProductSortControl({
   ascLabel,
   descLabel,
   initialSort,
+  value,
+  onValueChange,
 }: ProductSortControlProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const resolvedSort = searchParams?.get("sort");
-  const currentSort =
-    resolvedSort === "price-desc"
+  const isControlled = typeof value !== "undefined" && !!onValueChange;
+  const currentSort = isControlled
+    ? value
+    : resolvedSort === "price-desc"
       ? "price-desc"
       : resolvedSort === "price-asc"
         ? "price-asc"
         : initialSort;
 
   const updateSort = (value: "price-asc" | "price-desc") => {
+    if (isControlled && onValueChange) {
+      onValueChange(value);
+      return;
+    }
     const params = new URLSearchParams(searchParams?.toString());
     params.set("sort", value);
     const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : (pathname ?? "/"));
+    router.replace(query ? `${pathname}?${query}` : (pathname ?? "/"), {
+      scroll: false,
+    });
   };
 
   return (

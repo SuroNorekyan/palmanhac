@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
+import { AlertTriangle } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { Locale } from "@/config/site";
+import { siteConfig, type Locale } from "@/config/site";
 import { useAnonCartImport } from "@/lib/hooks/useAnonCartImport";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useCartStore } from "@/lib/store/cart";
@@ -44,6 +45,29 @@ const formatDateTime = (locale: Locale, value?: string) => {
 };
 
 const DEFAULT_COUNTRY = "Portugal";
+
+const supportEmail = siteConfig.contact.email;
+
+const formatNoticeWithEmail = (message: string, linkClassName: string): ReactNode => {
+  if (!message.includes(supportEmail)) {
+    return message;
+  }
+  const parts = message.split(supportEmail);
+  return (
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={`notice-${index}`}>
+          {part}
+          {index < parts.length - 1 ? (
+            <a href={`mailto:${supportEmail}`} className={linkClassName}>
+              {supportEmail}
+            </a>
+          ) : null}
+        </Fragment>
+      ))}
+    </>
+  );
+};
 
 type PaymentMethodOption = "multibanco" | "mbway" | "card";
 
@@ -145,6 +169,7 @@ function CheckoutForm({
     phone: "",
     name: session?.user?.name ?? "",
   });
+  const [taxId, setTaxId] = useState("");
   const [shipping, setShipping] = useState<AddressState>({
     name: session?.user?.name ?? "",
     line1: "",
@@ -350,6 +375,7 @@ function CheckoutForm({
       shipping: normalizeAddressCountry(normalisedShipping),
       billing: normalizeAddressCountry(normalisedBilling),
       notes: notes.trim() || undefined,
+      taxId: taxId.trim() || undefined,
       currency: "EUR" as const,
       locale,
       totals: {
@@ -487,7 +513,13 @@ function CheckoutForm({
         cardElement.clear();
         setIsCardComplete(false);
         clearCartOnce();
-        setTimeout(() => router.push(withLocale(locale, "/orders")), 1800);
+        const thankYouUrl = withLocale(
+          locale,
+          result.orderId
+            ? `/checkout/thank-you?orderId=${encodeURIComponent(result.orderId)}`
+            : "/orders",
+        );
+        setTimeout(() => router.push(thankYouUrl), 1800);
         return;
       }
 
@@ -580,12 +612,14 @@ function CheckoutForm({
       }
 
       if (result.method === "mbway") {
-        const pendingUrl = withLocale(
-          locale,
-          `/checkout/pending?orderId=${encodeURIComponent(
-            result.orderId,
-          )}&transactionId=${encodeURIComponent(result.transactionId ?? "")}`,
-        );
+        const params = new URLSearchParams({
+          orderId: result.orderId,
+          transactionId: result.transactionId ?? "",
+        });
+        if (result.statusUrl) {
+          params.set("statusUrl", result.statusUrl);
+        }
+        const pendingUrl = withLocale(locale, `/checkout/pending?${params.toString()}`);
         router.push(pendingUrl);
         return;
       }
@@ -795,6 +829,41 @@ function CheckoutForm({
       ) : (
         <form className="grid gap-10 lg:grid-cols-[2fr_1fr]" onSubmit={handleSubmit}>
           <div className="space-y-6">
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">
+                      {dictionary.checkout.shippingNoticeTitle}
+                    </p>
+                    <p>{dictionary.banner.shippingIntro}</p>
+                    <p>
+                      {formatNoticeWithEmail(
+                        dictionary.banner.shippingContact,
+                        "font-semibold underline text-amber-900 underline-offset-2",
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 text-orange-600" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">
+                      {dictionary.checkout.multibancoNoticeTitle}
+                    </p>
+                    <p>
+                      {formatNoticeWithEmail(
+                        dictionary.checkout.multibancoNotice,
+                        "font-semibold underline text-orange-900 underline-offset-2",
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
             <Card>
               <CardHeader>
                 <CardTitle>{dictionary.checkout.contactInformation}</CardTitle>
@@ -829,6 +898,20 @@ function CheckoutForm({
                       setContact((prev) => ({ ...prev, phone: event.target.value }))
                     }
                   />
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <Label htmlFor="checkout-tax-id">
+                    {dictionary.checkout.taxIdLabel}
+                  </Label>
+                  <Input
+                    id="checkout-tax-id"
+                    value={taxId}
+                    onChange={(event) => setTaxId(event.target.value)}
+                    placeholder="123456789"
+                  />
+                  <p className="text-xs text-neutral-500">
+                    {dictionary.checkout.taxIdHelper}
+                  </p>
                 </div>
               </CardContent>
             </Card>

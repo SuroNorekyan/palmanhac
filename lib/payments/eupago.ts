@@ -280,25 +280,48 @@ const normaliseStatusPayload = (p: Record<string, unknown>): EuPagoStatusResult 
     .map((v) => (typeof v === "string" ? v.toLowerCase() : undefined))
     .find((v) => v && v.trim());
   let status: EuPagoStatusResult["status"] = "unknown";
-  if (
-    s?.includes("paid") ||
-    s === "ok" ||
-    s === "paga" ||
-    s === "pago" ||
+  const paidKeywords = [
+    "paid",
+    "pay",
+    "ok",
+    "success",
+    "sucesso",
+    "paga",
+    "pago",
+    "liquidado",
+    "completed",
+    "complete",
+  ];
+  const pendingKeywords = ["pend", "wait", "aguard", "process", "analise"];
+  const failureKeywords = ["fail", "error", "denied", "ko", "reject", "recus"];
+
+  const booleanPaid =
     p.paid === true ||
-    p.pago === 1
+    p.paid === "true" ||
+    p.success === true ||
+    p.success === "true" ||
+    p.confirmed === true ||
+    p.confirmado === true ||
+    p.ok === true ||
+    p.pago === 1 ||
+    p.pago === true ||
+    p.liquidado === true;
+
+  const statusCodePaid =
+    (typeof p.status_code === "number" && p.status_code === 0) ||
+    (typeof p.code === "number" && p.code === 0);
+
+  if (
+    booleanPaid ||
+    (s && paidKeywords.some((keyword) => s.includes(keyword))) ||
+    statusCodePaid
   )
     status = "paid";
-  else if (
-    s?.includes("fail") ||
-    s?.includes("error") ||
-    s?.includes("denied") ||
-    s === "ko"
-  )
-    status = "failed";
+  else if (s && failureKeywords.some((keyword) => s.includes(keyword))) status = "failed";
   else if (s?.includes("cancel")) status = "cancelled";
   else if (s?.includes("expir")) status = "expired";
-  else if (s?.includes("pend") || s?.includes("wait")) status = "pending";
+  else if (s && pendingKeywords.some((keyword) => s.includes(keyword)))
+    status = "pending";
 
   const error =
     (typeof p.error === "string" && p.error) ||

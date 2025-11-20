@@ -17,6 +17,25 @@ const localeStringArraySchema = z.object({
   pt: z.array(z.string()).default([]),
 });
 
+const imageUrlOrPathSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      if (!value) return false;
+      if (/^\/(assets|images)\//i.test(value)) {
+        return true;
+      }
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Provide an absolute URL or a path like /assets/file.png" },
+  );
+
 const productSchema = z.object({
   name: z.string().min(2),
   slug: z
@@ -25,8 +44,8 @@ const productSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with dashes."),
   category: z.string().min(2),
   priceCents: z.number().int().min(0),
-  image: z.string().url(),
-  galleryImages: z.array(z.string().url()).optional(),
+  image: imageUrlOrPathSchema,
+  galleryImages: z.array(imageUrlOrPathSchema).optional(),
   volumeMl: z.number().int().min(0),
   abv: z.number().min(0).max(100),
   stock: z.number().int().min(0).optional(),
@@ -130,7 +149,10 @@ export async function POST(request: NextRequest) {
         category: data.category,
         priceCents: data.priceCents,
         image: data.image,
-        galleryImages: data.galleryImages ?? [data.image],
+        galleryImages:
+          data.galleryImages && data.galleryImages.length
+            ? data.galleryImages
+            : [data.image],
         volumeMl: data.volumeMl,
         abv: data.abv,
         stock: data.stock ?? 0,

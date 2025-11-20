@@ -44,6 +44,7 @@ export const checkoutPayloadSchema = z.object({
   shipping: addressSchema,
   billing: addressSchema,
   notes: z.string().max(500).optional(),
+  taxId: z.string().trim().max(32).optional(),
   currency: z.string().default("EUR"),
   locale: z.string().optional(),
   mbwayPhone: z.string().max(20).optional(),

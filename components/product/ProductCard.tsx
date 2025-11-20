@@ -22,14 +22,29 @@ export type ProductCardProps = {
   product: ProductListItem;
   dictionary: Dictionary;
   locale: Locale;
+  variant?: "default" | "featured";
 };
 
-export function ProductCard({ product, dictionary, locale }: ProductCardProps) {
+export function ProductCard({
+  product,
+  dictionary,
+  locale,
+  variant = "default",
+}: ProductCardProps) {
   const addToCart = useCartStore((state) => state.addItem);
   const toggleFavorite = useFavoritesStore((state) => state.toggle);
   const isFavorite = useFavoritesStore((state) => state.has(product.id));
   const { toast } = useToast();
   const { status } = useSession();
+  const isFeatured = variant === "featured";
+  const imageWrapperClass = cn(
+    "relative bg-neutral-50 transition duration-500 group-hover:bg-neutral-100",
+    isFeatured ? "h-64 sm:h-72 px-10 pb-10 pt-10" : "h-56 sm:h-60 px-6 pb-6 pt-10",
+  );
+  const imageClass = cn(
+    "object-contain transition duration-500",
+    isFeatured ? "scale-95 sm:scale-100" : "scale-90 sm:scale-95",
+  );
 
   const handleAddToCart = () => {
     addToCart(product.id, 1);
@@ -72,12 +87,12 @@ export function ProductCard({ product, dictionary, locale }: ProductCardProps) {
         href={withLocale(locale, `/product/${product.slug}`)}
         className="relative block overflow-hidden"
       >
-        <div className="relative h-56 sm:h-60 bg-neutral-50 px-6 pb-6 pt-10 transition duration-500 group-hover:bg-neutral-100">
+        <div className={imageWrapperClass}>
           <Image
             src={product.image}
             alt={product.name}
             fill
-            className="object-contain scale-90 sm:scale-95 transition duration-500"
+            className={imageClass}
             sizes="(min-width: 640px) 15rem, 14rem"
             priority={false}
           />

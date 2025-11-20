@@ -2,7 +2,7 @@ export const locales = ["en", "pt"] as const;
 
 export type Locale = (typeof locales)[number];
 
-export const defaultLocale: Locale = "en";
+export const defaultLocale: Locale = "pt";
 
 type ContactInfo = {
   email: string;
@@ -20,7 +20,7 @@ export const siteConfig = {
   freeShippingThreshold: 50,
   currency: "EUR",
   contact: {
-    email: "info@palmanhac.pt",
+    email: "info@palmanhac-shop.pt",
     phone: "+351 964 690 254",
     address:
       "Destilaria-Adega Rua de Mercúrio lote 38, Vale do Alecrim, Palmela, 2950-019, Portugal",
