@@ -10,10 +10,7 @@ import type { Prisma } from "@prisma/client";
 import type Stripe from "stripe";
 import { auth } from "@/auth";
 import { EmailConfigurationError } from "@/lib/email/mailer";
-import {
-  sendOrderCreationNotifications,
-  type BilingualInstructions,
-} from "@/lib/email/order-notifications";
+import { sendOrderPlacedEmails } from "@/lib/email/order-notifications";
 import {
   checkoutPayloadSchema,
   normalizeCurrency,
@@ -39,19 +36,6 @@ const assertCardMethod = (payload: CheckoutPayload) => {
   if (payload.method !== "card") {
     throw new Error("Stripe checkout only supports card payments.");
   }
-};
-
-const stripeCardInstructions: BilingualInstructions = {
-  pt: [
-    "Estamos a processar o pagamento com cartão através da Stripe.",
-    "Se lhe for pedido um passo adicional (3DSecure), conclua-o na janela de pagamento.",
-    "Enviaremos uma atualização assim que o estado do pagamento for confirmado.",
-  ],
-  en: [
-    "We are securely processing your card payment with Stripe.",
-    "If any additional verification is required, follow the prompts in the card form.",
-    "We will email you again as soon as the payment status updates.",
-  ],
 };
 
 export async function POST(request: NextRequest) {
@@ -244,22 +228,20 @@ export async function POST(request: NextRequest) {
     const itemSummaries = payload.items.map((item) => ({
       name: nameMap.get(item.productId) ?? `Product ${item.productId}`,
       quantity: item.quantity,
+      unitPriceCents: priceMap.get(item.productId) ?? 0,
     }));
 
-    await sendOrderCreationNotifications({
+    await sendOrderPlacedEmails({
       orderId: order.id,
+      orderDate: order.createdAt,
       totalCents: totals.totalCents,
+      shippingCostCents: totals.deliveryCents,
       items: itemSummaries,
       customerName,
       customerEmail: payload.contact.email,
       customerPhone: payload.contact.phone,
-      shippingCity: payload.shipping.city,
-      paymentSummary: "CARD (Stripe)",
-      nif: payload.taxId,
-      notes: payload.notes,
-      methodInstructions: stripeCardInstructions,
-      adminSubject: `New Stripe order ${order.id}`,
-      customerSubject: `We received your order ${order.id}`,
+      shippingAddress: payload.shipping,
+      taxId: payload.taxId,
     });
   } catch (error) {
     if (error instanceof EmailConfigurationError) {

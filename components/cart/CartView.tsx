@@ -19,7 +19,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useCartStore } from "@/lib/store/cart";
 import { useFavoritesStore } from "@/lib/store/favorites";
 import { calculateCartTotals } from "@/lib/utils/cart-totals";
-import { formatCurrency, formatEuroAmount } from "@/lib/utils/currency";
+import { formatCurrency } from "@/lib/utils/currency";
 import { withLocale } from "@/lib/utils/locale";
 import type { ProductListItem } from "@/types/product";
 
@@ -70,7 +70,7 @@ export function CartView({
     lastIdentityRef.current = currentIdentity;
   }, [session?.user?.id, status]);
 
-  const { itemsSubtotalCents, discountCents, deliveryCents, totalCents, vatAmount } =
+  const { itemsSubtotalCents, discountCents, deliveryCents, totalCents, vatCents } =
     useMemo(() => calculateCartTotals(items, products), [items, products]);
 
   useEffect(() => {
@@ -254,9 +254,10 @@ export function CartView({
             <span>{dictionary.cart.total}</span>
             <span>{formatCurrency(locale, totalCents)}</span>
           </div>
-          <p className="text-xs text-neutral-500">
-            {dictionary.cart.vatIncluded} {formatEuroAmount(locale, vatAmount)}
-          </p>
+          <div className="flex items-center justify-between text-xs text-neutral-500">
+            <span>{dictionary.cart.vatIncluded}</span>
+            <span>{formatCurrency(locale, vatCents)}</span>
+          </div>
         </div>
         <Button size="lg" className="w-full" onClick={handleCheckout}>
           {dictionary.cart.checkout}

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { formatNoticeWithEmail, WarningNotice } from "@/components/common/WarningNotice";
 import { Button } from "@/components/ui/button";
-import type { Locale } from "@/config/site";
+import { siteConfig, type Locale } from "@/config/site";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { withLocale } from "@/lib/utils/locale";
 
@@ -19,6 +20,7 @@ export function CheckoutThankYou({ dictionary, locale, orderId }: CheckoutThankY
   const highlightHref = orderId
     ? withLocale(locale, `/orders?orderId=${encodeURIComponent(orderId)}`)
     : ordersHref;
+  const supportEmail = siteConfig.contact.email;
 
   return (
     <section className="mx-auto max-w-2xl space-y-6 rounded-3xl border border-[rgb(var(--border))] bg-white p-8 text-center shadow-sm">
@@ -34,6 +36,15 @@ export function CheckoutThankYou({ dictionary, locale, orderId }: CheckoutThankY
           </p>
         ) : null}
       </header>
+      <WarningNotice
+        variant="orange"
+        title={checkoutCopy.confirmationNoticeTitle}
+        message={formatNoticeWithEmail(
+          checkoutCopy.confirmationNotice,
+          supportEmail,
+          "font-semibold underline text-orange-900 underline-offset-2",
+        )}
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
         <Button asChild variant="outline">
           <Link href={ordersHref}>{checkoutCopy.thankYouOrdersCta}</Link>

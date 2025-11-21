@@ -17,7 +17,7 @@ export const siteConfig = {
     "Palmanhac Shop showcases premium Portuguese liqueurs, aguardente, and specialty spirits crafted in small batches.",
   defaultLocale,
   locales,
-  freeShippingThreshold: 50,
+  freeShippingThreshold: 60,
   currency: "EUR",
   contact: {
     email: "info@palmanhac-shop.pt",

@@ -1,0 +1,8 @@
+Database fixes – 2025-11-15
+--------------------------------
+1. Applied migrations against the live Railway Postgres database (`pnpm prisma migrate deploy`) so the new `taxId` column and prior schema updates exist remotely.
+2. Verified migration history/status (`pnpm prisma migrate status`) to confirm the production schema matches the Prisma schema.
+3. Re-ran the seed script (`pnpm prisma db seed`) so the admin account and catalog/mock data are restored after schema changes.
+4. Reconfirmed the deployment after re-applying `migrate deploy` to guard against any race conditions while debugging the local admin error.
+
+**Local development note:** The `Invalid prisma.order.findMany()` error on `/admin` happens when your local database has not been migrated to include the `taxId` column. Run `pnpm prisma migrate dev --name add_order_tax_id` (or `pnpm prisma migrate deploy`) using the same `DATABASE_URL` you use for development, then restart `pnpm dev`. Once the migration runs locally the admin dashboard loads normally.

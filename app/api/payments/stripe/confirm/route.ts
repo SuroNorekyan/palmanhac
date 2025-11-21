@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { OrderStatus, PaymentProvider, PaymentStatus } from "@prisma/client";
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentProvider,
+  PaymentStatus,
+} from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import type Stripe from "stripe";
 import { auth } from "@/auth";
+import { EmailConfigurationError } from "@/lib/email/mailer";
 import {
-  EmailConfigurationError,
-  formatEmailBlock,
-  sendAdminEmail,
-  sendEmail,
-} from "@/lib/email/mailer";
+  normalizeMailingAddress,
+  sendPaymentConfirmationEmails,
+} from "@/lib/email/order-notifications";
 import { getStripeClient } from "@/lib/payments/stripe";
 import { prisma } from "@/lib/server/db";
 import { appendOrderEvent } from "@/lib/utils/order-events";
@@ -52,6 +56,16 @@ export async function POST(request: NextRequest) {
       totalAmount: true,
       contactEmail: true,
       contactPhone: true,
+      taxId: true,
+      createdAt: true,
+      items: {
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          product: { select: { name: true } },
+        },
+      },
       shippingAddress: true,
       user: {
         select: {
@@ -142,6 +156,17 @@ export async function POST(request: NextRequest) {
       totalAmount: true,
       shippingAddress: true,
       contactEmail: true,
+      contactPhone: true,
+      taxId: true,
+      createdAt: true,
+      items: {
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          product: { select: { name: true } },
+        },
+      },
     },
   });
 
@@ -152,39 +177,37 @@ export async function POST(request: NextRequest) {
   });
 
   try {
-    await sendAdminEmail({
-      subject: `Stripe order ${updated.id} paid`,
-      text: formatEmailBlock([
-        `Order ID: ${updated.id}`,
-        `Total: €${(updated.totalAmount / 100).toFixed(2)}`,
-        `Status: ${paymentIntent.status}`,
-        updated.shippingAddress && typeof updated.shippingAddress === "object"
-          ? `Ship to: ${(updated.shippingAddress as Record<string, string>).name ?? ""}`
-          : "",
-      ]),
-    });
-
+    const normalizedAddress = normalizeMailingAddress(updated.shippingAddress);
+    const emailItems = updated.items.map((item) => ({
+      name: item.product?.name ?? `Product ${item.productId}`,
+      quantity: item.quantity,
+      unitPriceCents: item.unitPrice,
+    }));
     const customerEmail =
       updated.contactEmail ??
       order.contactEmail ??
       order.user?.email ??
       session.user.email ??
-      null;
-    if (customerEmail) {
-      await sendEmail({
-        to: customerEmail,
-        subject: `Payment confirmed for order ${updated.id}`,
-        text: formatEmailBlock([
-          "Good news!",
-          "",
-          `Your Palmanhac order ${updated.id} was paid successfully.`,
-          "Our team is preparing it for shipping and you can monitor the fulfilment progress from the Orders page.",
-          "",
-          `Total: €${(updated.totalAmount / 100).toFixed(2)}`,
-          `Status: ${paymentIntent.status}`,
-        ]),
-      });
-    }
+      undefined;
+    const customerName =
+      order.user?.name ||
+      normalizedAddress.name ||
+      session.user.name ||
+      "Cliente Palmanhac";
+
+    await sendPaymentConfirmationEmails({
+      orderId: updated.id,
+      orderDate: order.createdAt,
+      totalCents: updated.totalAmount,
+      items: emailItems,
+      customerName,
+      customerEmail,
+      customerPhone: updated.contactPhone ?? order.contactPhone ?? undefined,
+      shippingAddress: normalizedAddress,
+      taxId: order.taxId ?? undefined,
+      paymentDate: paidAt,
+      paymentMethod: PaymentMethod.CARD,
+    });
   } catch (error) {
     if (error instanceof EmailConfigurationError) {
       console.warn("[Email] Payment confirmation notification skipped:", error.message);

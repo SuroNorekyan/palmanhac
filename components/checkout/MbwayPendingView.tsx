@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatNoticeWithEmail, WarningNotice } from "@/components/common/WarningNotice";
 import { Button } from "@/components/ui/button";
-import type { Locale } from "@/config/site";
+import { siteConfig, type Locale } from "@/config/site";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useCartStore } from "@/lib/store/cart";
 import { withLocale } from "@/lib/utils/locale";
@@ -28,6 +29,7 @@ export function MbwayPendingView({
 }: MbwayPendingViewProps) {
   const router = useRouter();
   const clearCart = useCartStore((state) => state.clear);
+  const supportEmail = siteConfig.contact.email;
   const friendlyOrderCode = `#${orderId.slice(0, 8).toUpperCase()}`;
   const [statusState, setStatusState] = useState<StatusState>("pending");
   const [statusMessage, setStatusMessage] = useState(
@@ -177,6 +179,15 @@ export function MbwayPendingView({
           )}
         </p>
       ) : null}
+      <WarningNotice
+        variant="orange"
+        title={dictionary.checkout.confirmationNoticeTitle}
+        message={formatNoticeWithEmail(
+          dictionary.checkout.confirmationNotice,
+          supportEmail,
+          "font-semibold underline text-orange-900 underline-offset-2",
+        )}
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
         <Button
           type="button"

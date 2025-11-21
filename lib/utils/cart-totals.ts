@@ -1,3 +1,5 @@
+import { siteConfig } from "@/config/site";
+
 export type CartItemLike = {
   productId: number;
   quantity: number;
@@ -13,13 +15,14 @@ export type CartTotals = {
   discountCents: number;
   deliveryCents: number;
   totalCents: number;
-  vatAmount: number;
+  vatCents: number;
 };
 
 export const calculateCartTotals = (
   items: CartItemLike[],
   products: CartProductLike[],
 ): CartTotals => {
+  const freeShippingThresholdCents = siteConfig.freeShippingThreshold * 100;
   const priceMap = new Map(products.map((product) => [product.id, product.priceCents]));
   let subtotal = 0;
   let bottleCount = 0;
@@ -38,18 +41,18 @@ export const calculateCartTotals = (
   const discountedSubtotal = subtotal - discountCents;
 
   let deliveryCents = 0;
-  if (discountedSubtotal < 5000) {
+  if (discountedSubtotal < freeShippingThresholdCents) {
     deliveryCents = bottleCount <= 2 ? 600 : 800;
   }
 
   const totalCents = discountedSubtotal + deliveryCents;
-  const vatAmount = totalCents / 100 - totalCents / (100 * 1.23);
+  const vatCents = Math.round(totalCents - totalCents / 1.23);
 
   return {
     itemsSubtotalCents: subtotal,
     discountCents,
     deliveryCents,
     totalCents,
-    vatAmount,
+    vatCents,
   };
 };

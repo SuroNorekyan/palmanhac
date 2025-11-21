@@ -1,0 +1,73 @@
+# UI Tweaks PRD
+
+Context:
+These changes are focused on polishing the Palmanhac storefront UI/UX, improving consistency, and fixing small usability issues. All changes must preserve existing functionality and must not modify any database data or core business logic.
+
+Requirements:
+
+1. Navbar ordering (Header.tsx)
+- In the navbar (`Header.tsx`), ensure that the **"About Us"** link is displayed first.
+- The rest of the navigation links should follow after "About Us" in their current relative order.
+
+2. FeaturedCarousel image sizing
+- In the `FeaturedCarousel` component:
+  - Make sure the **entire image is visible** (no important parts cropped off).
+  - Increase the **carousel size** so images look more prominent if necessary.
+  - Ensure that the **navigation/next elements** (arrows, indicators, etc.) remain consistent in size and layout.
+  - After adjusting image sizing, the carousel container should adapt correctly so the whole image is shown, but without breaking the layout.
+
+3. Toasts: add close button
+- For toast notifications used across the project (e.g. in `ProductCard.tsx` and similar components):
+  - Add a **small close (“×”) button** on each toast.
+  - This should apply to all toasts triggered by actions such as:
+    - Item added to cart
+    - Item added to favorites
+    - Other similar actions
+  - Ensure the close button is visually small and unobtrusive, but clearly clickable.
+
+4. Sorting behavior on main page (/[locale])
+- On the main page (`/en`, `/pt`, handled by `app/[locale]/page.tsx`), when sorting is applied:
+  - Currently, the URL changes to something like `en?sort=price-asc` and the page is fully refreshed.
+  - **Preferred behavior (ideal)**:
+    - Apply sorting **dynamically without a full page reload**, updating the product list in-place while still updating the URL query (e.g. `?sort=price-asc`) so sorting is shareable.
+  - **Fallback behavior (if a full reload is required)**:
+    - When sorting is applied and the page reloads, **restore the scroll position** (or scroll back to the previous approximate position) so the user does not have to manually scroll down again to where they were.
+  - Implement whichever approach fits best with the existing architecture, giving preference to dynamic sorting.
+
+5. Email address consistency
+- Across the entire project, replace any usage of `info@palmanhac-shop.pt` with `info@palmanhac-shop.pt`.
+- After this change:
+  - The email `info@palmanhac-shop.pt` **must not be referenced anywhere** (code, UI, email templates, etc.).
+  - Only `info@palmanhac-shop.pt` should be used as the contact email.
+
+6. Order notification email formatting
+- In `lib/email/order-notifications.ts`, order confirmation emails currently attempt to use markdown-style formatting like `**bold**`, but in the final email, the asterisks appear literally and text is not bold.
+- Required:
+  - Either:
+    - Remove markdown-style formatting and keep emails as simple plain text, **or**
+    - Ensure that the formatting is properly converted (e.g. to HTML) so that bold text actually renders as bold in typical email clients.
+- Also update `palmanhac/scripts/send-test-email.ts`:
+  - Send a test formatted email to `suren.norekyan123@gmail.com` so we can verify the formatting.
+  - The test email should include bold sections similar to the real order email (e.g. order number, total amount, team name) so we can confirm that formatting works.
+- Example of the current (broken) email structure (for reference only, do not hard-code these values):
+  - PT and EN sections with headings like:
+    - `**Número da encomenda:** #12C50575`
+    - `**Order number:** #12C50575`
+    - `**Equipa Palmanhac**` / `**Palmanhac Team**`
+- Final result:
+  - Real order emails should have **correctly rendered formatting** (bold where intended), without showing raw asterisks.
+
+7. Admin product category dropdown
+- On `/admin/products/new` (file: `app/admin/products/new/page.tsx`):
+  - For the product **Category** field, replace any free-text input with a **dropdown**.
+  - The dropdown must contain exactly these categories used in the web app:
+    - `licor`
+    - `aguardente`
+    - `bebida-espirituosa`
+  - Ensure that the selected value is correctly wired to the existing form logic and stored consistently with the current backend expectations.
+
+8. Safety and quality
+- Do **not** change any database schema or existing data.
+- Do **not** break core app functionality (checkout, payments, auth, etc.).
+- Ensure there are **no TypeScript or runtime errors** after these changes.
+- Keep styling consistent with the existing design system and components.

@@ -1,4 +1,4 @@
-# === Project Dump (2025-11-11T13:42:27.082Z) ===
+# === Project Dump (2025-11-20T10:19:17.378Z) ===
 
 
 # --- app/[locale]/about/page.tsx ---
@@ -250,6 +250,7 @@ export default async function AccountPage({
         id: session.user.id,
         name: session.user.name,
         email: session.user.email,
+        role: (session.user as { role?: string }).role,
       }}
     />
   );
@@ -422,6 +423,43 @@ export default async function CheckoutPage({
   return <CheckoutView dictionary={dictionary} locale={locale} />;
 }
 # --- end of app/[locale]/checkout/page.tsx ---
+
+# --- app/[locale]/checkout/pending/page.tsx ---
+import { MbwayPendingView } from "@/components/checkout/MbwayPendingView";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function MbwayPendingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ orderId?: string; transactionId?: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+  const resolvedSearch = (await searchParams) ?? {};
+
+  if (!resolvedSearch.orderId) {
+    return (
+      <section className="mx-auto max-w-xl space-y-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-8 text-center shadow-sm">
+        <h1 className="text-2xl font-semibold text-neutral-900">
+          {dictionary.checkout.pendingMissingOrder}
+        </h1>
+      </section>
+    );
+  }
+
+  return (
+    <MbwayPendingView
+      dictionary={dictionary}
+      locale={locale}
+      orderId={resolvedSearch.orderId}
+      transactionId={resolvedSearch.transactionId}
+    />
+  );
+}
+# --- end of app/[locale]/checkout/pending/page.tsx ---
 
 # --- app/[locale]/contact/page.tsx ---
 import { ContactForm } from "@/components/common/ContactForm";
@@ -715,6 +753,27 @@ export default async function OrdersPage({
             "{count}",
             order.items.length.toString(),
           );
+          let paymentHint: string | null = null;
+          if (order.paymentStatus === "PAID") {
+            paymentHint = dictionary.orders.statusDetails.paid;
+          } else if (order.paymentMethod === "MBWAY") {
+            paymentHint = dictionary.orders.statusDetails.mbwayPending;
+          } else if (order.paymentMethod === "MULTIBANCO") {
+            paymentHint = dictionary.orders.statusDetails.multibancoPending;
+          } else if (order.paymentMethod === "CARD") {
+            paymentHint = dictionary.orders.statusDetails.cardPending;
+          }
+          const paymentMethodKey =
+            order.paymentMethod === "MBWAY"
+              ? "mbway"
+              : order.paymentMethod === "CARD"
+                ? "card"
+                : order.paymentMethod === "MULTIBANCO"
+                  ? "multibanco"
+                  : null;
+          const paymentMethodLabel = paymentMethodKey
+            ? dictionary.checkout.methods[paymentMethodKey]
+            : (order.paymentProvider ?? dictionary.orders.paymentMethodUnknown);
           return (
             <article
               key={order.id}
@@ -743,6 +802,12 @@ export default async function OrdersPage({
                   {dictionary.orders.total}: {formatCurrency(locale, order.totalAmount)}
                 </span>
               </div>
+              <div className="text-sm text-neutral-600">
+                {dictionary.orders.paymentMethodLabel}:{" "}
+                <span className="font-semibold text-neutral-900">
+                  {paymentMethodLabel}
+                </span>
+              </div>
               <ul className="space-y-3">
                 {order.items.length === 0 ? (
                   <li className="text-sm text-neutral-500">
@@ -769,6 +834,11 @@ export default async function OrdersPage({
                   ))
                 )}
               </ul>
+              {paymentHint ? (
+                <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
+                  {paymentHint}
+                </p>
+              ) : null}
             </article>
           );
         })}
@@ -955,6 +1025,9 @@ import {
   getProductBySlug,
   getRelatedProducts,
 } from "@/lib/server/products";
+
+export const dynamicParams = true;
+export const revalidate = 0;
 
 export async function generateStaticParams() {
   const slugs = await getAllProductSlugs();
@@ -1235,6 +1308,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
+import { DeleteOrderButton } from "@/components/admin/orders/DeleteOrderButton";
 import { OrderStatusForm } from "@/components/admin/orders/OrderStatusForm";
 import { defaultLocale } from "@/config/site";
 import { prisma } from "@/lib/server/db";
@@ -1350,12 +1424,18 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             })}
           </p>
         </div>
-        <Link
-          href="/admin/orders"
-          className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
-        >
-          Back to orders
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/orders"
+            className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
+          >
+            Back to orders
+          </Link>
+          <DeleteOrderButton
+            orderId={order.id}
+            orderLabel={`#${order.id.slice(0, 8).toUpperCase()}`}
+          />
+        </div>
       </header>
 
       <section className="grid gap-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm md:grid-cols-2">
@@ -1366,6 +1446,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           </p>
           <p>{order.contactEmail ?? order.user?.email ?? "—"}</p>
           <p>{order.contactPhone ?? "—"}</p>
+          <p>NIF/TIN: {order.taxId ?? "—"}</p>
         </div>
         <div className="space-y-2 text-sm text-neutral-700">
           <p className="text-xs uppercase tracking-wide text-neutral-500">Payment</p>
@@ -1507,6 +1588,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ADMIN_PAGE_SIZE, AdminPagination } from "@/components/admin/AdminPagination";
+import { DeleteOrderButton } from "@/components/admin/orders/DeleteOrderButton";
 import { defaultLocale } from "@/config/site";
 import { prisma } from "@/lib/server/db";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -1549,6 +1631,7 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
         providerRef: true,
         paidAt: true,
         createdAt: true,
+        taxId: true,
         user: {
           select: {
             name: true,
@@ -1621,6 +1704,9 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
                       <p className="text-xs text-neutral-500">
                         {order.user?.email ?? "—"}
                       </p>
+                      {order.taxId ? (
+                        <p className="text-xs text-neutral-500">NIF/TIN: {order.taxId}</p>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-4 py-3 font-semibold text-neutral-900">
@@ -1651,12 +1737,18 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/admin/orders/${order.id}`}
-                      className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
-                    >
-                      View
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/admin/orders/${order.id}`}
+                        className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
+                      >
+                        View
+                      </Link>
+                      <DeleteOrderButton
+                        orderId={order.id}
+                        orderLabel={`#${order.id.slice(0, 8).toUpperCase()}`}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))
@@ -1713,6 +1805,7 @@ export default async function AdminDashboardPage() {
           totalAmount: true,
           paymentStatus: true,
           paymentMethod: true,
+          taxId: true,
           createdAt: true,
           user: { select: { name: true, email: true } },
         },
@@ -1776,6 +1869,9 @@ export default async function AdminDashboardPage() {
                   <p className="text-sm text-neutral-600">
                     {order.user?.name ?? order.user?.email ?? "Guest"}
                   </p>
+                  {order.taxId ? (
+                    <p className="text-xs text-neutral-500">NIF/TIN: {order.taxId}</p>
+                  ) : null}
                 </div>
                 <div className="text-right text-sm text-neutral-600">
                   <p className="font-semibold text-neutral-900">
@@ -1881,7 +1977,7 @@ import { prisma } from "@/lib/server/db";
 export const dynamic = "force-dynamic";
 
 type Params = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export default async function AdminProductEditPage({ params }: Params) {
@@ -1889,11 +1985,12 @@ export default async function AdminProductEditPage({ params }: Params) {
   if (!session?.user || session.user.role !== "ADMIN") {
     redirect("/account");
   }
-  if (session.user.twoFAEnabled && !session.twoFAVerified) {
+  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
     redirect("/admin/2fa/challenge");
   }
 
-  const productId = Number.parseInt(params.id, 10);
+  const { id } = await params;
+  const productId = Number.parseInt(id, 10);
   if (!Number.isInteger(productId)) {
     notFound();
   }
@@ -1975,7 +2072,7 @@ export default async function AdminProductCreatePage() {
   if (!session?.user || session.user.role !== "ADMIN") {
     redirect("/account");
   }
-  if (session.user.twoFAEnabled && !session.twoFAVerified) {
+  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
     redirect("/admin/2fa/challenge");
   }
 
@@ -2016,7 +2113,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 export const dynamic = "force-dynamic";
 
 type ProductsPageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function AdminProductsPage({ searchParams }: ProductsPageProps) {
@@ -2024,11 +2121,11 @@ export default async function AdminProductsPage({ searchParams }: ProductsPagePr
   if (!session?.user || session.user.role !== "ADMIN") {
     redirect("/account");
   }
-  if (session.user.twoFAEnabled && !session.twoFAVerified) {
+  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
     redirect("/admin/2fa/challenge");
   }
 
-  const resolvedParams = searchParams ?? {};
+  const resolvedParams = (await searchParams) ?? {};
   const pageParam = Array.isArray(resolvedParams.page)
     ? resolvedParams.page[0]
     : resolvedParams.page;
@@ -2611,6 +2708,23 @@ export async function PATCH(
     return handleError(error, "Failed to update order.");
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdminSession();
+    const { id } = await context.params;
+    await prisma.order.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+    return handleError(error, "Failed to delete order.");
+  }
+}
 # --- end of app/api/admin/orders/[id]/route.ts ---
 
 # --- app/api/admin/orders/route.ts ---
@@ -2708,6 +2822,23 @@ const localeStringArraySchema = z.object({
   pt: z.array(z.string()).default([]),
 });
 
+const imageUrlOrPathSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      if (!value) return false;
+      if (/^\/(assets|images)\//i.test(value)) return true;
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Provide an absolute URL or a path like /assets/file.png" },
+  );
+
 const updateSchema = z
   .object({
     name: z.string().min(2).optional(),
@@ -2718,8 +2849,8 @@ const updateSchema = z
       .optional(),
     category: z.string().min(2).optional(),
     priceCents: z.number().int().min(0).optional(),
-    image: z.string().url().optional(),
-    galleryImages: z.array(z.string().url()).optional(),
+    image: imageUrlOrPathSchema.optional(),
+    galleryImages: z.array(imageUrlOrPathSchema).optional(),
     volumeMl: z.number().int().min(0).optional(),
     abv: z.number().min(0).max(100).optional(),
     stock: z.number().int().min(0).optional(),
@@ -2902,6 +3033,25 @@ const localeStringArraySchema = z.object({
   pt: z.array(z.string()).default([]),
 });
 
+const imageUrlOrPathSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      if (!value) return false;
+      if (/^\/(assets|images)\//i.test(value)) {
+        return true;
+      }
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Provide an absolute URL or a path like /assets/file.png" },
+  );
+
 const productSchema = z.object({
   name: z.string().min(2),
   slug: z
@@ -2910,8 +3060,8 @@ const productSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with dashes."),
   category: z.string().min(2),
   priceCents: z.number().int().min(0),
-  image: z.string().url(),
-  galleryImages: z.array(z.string().url()).optional(),
+  image: imageUrlOrPathSchema,
+  galleryImages: z.array(imageUrlOrPathSchema).optional(),
   volumeMl: z.number().int().min(0),
   abv: z.number().min(0).max(100),
   stock: z.number().int().min(0).optional(),
@@ -3015,7 +3165,9 @@ export async function POST(request: NextRequest) {
         category: data.category,
         priceCents: data.priceCents,
         image: data.image,
-        galleryImages: data.galleryImages ?? [data.image],
+        galleryImages: data.galleryImages && data.galleryImages.length
+          ? data.galleryImages
+          : [data.image],
         volumeMl: data.volumeMl,
         abv: data.abv,
         stock: data.stock ?? 0,
@@ -3434,77 +3586,111 @@ import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { PaymentMethod, PaymentProvider, PaymentStatus } from "@prisma/client";
-import { z } from "zod";
 import { auth } from "@/auth";
+import { EmailConfigurationError } from "@/lib/email/mailer";
 import {
-  EmailConfigurationError,
-  formatEmailBlock,
-  sendAdminEmail,
-} from "@/lib/email/mailer";
+  sendOrderCreationNotifications,
+  type BilingualInstructions,
+} from "@/lib/email/order-notifications";
+import {
+  checkoutPayloadSchema,
+  normalizeCurrency,
+  parseMbwayPhone,
+} from "@/lib/payments/checkout-schema";
 import {
   createCard,
   createMBWay,
   createMultibanco,
   deriveProviderReference,
-  normaliseProviderReference,
   EuPagoAPIError,
   EuPagoConfigurationError,
+  normaliseProviderReference,
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { calculateCartTotals } from "@/lib/utils/cart-totals";
-import { normalizeCountryInput } from "@/lib/utils/country";
 import { appendOrderEvent } from "@/lib/utils/order-events";
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { redactForLogging } from "@/lib/utils/redact";
 
-const countryCodeSchema = z
-  .string()
-  .min(2)
-  .max(120)
-  .transform((value, ctx) => {
-    try {
-      return normalizeCountryInput(value);
-    } catch (error) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: error instanceof Error ? error.message : "Invalid country.",
-      });
-      return z.NEVER;
-    }
-  });
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const addressSchema = z.object({
-  name: z.string().min(1).max(120),
-  line1: z.string().min(1).max(200),
-  line2: z.string().max(200).optional(),
-  city: z.string().min(1).max(120),
-  postalCode: z.string().min(1).max(60),
-  country: countryCodeSchema,
-});
+const logCheckoutEvent = (
+  level: Parameters<typeof logPaymentEvent>[0],
+  event: string,
+  details: Record<string, unknown> = {},
+) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
 
-const payloadSchema = z.object({
-  method: z.enum(["multibanco", "mbway", "card"]),
-  items: z
-    .array(
-      z.object({
-        productId: z.number().int().min(1),
-        quantity: z.number().int().min(1).max(99),
-      }),
-    )
-    .min(1),
-  contact: z.object({
-    email: z.string().email(),
-    phone: z.string().max(50).optional(),
-    name: z.string().max(120).optional(),
-  }),
-  shipping: addressSchema,
-  billing: addressSchema,
-  notes: z.string().max(500).optional(),
-  currency: z.string().default("EUR"),
-  locale: z.string().optional(),
-  mbwayPhone: z.string().max(20).optional(),
-});
+type EuPagoPaymentResult =
+  | Awaited<ReturnType<typeof createMultibanco>>
+  | Awaited<ReturnType<typeof createMBWay>>
+  | Awaited<ReturnType<typeof createCard>>;
 
-const normalizeCurrency = (currency: string) => currency.trim().toUpperCase() || "EUR";
+const formatEuroFromCents = (cents: number) => `€${(cents / 100).toFixed(2)}`;
+
+const formatEuPagoAmount = (amount: number | undefined, totalCents: number) => {
+  if (typeof amount === "number" && Number.isFinite(amount)) {
+    return `€${amount.toFixed(2)}`;
+  }
+  return formatEuroFromCents(totalCents);
+};
+
+const buildEupagoInstructions = (
+  result: EuPagoPaymentResult,
+  totalCents: number,
+): BilingualInstructions | undefined => {
+  if (result.method === "multibanco") {
+    const amount = formatEuPagoAmount(result.amount, totalCents);
+    return {
+      pt: [
+        "Como concluir o pagamento via Multibanco:",
+        `Entidade: ${result.entity}`,
+        `Referência: ${result.reference}`,
+        `Valor: ${amount}`,
+        result.expiresAt ? `Disponível até: ${result.expiresAt}` : "",
+        "Finalize o pagamento num terminal Multibanco ou no seu banco online para confirmar a encomenda.",
+      ],
+      en: [
+        "How to finish your Multibanco payment:",
+        `Entity: ${result.entity}`,
+        `Reference: ${result.reference}`,
+        `Amount: ${amount}`,
+        result.expiresAt ? `Expires on: ${result.expiresAt}` : "",
+        "Complete the payment at an ATM or via your online banking to confirm the order.",
+      ],
+    };
+  }
+
+  if (result.method === "mbway") {
+    return {
+      pt: [
+        "Abra a app MB WAY e confirme o pedido que acabou de receber.",
+        `ID da transação: ${result.transactionId}`,
+        result.statusUrl ? `Estado em tempo real: ${result.statusUrl}` : "",
+      ],
+      en: [
+        "Open your MB WAY app and approve the request we just sent.",
+        `Transaction ID: ${result.transactionId}`,
+        result.statusUrl ? `Live status: ${result.statusUrl}` : "",
+      ],
+    };
+  }
+
+  if (result.method === "card") {
+    return {
+      pt: [
+        "Conclua o pagamento com cartão através da página segura que abriu no browser.",
+        "Caso a janela tenha sido fechada, utilize o link mostrado no checkout para voltar a abri-la.",
+      ],
+      en: [
+        "Finish the secure card payment in the page that just opened in your browser.",
+        "If you closed the window, reopen the link provided on the checkout page to continue.",
+      ],
+    };
+  }
+
+  return undefined;
+};
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -3513,9 +3699,9 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = payloadSchema.safeParse(body);
+  const parsed = checkoutPayloadSchema.safeParse(body);
   if (!parsed.success) {
-    await logPaymentEvent("warn", "checkout_invalid_payload", {
+    await logCheckoutEvent("warn", "checkout_invalid_payload", {
       userId: session.user.id,
       issues: parsed.error.flatten(),
     });
@@ -3572,7 +3758,7 @@ export async function POST(request: NextRequest) {
     },
   };
 
-  await logPaymentEvent("info", "checkout_request_received", {
+  await logCheckoutEvent("info", "checkout_request_received", {
     userId: session.user.id,
     orderId,
     method: payload.method,
@@ -3587,7 +3773,7 @@ export async function POST(request: NextRequest) {
     | Awaited<ReturnType<typeof createCard>>;
 
   if (process.env.NODE_ENV !== "production") {
-    console.debug("[Checkout] Creating EuPago payment", {
+    await logCheckoutEvent("debug", "checkout_payment_attempt", {
       method: payload.method,
       orderId,
       totalCents: totals.totalCents,
@@ -3606,19 +3792,35 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
+      let parsedPhone: { phone: string; countryCode: string };
+      try {
+        parsedPhone = parseMbwayPhone(phone);
+      } catch {
+        return NextResponse.json(
+          {
+            error:
+              "Please provide a valid MB WAY phone number (include country code, e.g. +351912345678).",
+          },
+          { status: 400 },
+        );
+      }
       if (process.env.NODE_ENV !== "production") {
-        console.debug("[Checkout] MB WAY payload", {
+        await logCheckoutEvent("debug", "checkout_mbway_payload", {
           orderId,
           amount: orderInput.amountCents / 100,
-          phone,
+          phone: parsedPhone,
           customer: orderInput.customer,
           locale: orderInput.locale,
         });
       }
-      paymentResult = await createMBWay({ ...orderInput, phone });
+      paymentResult = await createMBWay({
+        ...orderInput,
+        phone: parsedPhone.phone,
+        countryCode: parsedPhone.countryCode,
+      });
     } else {
       if (process.env.NODE_ENV !== "production") {
-        console.debug("[Checkout] Card payload", {
+        await logCheckoutEvent("debug", "checkout_card_payload", {
           orderId,
           amount: orderInput.amountCents / 100,
           customer: orderInput.customer,
@@ -3629,7 +3831,7 @@ export async function POST(request: NextRequest) {
       paymentResult = await createCard(orderInput);
     }
   } catch (error) {
-    await logPaymentEvent("error", "checkout_eupago_error", {
+    await logCheckoutEvent("error", "checkout_eupago_error", {
       orderId,
       method: payload.method,
       error:
@@ -3643,7 +3845,7 @@ export async function POST(request: NextRequest) {
       );
     }
     if (error instanceof EuPagoAPIError) {
-      console.error("[EuPago] API error:", error.message, error.response);
+      console.error("[EuPago] API error:", error.message);
       return NextResponse.json(
         { error: "Unable to initialize EuPago payment. Please try again." },
         { status: 502 },
@@ -3674,7 +3876,7 @@ export async function POST(request: NextRequest) {
             paymentUrl: paymentResult.paymentUrl,
           };
 
-  await logPaymentEvent("info", "checkout_eupago_payment_created", {
+  await logCheckoutEvent("info", "checkout_eupago_payment_created", {
     orderId,
     method: paymentResult.method,
     ...paymentLogDetails,
@@ -3733,6 +3935,7 @@ export async function POST(request: NextRequest) {
           },
           contactEmail: payload.contact.email,
           contactPhone: payload.contact.phone,
+          taxId: payload.taxId,
           shippingAddress: payload.shipping,
           billingAddress: payload.billing,
           locale: payload.locale,
@@ -3757,7 +3960,7 @@ export async function POST(request: NextRequest) {
       return createdOrder;
     });
   } catch (error) {
-    await logPaymentEvent("error", "checkout_order_persist_error", {
+    await logCheckoutEvent("error", "checkout_order_persist_error", {
       orderId,
       providerRef,
       error: error instanceof Error ? error.message : "Failed to persist order.",
@@ -3769,7 +3972,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await logPaymentEvent("info", "checkout_order_created", {
+  await logCheckoutEvent("info", "checkout_order_created", {
     orderId: order.id,
     providerRef,
     paymentMethod: paymentResult.method,
@@ -3780,25 +3983,31 @@ export async function POST(request: NextRequest) {
     const nameMap = new Map(products.map((product) => [product.id, product.name]));
     const customerName =
       payload.shipping.name || payload.contact.name || session.user.name || "Customer";
-    const itemLines = payload.items.map((item) => {
-      const name = nameMap.get(item.productId) ?? `Product ${item.productId}`;
-      return `- ${name} × ${item.quantity}`;
-    });
+    const itemSummaries = payload.items.map((item) => ({
+      name: nameMap.get(item.productId) ?? `Product ${item.productId}`,
+      quantity: item.quantity,
+    }));
+    const paymentSummary =
+      paymentResult.method === "multibanco"
+        ? "MULTIBANCO (EuPago)"
+        : paymentResult.method === "mbway"
+          ? "MB WAY (EuPago)"
+          : "CARD (EuPago)";
 
-    await sendAdminEmail({
-      subject: `New order ${order.id}`,
-      text: formatEmailBlock([
-        `Order ID: ${order.id}`,
-        `Payment method: ${paymentResult.method.toUpperCase()}`,
-        `Total: €${(totals.totalCents / 100).toFixed(2)}`,
-        `Customer: ${customerName}`,
-        `Email: ${payload.contact.email}`,
-        payload.contact.phone ? `Phone: ${payload.contact.phone}` : "",
-        payload.shipping.city ? `City: ${payload.shipping.city}` : "",
-        "",
-        "Items:",
-        ...itemLines,
-      ]),
+    await sendOrderCreationNotifications({
+      orderId: order.id,
+      totalCents: totals.totalCents,
+      items: itemSummaries,
+      customerName,
+      customerEmail: payload.contact.email,
+      customerPhone: payload.contact.phone,
+      shippingCity: payload.shipping.city,
+      paymentSummary,
+      nif: payload.taxId,
+      notes: payload.notes,
+      methodInstructions: buildEupagoInstructions(paymentResult, totals.totalCents),
+      adminSubject: `New order ${order.id}`,
+      customerSubject: `We received your order ${order.id}`,
     });
   } catch (error) {
     if (error instanceof EmailConfigurationError) {
@@ -3855,6 +4064,16 @@ import {
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { redactForLogging } from "@/lib/utils/redact";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const logStatusEvent = (
+  level: Parameters<typeof logPaymentEvent>[0],
+  event: string,
+  details: Record<string, unknown> = {},
+) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
 
 const normaliseTransactionId = (value: string) => value.replace(/[^0-9A-Za-z_-]/g, "");
 const normalizeReferenceDigits = (value: string | null | undefined) =>
@@ -3875,19 +4094,23 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const transactionId = searchParams.get("transactionId");
   if (!transactionId) {
-    await logPaymentEvent("warn", "checkout_status_missing_transaction", {
+    await logStatusEvent("warn", "checkout_status_missing_transaction", {
       userId: session.user.id,
     });
     return NextResponse.json({ error: "transactionId is required." }, { status: 400 });
   }
 
-  const candidateRefs = Array.from(
-    new Set(
-      [transactionId, normaliseTransactionId(transactionId)]
-        .filter((value): value is string => Boolean(value))
-        .map((value) => value.trim()),
-    ),
+  const baseCandidates = [transactionId, normaliseTransactionId(transactionId)].filter(
+    (value): value is string => Boolean(value),
   );
+  const candidateSet = new Set<string>();
+  for (const candidate of baseCandidates) {
+    const trimmed = candidate.trim();
+    if (!trimmed) continue;
+    candidateSet.add(trimmed);
+    candidateSet.add(trimmed.toUpperCase());
+  }
+  const candidateRefs = Array.from(candidateSet);
 
   const order = await prisma.order.findFirst({
     where: {
@@ -3907,7 +4130,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!order) {
-    await logPaymentEvent("warn", "checkout_status_order_not_found", {
+    await logStatusEvent("warn", "checkout_status_order_not_found", {
       userId: session.user.id,
       transactionId,
       candidateRefs,
@@ -3915,7 +4138,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
-  await logPaymentEvent("info", "checkout_status_request", {
+  await logStatusEvent("info", "checkout_status_request", {
     userId: session.user.id,
     orderId: order.id,
     providerRef: order.providerRef,
@@ -3927,7 +4150,7 @@ export async function GET(request: NextRequest) {
   const providerMetadata = asRecord(order.providerMetadata);
 
   if (order.paymentStatus === PaymentStatus.PAID) {
-    await logPaymentEvent("info", "checkout_status_cached_paid", {
+    await logStatusEvent("info", "checkout_status_cached_paid", {
       orderId: order.id,
       providerRef: order.providerRef,
     });
@@ -3948,7 +4171,7 @@ export async function GET(request: NextRequest) {
       const statusUrl =
         asString(providerMetadata.statusUrl) ?? asString(providerMetadata.status_url);
       if (!statusUrl) {
-        await logPaymentEvent("warn", "checkout_status_missing_status_url", {
+        await logStatusEvent("warn", "checkout_status_missing_status_url", {
           orderId: order.id,
           providerRef: order.providerRef,
           method: "mbway",
@@ -3962,7 +4185,7 @@ export async function GET(request: NextRequest) {
         });
       }
       const status = await fetchMBWayStatus(statusUrl);
-      await logPaymentEvent("info", "checkout_status_polled", {
+      await logStatusEvent("info", "checkout_status_polled", {
         orderId: order.id,
         providerRef: order.providerRef,
         method: "mbway",
@@ -3981,7 +4204,7 @@ export async function GET(request: NextRequest) {
         ) ?? normalizeReferenceDigits(transactionId);
 
       if (!reference) {
-        await logPaymentEvent("warn", "checkout_status_missing_reference", {
+        await logStatusEvent("warn", "checkout_status_missing_reference", {
           orderId: order.id,
           providerRef: order.providerRef,
           transactionId,
@@ -4021,7 +4244,7 @@ export async function GET(request: NextRequest) {
         transactionId: transactionId,
         amount,
       });
-      await logPaymentEvent("info", "checkout_status_polled", {
+      await logStatusEvent("info", "checkout_status_polled", {
         orderId: order.id,
         providerRef: order.providerRef,
         method: "multibanco",
@@ -4042,7 +4265,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    await logPaymentEvent("error", "checkout_status_error", {
+    await logStatusEvent("error", "checkout_status_error", {
       orderId: order.id,
       providerRef: order.providerRef,
       error: error instanceof Error ? error.message : "Unknown status error.",
@@ -4054,7 +4277,7 @@ export async function GET(request: NextRequest) {
       );
     }
     if (error instanceof EuPagoAPIError) {
-      console.error("[EuPago] Status error:", error.message, error.response);
+      console.error("[EuPago] Status error:", error.message);
       return NextResponse.json(
         { error: "Unable to fetch payment status." },
         { status: 502 },
@@ -4075,11 +4298,22 @@ import {
   EmailConfigurationError,
   formatEmailBlock,
   sendAdminEmail,
+  sendEmail,
 } from "@/lib/email/mailer";
 import { normaliseProviderReference } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { appendOrderEvent } from "@/lib/utils/order-events";
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { redactForLogging } from "@/lib/utils/redact";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const logWebhookEvent = (
+  level: Parameters<typeof logPaymentEvent>[0],
+  event: string,
+  details: Record<string, unknown> = {},
+) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
 
 /**
  * EuPago sandbox setup:
@@ -4168,31 +4402,31 @@ export async function POST(request: NextRequest) {
   const secret = process.env.EUPAGO_WEBHOOK_SHARED_SECRET;
   if (!secret) {
     console.error("[EuPago] Webhook secret is not configured.");
-    await logPaymentEvent("error", "eupago_webhook_secret_missing");
+    await logWebhookEvent("error", "eupago_webhook_secret_missing");
     return NextResponse.json({ error: "Webhook secret missing." }, { status: 500 });
   }
 
   const rawBody = await request.text();
   if (!rawBody) {
-    await logPaymentEvent("warn", "eupago_webhook_empty_payload");
+    await logWebhookEvent("warn", "eupago_webhook_empty_payload");
     return NextResponse.json({ error: "Empty payload." }, { status: 400 });
   }
 
   const signature = getSignature(request);
   if (!signature) {
-    await logPaymentEvent("warn", "eupago_webhook_missing_signature");
+    await logWebhookEvent("warn", "eupago_webhook_missing_signature");
     return NextResponse.json({ error: "Missing signature." }, { status: 400 });
   }
 
   const expectedSignature = createHmac("sha256", secret).update(rawBody).digest("hex");
   if (!signaturesMatch(signature, expectedSignature)) {
-    await logPaymentEvent("warn", "eupago_webhook_invalid_signature", {
+    await logWebhookEvent("warn", "eupago_webhook_invalid_signature", {
       signature: `${signature.slice(0, 8)}...`,
     });
     return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
   }
 
-  await logPaymentEvent("info", "eupago_webhook_verified", {
+  await logWebhookEvent("info", "eupago_webhook_verified", {
     signature: `${signature.slice(0, 8)}...`,
     rawBodyLength: rawBody.length,
   });
@@ -4202,7 +4436,7 @@ export async function POST(request: NextRequest) {
     payload = JSON.parse(rawBody) as Record<string, unknown>;
   } catch (error) {
     console.error("[EuPago] Failed to parse webhook payload:", error);
-    await logPaymentEvent("error", "eupago_webhook_invalid_json", {
+    await logWebhookEvent("error", "eupago_webhook_invalid_json", {
       error: error instanceof Error ? error.message : "Invalid JSON",
     });
     return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
@@ -4210,15 +4444,15 @@ export async function POST(request: NextRequest) {
 
   const providerRef = extractProviderRef(payload);
   if (!providerRef) {
-    console.error("[EuPago] Webhook missing provider reference.", payload);
-    await logPaymentEvent("error", "eupago_webhook_missing_provider_ref", {
+    console.error("[EuPago] Webhook missing provider reference.");
+    await logWebhookEvent("error", "eupago_webhook_missing_provider_ref", {
       payload,
     });
     return NextResponse.json({ error: "Missing provider reference." }, { status: 400 });
   }
 
   const status = deriveStatus(payload);
-  await logPaymentEvent("info", "eupago_webhook_payload_parsed", {
+  await logWebhookEvent("info", "eupago_webhook_payload_parsed", {
     providerRef,
     status,
     payload,
@@ -4241,8 +4475,8 @@ export async function POST(request: NextRequest) {
   });
 
   if (!order) {
-    console.warn("[EuPago] Order not found for providerRef:", providerRef);
-    await logPaymentEvent("warn", "eupago_webhook_order_not_found", {
+    console.warn("[EuPago] Order not found for providerRef.");
+    await logWebhookEvent("warn", "eupago_webhook_order_not_found", {
       providerRef,
       payload,
     });
@@ -4259,7 +4493,7 @@ export async function POST(request: NextRequest) {
       where: { id: order.id },
       data: { events: baseEvents as Prisma.InputJsonValue },
     });
-    await logPaymentEvent("info", "eupago_webhook_already_paid", {
+    await logWebhookEvent("info", "eupago_webhook_already_paid", {
       orderId: order.id,
       providerRef,
     });
@@ -4290,7 +4524,7 @@ export async function POST(request: NextRequest) {
     })) as Prisma.OrderGetPayload<{
       include: { user: { select: { name: true; email: true } } };
     }>;
-    await logPaymentEvent("info", "eupago_webhook_payment_captured", {
+    await logWebhookEvent("info", "eupago_webhook_payment_captured", {
       orderId: updatedOrder.id,
       providerRef,
       paidAt: paidAt.toISOString(),
@@ -4311,17 +4545,40 @@ export async function POST(request: NextRequest) {
           `Email: ${updatedOrder.contactEmail ?? updatedOrder.user?.email ?? "—"}`,
         ]),
       });
+
+      const customerEmail =
+        updatedOrder.contactEmail ?? updatedOrder.user?.email ?? undefined;
+      if (customerEmail) {
+        await sendEmail({
+          to: customerEmail,
+          subject: `Payment confirmed for order ${updatedOrder.id}`,
+          text: formatEmailBlock([
+            `Olá ${updatedOrder.user?.name ?? "cliente"},`,
+            "",
+            "Recebemos o pagamento da sua encomenda Palmanhac e estamos a preparar o envio.",
+            `Total: €${(updatedOrder.totalAmount / 100).toFixed(2)}`,
+            updatedOrder.paidAt
+              ? `Confirmado em: ${updatedOrder.paidAt.toLocaleString("en-GB", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}`
+              : "",
+            "",
+            "Pode acompanhar o estado da encomenda na área de Encomendas.",
+          ]),
+        });
+      }
     } catch (error) {
       if (error instanceof EmailConfigurationError) {
         console.warn("[Email] Payment confirmation notification skipped:", error.message);
-        await logPaymentEvent("warn", "eupago_webhook_email_skipped", {
+        await logWebhookEvent("warn", "eupago_webhook_email_skipped", {
           orderId: order.id,
           providerRef,
           error: error.message,
         });
       } else {
         console.error("[Email] Failed to send payment confirmation email:", error);
-        await logPaymentEvent("error", "eupago_webhook_email_failed", {
+        await logWebhookEvent("error", "eupago_webhook_email_failed", {
           orderId: order.id,
           providerRef,
           error: error instanceof Error ? error.message : "Unknown email error",
@@ -4343,7 +4600,7 @@ export async function POST(request: NextRequest) {
         }) as Prisma.InputJsonValue,
       },
     });
-    await logPaymentEvent("warn", "eupago_webhook_payment_failed", {
+    await logWebhookEvent("warn", "eupago_webhook_payment_failed", {
       orderId: order.id,
       providerRef,
     });
@@ -4362,7 +4619,7 @@ export async function POST(request: NextRequest) {
         }) as Prisma.InputJsonValue,
       },
     });
-    await logPaymentEvent("info", "eupago_webhook_payment_status_update", {
+    await logWebhookEvent("info", "eupago_webhook_payment_status_update", {
       orderId: order.id,
       providerRef,
       status,
@@ -4374,7 +4631,7 @@ export async function POST(request: NextRequest) {
     where: { id: order.id },
     data: { events: baseEvents as Prisma.InputJsonValue },
   });
-  await logPaymentEvent("info", "eupago_webhook_event_recorded", {
+  await logWebhookEvent("info", "eupago_webhook_event_recorded", {
     orderId: order.id,
     providerRef,
     status,
@@ -4383,6 +4640,488 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ success: true });
 }
 # --- end of app/api/payments/eupago/webhook/route.ts ---
+
+# --- app/api/payments/stripe/confirm/route.ts ---
+import { NextRequest, NextResponse } from "next/server";
+import { OrderStatus, PaymentProvider, PaymentStatus } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import type Stripe from "stripe";
+import { auth } from "@/auth";
+import {
+  EmailConfigurationError,
+  formatEmailBlock,
+  sendAdminEmail,
+  sendEmail,
+} from "@/lib/email/mailer";
+import { getStripeClient } from "@/lib/payments/stripe";
+import { prisma } from "@/lib/server/db";
+import { appendOrderEvent } from "@/lib/utils/order-events";
+import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { redactForLogging } from "@/lib/utils/redact";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type ConfirmPayload = {
+  orderId?: string;
+  paymentIntentId?: string;
+};
+
+const logStripeConfirmEvent = (
+  level: Parameters<typeof logPaymentEvent>[0],
+  event: string,
+  details: Record<string, unknown> = {},
+) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
+
+export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const payload = (await request.json().catch(() => null)) as ConfirmPayload | null;
+  if (!payload?.orderId || !payload?.paymentIntentId) {
+    return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: payload.orderId },
+    select: {
+      id: true,
+      userId: true,
+      paymentProvider: true,
+      paymentStatus: true,
+      providerRef: true,
+      events: true,
+      totalAmount: true,
+      contactEmail: true,
+      contactPhone: true,
+      shippingAddress: true,
+      user: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!order || order.userId !== session.user.id) {
+    return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  }
+
+  if (order.paymentProvider !== PaymentProvider.STRIPE) {
+    return NextResponse.json(
+      { error: "Order is not a Stripe payment." },
+      { status: 400 },
+    );
+  }
+
+  if (order.providerRef !== payload.paymentIntentId) {
+    return NextResponse.json({ error: "Payment reference mismatch." }, { status: 400 });
+  }
+
+  if (order.paymentStatus === PaymentStatus.PAID) {
+    return NextResponse.json({ success: true, alreadyPaid: true });
+  }
+
+  const stripe = getStripeClient();
+  let paymentIntent: Stripe.PaymentIntent;
+  try {
+    paymentIntent = await stripe.paymentIntents.retrieve(payload.paymentIntentId);
+  } catch (error) {
+    console.error("[Stripe] Failed to load payment intent", error);
+    await logStripeConfirmEvent("error", "stripe_confirm_payment_intent_error", {
+      orderId: order.id,
+      paymentIntentId: payload.paymentIntentId,
+    });
+    return NextResponse.json(
+      { error: "Unable to validate payment. Please try again." },
+      { status: 502 },
+    );
+  }
+
+  if (paymentIntent.status !== "succeeded") {
+    await logStripeConfirmEvent("warn", "stripe_confirm_payment_not_succeeded", {
+      orderId: order.id,
+      paymentIntentId: paymentIntent.id,
+      status: paymentIntent.status,
+    });
+    return NextResponse.json(
+      { error: "Payment not completed.", status: paymentIntent.status },
+      { status: 409 },
+    );
+  }
+
+  const paidAt =
+    paymentIntent.created && Number.isInteger(paymentIntent.created)
+      ? new Date(paymentIntent.created * 1000)
+      : new Date();
+  const latestChargeId =
+    typeof paymentIntent.latest_charge === "string"
+      ? paymentIntent.latest_charge
+      : paymentIntent.latest_charge?.id;
+
+  const updated = await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      paymentStatus: PaymentStatus.PAID,
+      status: OrderStatus.PROCESSING,
+      paidAt,
+      providerMetadata: {
+        paymentIntentStatus: paymentIntent.status,
+        latestChargeId,
+      },
+      events: appendOrderEvent(order.events, {
+        type: "payment_confirmed",
+        payload: {
+          provider: PaymentProvider.STRIPE,
+          paymentIntentId: paymentIntent.id,
+          status: paymentIntent.status,
+        },
+      }) as Prisma.InputJsonValue,
+    },
+    select: {
+      id: true,
+      totalAmount: true,
+      shippingAddress: true,
+      contactEmail: true,
+    },
+  });
+
+  await logStripeConfirmEvent("info", "stripe_confirm_payment_success", {
+    orderId: updated.id,
+    paymentIntentId: paymentIntent.id,
+    totalCents: updated.totalAmount,
+  });
+
+  try {
+    await sendAdminEmail({
+      subject: `Stripe order ${updated.id} paid`,
+      text: formatEmailBlock([
+        `Order ID: ${updated.id}`,
+        `Total: €${(updated.totalAmount / 100).toFixed(2)}`,
+        `Status: ${paymentIntent.status}`,
+        updated.shippingAddress && typeof updated.shippingAddress === "object"
+          ? `Ship to: ${(updated.shippingAddress as Record<string, string>).name ?? ""}`
+          : "",
+      ]),
+    });
+
+    const customerEmail =
+      updated.contactEmail ??
+      order.contactEmail ??
+      order.user?.email ??
+      session.user.email ??
+      null;
+    if (customerEmail) {
+      await sendEmail({
+        to: customerEmail,
+        subject: `Payment confirmed for order ${updated.id}`,
+        text: formatEmailBlock([
+          "Good news!",
+          "",
+          `Your Palmanhac order ${updated.id} was paid successfully.`,
+          "Our team is preparing it for shipping and you can monitor the fulfilment progress from the Orders page.",
+          "",
+          `Total: €${(updated.totalAmount / 100).toFixed(2)}`,
+          `Status: ${paymentIntent.status}`,
+        ]),
+      });
+    }
+  } catch (error) {
+    if (error instanceof EmailConfigurationError) {
+      console.warn("[Email] Payment confirmation notification skipped:", error.message);
+    } else {
+      console.error("[Email] Failed to send Stripe success email:", error);
+    }
+  }
+
+  return NextResponse.json({ success: true });
+}
+# --- end of app/api/payments/stripe/confirm/route.ts ---
+
+# --- app/api/payments/stripe/create/route.ts ---
+import { randomUUID } from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentProvider,
+  PaymentStatus,
+} from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import type Stripe from "stripe";
+import { auth } from "@/auth";
+import { EmailConfigurationError } from "@/lib/email/mailer";
+import {
+  sendOrderCreationNotifications,
+  type BilingualInstructions,
+} from "@/lib/email/order-notifications";
+import {
+  checkoutPayloadSchema,
+  normalizeCurrency,
+  type CheckoutPayload,
+} from "@/lib/payments/checkout-schema";
+import { getStripeClient } from "@/lib/payments/stripe";
+import { prisma } from "@/lib/server/db";
+import { calculateCartTotals } from "@/lib/utils/cart-totals";
+import { appendOrderEvent } from "@/lib/utils/order-events";
+import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { redactForLogging } from "@/lib/utils/redact";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const logStripeCheckoutEvent = (
+  level: Parameters<typeof logPaymentEvent>[0],
+  event: string,
+  details: Record<string, unknown> = {},
+) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
+
+const assertCardMethod = (payload: CheckoutPayload) => {
+  if (payload.method !== "card") {
+    throw new Error("Stripe checkout only supports card payments.");
+  }
+};
+
+const stripeCardInstructions: BilingualInstructions = {
+  pt: [
+    "Estamos a processar o pagamento com cartão através da Stripe.",
+    "Se lhe for pedido um passo adicional (3DSecure), conclua-o na janela de pagamento.",
+    "Enviaremos uma atualização assim que o estado do pagamento for confirmado.",
+  ],
+  en: [
+    "We are securely processing your card payment with Stripe.",
+    "If any additional verification is required, follow the prompts in the card form.",
+    "We will email you again as soon as the payment status updates.",
+  ],
+};
+
+export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const parsed = checkoutPayloadSchema.safeParse(body);
+  if (!parsed.success) {
+    await logStripeCheckoutEvent("warn", "stripe_checkout_invalid_payload", {
+      userId: session.user.id,
+      issues: parsed.error.flatten(),
+    });
+    return NextResponse.json(
+      { error: "Invalid payload.", issues: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const payload = parsed.data;
+  try {
+    assertCardMethod(payload);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unsupported payment method." },
+      { status: 400 },
+    );
+  }
+
+  const productIds = payload.items.map((item) => item.productId);
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    select: { id: true, priceCents: true, name: true },
+  });
+
+  const expectedCount = new Set(productIds).size;
+  if (products.length !== expectedCount) {
+    return NextResponse.json(
+      { error: "One or more products are not available." },
+      { status: 404 },
+    );
+  }
+
+  const totals = calculateCartTotals(
+    payload.items,
+    products.map((product) => ({
+      id: product.id,
+      priceCents: product.priceCents,
+    })),
+  );
+
+  const currency = normalizeCurrency(payload.currency);
+  const orderId = randomUUID();
+  const description = `Order ${orderId}`;
+  const stripe = getStripeClient();
+
+  await logStripeCheckoutEvent("info", "stripe_checkout_payment_intent_creating", {
+    userId: session.user.id,
+    orderId,
+    totalCents: totals.totalCents,
+    currency,
+  });
+
+  let paymentIntent: Stripe.PaymentIntent;
+  try {
+    paymentIntent = await stripe.paymentIntents.create({
+      amount: totals.totalCents,
+      currency: currency.toLowerCase(),
+      payment_method_types: ["card"],
+      description,
+      receipt_email: payload.contact.email,
+      metadata: {
+        orderId,
+        userId: session.user.id,
+        locale: payload.locale ?? "",
+      },
+      shipping: {
+        name: payload.shipping.name,
+        address: {
+          country: payload.shipping.country,
+          city: payload.shipping.city,
+          postal_code: payload.shipping.postalCode,
+          line1: payload.shipping.line1,
+          line2: payload.shipping.line2 ?? undefined,
+        },
+        phone: payload.contact.phone ?? undefined,
+      },
+    });
+  } catch (error) {
+    console.error("[Stripe] Failed to create payment intent", error);
+    await logStripeCheckoutEvent("error", "stripe_checkout_payment_intent_error", {
+      orderId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    return NextResponse.json(
+      { error: "Unable to initialize Stripe payment. Please try again." },
+      { status: 500 },
+    );
+  }
+
+  if (!paymentIntent.client_secret) {
+    await logStripeCheckoutEvent("error", "stripe_checkout_missing_client_secret", {
+      orderId,
+      paymentIntentId: paymentIntent.id,
+    });
+    return NextResponse.json(
+      { error: "Unable to initialize Stripe payment. Please contact support." },
+      { status: 500 },
+    );
+  }
+
+  const priceMap = new Map(products.map((product) => [product.id, product.priceCents]));
+  const latestChargeId =
+    typeof paymentIntent.latest_charge === "string"
+      ? paymentIntent.latest_charge
+      : paymentIntent.latest_charge?.id;
+  const isPaid = paymentIntent.status === "succeeded";
+  let order;
+  try {
+    order = await prisma.$transaction(async (tx) => {
+      const createdOrder = await tx.order.create({
+        data: {
+          id: orderId,
+          userId: session.user.id,
+          totalAmount: totals.totalCents,
+          paymentStatus: isPaid ? PaymentStatus.PAID : PaymentStatus.PENDING,
+          status: isPaid ? OrderStatus.PROCESSING : OrderStatus.PENDING,
+          notes: payload.notes,
+          currency,
+          paymentProvider: PaymentProvider.STRIPE,
+          paymentMethod: PaymentMethod.CARD,
+          providerRef: paymentIntent.id,
+          providerMetadata: {
+            paymentIntentStatus: paymentIntent.status,
+            latestChargeId,
+          },
+          contactEmail: payload.contact.email,
+          contactPhone: payload.contact.phone,
+          taxId: payload.taxId,
+          shippingAddress: payload.shipping,
+          billingAddress: payload.billing,
+          locale: payload.locale,
+          paidAt: isPaid ? new Date() : undefined,
+          events: appendOrderEvent(null, {
+            type: "payment_created",
+            payload: {
+              provider: PaymentProvider.STRIPE,
+              method: PaymentMethod.CARD,
+              providerRef: paymentIntent.id,
+            },
+          }) as Prisma.InputJsonValue,
+        },
+      });
+
+      await tx.orderItem.createMany({
+        data: payload.items.map((item) => ({
+          orderId: createdOrder.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: priceMap.get(item.productId) ?? 0,
+        })),
+      });
+
+      return createdOrder;
+    });
+  } catch (error) {
+    console.error("[Stripe] Failed to persist order", error);
+    await logStripeCheckoutEvent("error", "stripe_checkout_order_persist_error", {
+      orderId,
+      paymentIntentId: paymentIntent.id,
+    });
+    return NextResponse.json(
+      { error: "Unable to save order. Please contact support." },
+      { status: 500 },
+    );
+  }
+
+  await logStripeCheckoutEvent("info", "stripe_checkout_order_created", {
+    orderId: order.id,
+    paymentIntentId: paymentIntent.id,
+    totalCents: totals.totalCents,
+  });
+
+  try {
+    const nameMap = new Map(products.map((product) => [product.id, product.name]));
+    const customerName =
+      payload.shipping.name || payload.contact.name || session.user.name || "Customer";
+    const itemSummaries = payload.items.map((item) => ({
+      name: nameMap.get(item.productId) ?? `Product ${item.productId}`,
+      quantity: item.quantity,
+    }));
+
+    await sendOrderCreationNotifications({
+      orderId: order.id,
+      totalCents: totals.totalCents,
+      items: itemSummaries,
+      customerName,
+      customerEmail: payload.contact.email,
+      customerPhone: payload.contact.phone,
+      shippingCity: payload.shipping.city,
+      paymentSummary: "CARD (Stripe)",
+      nif: payload.taxId,
+      notes: payload.notes,
+      methodInstructions: stripeCardInstructions,
+      adminSubject: `New Stripe order ${order.id}`,
+      customerSubject: `We received your order ${order.id}`,
+    });
+  } catch (error) {
+    if (error instanceof EmailConfigurationError) {
+      console.warn("[Email] Order creation notification skipped:", error.message);
+    } else {
+      console.error("[Email] Failed to send Stripe order email:", error);
+    }
+  }
+
+  return NextResponse.json({
+    orderId: order.id,
+    totalCents: totals.totalCents,
+    currency,
+    paymentIntentId: paymentIntent.id,
+    clientSecret: paymentIntent.client_secret,
+  });
+}
+# --- end of app/api/payments/stripe/create/route.ts ---
 
 # --- app/api/product/[slug]/route.ts ---
 import { NextResponse } from "next/server";
@@ -4788,6 +5527,7 @@ type DashboardProps = {
     id: string;
     name: string | null | undefined;
     email: string | null | undefined;
+    role?: string | null;
   };
 };
 
@@ -4877,9 +5617,11 @@ export function AccountDashboard({ dictionary, locale, user }: DashboardProps) {
           <Button variant="ghost" onClick={handleSignOut}>
             {dictionary.account.logout}
           </Button>
-          <Button asChild variant="outline">
-            <Link href="/admin">Go to Admin Panel</Link>
-          </Button>
+          {(user.role ?? "").toUpperCase() === "ADMIN" ? (
+            <Button asChild variant="outline">
+              <Link href="/admin">Go to Admin Panel</Link>
+            </Button>
+          ) : null}
         </div>
       </header>
       <form
@@ -5407,6 +6149,86 @@ export function AdminTwoFactorSetup({
 }
 # --- end of components/admin/AdminTwoFactorSetup.tsx ---
 
+# --- components/admin/orders/DeleteOrderButton.tsx ---
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+
+type DeleteOrderButtonProps = {
+  orderId: string;
+  orderLabel: string;
+};
+
+export function DeleteOrderButton({ orderId, orderLabel }: DeleteOrderButtonProps) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+  const [confirming, setConfirming] = useState(false);
+
+  const handleDelete = () => {
+    startTransition(async () => {
+      try {
+        const response = await fetch(`/api/admin/orders/${orderId}`, { method: "DELETE" });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(payload?.error ?? "Unable to delete order.");
+        }
+        toast({ title: "Order deleted", variant: "success" });
+        router.refresh();
+      } catch (error) {
+        console.error(error);
+        toast({
+          title: error instanceof Error ? error.message : "Unable to delete order.",
+          variant: "destructive",
+        });
+      } finally {
+        setConfirming(false);
+      }
+    });
+  };
+
+  if (!confirming) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+        onClick={() => setConfirming(true)}
+      >
+        Delete
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-neutral-600">Delete {orderLabel}?</span>
+      <Button
+        type="button"
+        size="sm"
+        className="bg-red-600 text-white hover:bg-red-700"
+        disabled={isPending}
+        onClick={handleDelete}
+      >
+        Confirm
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        disabled={isPending}
+        onClick={() => setConfirming(false)}
+      >
+        Cancel
+      </Button>
+    </div>
+  );
+}
+# --- end of components/admin/orders/DeleteOrderButton.tsx ---
+
 # --- components/admin/orders/OrderStatusForm.tsx ---
 "use client";
 
@@ -5683,15 +6505,6 @@ const imageUrlOrPath = z
     { message: "Enter a valid image URL or a path like /assets/file.png" },
   );
 
-// convert root-relative -> absolute (server requires absolute)
-const toAbsoluteUrl = (v: string) => {
-  if (!v) return v;
-  if (typeof window !== "undefined" && v.startsWith("/")) {
-    return `${window.location.origin}${v}`;
-  }
-  return v;
-};
-
 const productFormSchema = z.object({
   name: z.string().min(2, "Name is required"),
   slug: z
@@ -5848,23 +6661,20 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     startTransition(async () => {
       try {
         const galleryImagesRaw = parseGallery(parsed.data.galleryImages);
-        const galleryImagesAbs = galleryImagesRaw.map(toAbsoluteUrl);
         const priceFloat = Number.parseFloat(parsed.data.price.replace(",", "."));
         const priceCents = Math.round(priceFloat * 100);
         if (!Number.isFinite(priceCents) || priceCents < 0) {
           throw new Error("Unable to parse price.");
         }
 
-        // Match server contract: absolute URLs + object fields
+        // Match server contract: structured JSON payload
         const payload = {
           name: parsed.data.name,
           slug: parsed.data.slug?.trim() || undefined,
           category: parsed.data.category,
           priceCents,
-          image: toAbsoluteUrl(parsed.data.image),
-          galleryImages: galleryImagesAbs.length
-            ? galleryImagesAbs
-            : [toAbsoluteUrl(parsed.data.image)],
+          image: parsed.data.image,
+          galleryImages: galleryImagesRaw.length ? galleryImagesRaw : [parsed.data.image],
           volumeMl: Number.parseInt(parsed.data.volumeMl || "0", 10) || 0,
           abv: Number.parseFloat(parsed.data.abv || "0") || 0,
           stock: Number.parseInt(parsed.data.stock || "0", 10) || 0,
@@ -6424,6 +7234,8 @@ export function CartView({
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -6498,14 +7310,6 @@ type EuPagoCreateResponse =
   | EuPagoMBWayResponse
   | EuPagoCardResponse;
 
-type EuPagoStatusResponse = {
-  status: {
-    status: string;
-    paidAt?: string;
-    error?: string;
-  };
-};
-
 type CheckoutProduct = {
   id: number;
   slug: string;
@@ -6525,13 +7329,37 @@ type AddressState = {
 
 const paymentOptions: PaymentMethodOption[] = ["multibanco", "mbway", "card"];
 
-export function CheckoutView({
-  dictionary,
-  locale,
-}: {
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
+const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
+
+type CheckoutFormProps = {
   dictionary: Dictionary;
   locale: Locale;
-}) {
+  stripeUnavailable?: boolean;
+};
+
+export function CheckoutView(props: { dictionary: Dictionary; locale: Locale }) {
+  if (!stripePromise) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[Checkout] Stripe publishable key missing. Card payments disabled.");
+    }
+    return <CheckoutForm {...props} stripeUnavailable />;
+  }
+
+  return (
+    <Elements stripe={stripePromise}>
+      <CheckoutForm {...props} />
+    </Elements>
+  );
+}
+
+function CheckoutForm({
+  dictionary,
+  locale,
+  stripeUnavailable = false,
+}: CheckoutFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
   const router = useRouter();
   const { data: session, status } = useSession();
   useAnonCartImport({ status, userId: session?.user?.id });
@@ -6548,6 +7376,7 @@ export function CheckoutView({
     phone: "",
     name: session?.user?.name ?? "",
   });
+  const [taxId, setTaxId] = useState("");
   const [shipping, setShipping] = useState<AddressState>({
     name: session?.user?.name ?? "",
     line1: "",
@@ -6568,12 +7397,12 @@ export function CheckoutView({
   const [notes, setNotes] = useState("");
   const [mbwayPhone, setMbwayPhone] = useState("");
   const [paymentResult, setPaymentResult] = useState<EuPagoCreateResponse | null>(null);
-  const [mbwayStatus, setMbwayStatus] = useState<string | null>(null);
-  const [pollingState, setPollingState] = useState<
-    "idle" | "polling" | "complete" | "failed"
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [cardStatus, setCardStatus] = useState<
+    "idle" | "processing" | "pending" | "succeeded"
   >("idle");
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const pollingAttemptsRef = useRef(0);
+  const [cardStatusMessage, setCardStatusMessage] = useState<string | null>(null);
+  const [isCardComplete, setIsCardComplete] = useState(false);
   const hasClearedCartRef = useRef(false);
 
   const [serverError, setServerError] = useState<string | null>(null);
@@ -6647,24 +7476,10 @@ export function CheckoutView({
   }, [items, locale]);
 
   useEffect(() => {
-    if (paymentResult?.method !== "mbway") {
-      setMbwayStatus(null);
-    }
-  }, [paymentResult?.method]);
-
-  useEffect(() => {
     if (!mbwayPhone && contact.phone) {
       setMbwayPhone(contact.phone);
     }
   }, [contact.phone, mbwayPhone]);
-
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, []);
 
   const totals = useMemo(() => calculateCartTotals(items, products), [items, products]);
 
@@ -6717,6 +7532,43 @@ export function CheckoutView({
     };
   }, [billingSameAsShipping, billing, shipping]);
 
+  const stripeBillingDetails = useMemo(() => {
+    const fallback = {
+      ...normalisedBilling,
+      country: normalisedBilling.country.trim(),
+    };
+    try {
+      return {
+        ...fallback,
+        country: normalizeCountryInput(normalisedBilling.country),
+      };
+    } catch {
+      return {
+        ...fallback,
+        country: "PT",
+      };
+    }
+  }, [normalisedBilling]);
+
+  const cardElementOptions = useMemo(
+    () => ({
+      hidePostalCode: true,
+      style: {
+        base: {
+          fontSize: "16px",
+          color: "#1f2937",
+          "::placeholder": {
+            color: "#9ca3af",
+          },
+        },
+        invalid: {
+          color: "#dc2626",
+        },
+      },
+    }),
+    [],
+  );
+
   const buildCheckoutPayload = () => {
     const normalizeAddressCountry = (address: typeof normalisedShipping) => ({
       ...address,
@@ -6730,6 +7582,7 @@ export function CheckoutView({
       shipping: normalizeAddressCountry(normalisedShipping),
       billing: normalizeAddressCountry(normalisedBilling),
       notes: notes.trim() || undefined,
+      taxId: taxId.trim() || undefined,
       currency: "EUR" as const,
       locale,
       totals: {
@@ -6751,13 +7604,6 @@ export function CheckoutView({
     return base;
   };
 
-  const stopPolling = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-  };
-
   const clearCartOnce = () => {
     if (!hasClearedCartRef.current) {
       clearCart();
@@ -6765,77 +7611,138 @@ export function CheckoutView({
     }
   };
 
-  const startMbWayPolling = (transactionId: string) => {
-    stopPolling();
-    pollingAttemptsRef.current = 0;
-    setPollingState("polling");
-    setMbwayStatus(dictionary.checkout.mbwayAwaiting);
-
-    const poll = async () => {
-      pollingAttemptsRef.current += 1;
-      try {
-        const response = await fetch(
-          `/api/payments/eupago/status?transactionId=${encodeURIComponent(transactionId)}`,
-          { cache: "no-store" },
-        );
-        const result = (await response.json()) as EuPagoStatusResponse & {
-          error?: string;
-          requiresConfiguration?: boolean;
-        };
-
-        if (!response.ok) {
-          stopPolling();
-          setPollingState("failed");
-          setServerError(result.error ?? dictionary.checkout.paymentServiceUnavailable);
-          return;
-        }
-
-        const rawStatus = result.status.status.toLowerCase();
-        if (rawStatus.includes("paid") || rawStatus === "ok" || rawStatus === "success") {
-          stopPolling();
-          setPollingState("complete");
-          clearCartOnce();
-          router.push(withLocale(locale, "/orders"));
-          return;
-        }
-
-        if (rawStatus.includes("fail") || rawStatus.includes("error")) {
-          stopPolling();
-          setPollingState("failed");
-          setServerError(dictionary.checkout.statusFailed);
-          return;
-        }
-
-        setMbwayStatus(rawStatus);
-      } catch (error) {
-        console.error("[EuPago] MB WAY status error", error);
-        stopPolling();
-        setPollingState("failed");
-        setServerError(dictionary.checkout.paymentServiceUnavailable);
-      }
-
-      if (pollingAttemptsRef.current >= 24) {
-        stopPolling();
-        setPollingState("idle");
-        setMbwayStatus(dictionary.checkout.statusPollingTimedOut);
-      }
-    };
-
-    poll();
-    pollingIntervalRef.current = setInterval(poll, 5000);
+  const resetPaymentState = () => {
+    setPaymentResult(null);
+    setCardStatus("idle");
+    setCardStatusMessage(null);
+    setCardError(null);
+    setIsCardComplete(false);
+    hasClearedCartRef.current = false;
   };
 
-  const resetPaymentState = () => {
-    stopPolling();
-    setPaymentResult(null);
-    setMbwayStatus(null);
-    setPollingState("idle");
-    hasClearedCartRef.current = false;
+  const handleStripePayment = async (
+    payload: ReturnType<typeof buildCheckoutPayload>,
+  ) => {
+    if (stripeUnavailable) {
+      setServerError(dictionary.checkout.cardUnavailable);
+      return;
+    }
+    if (!stripe || !elements) {
+      setServerError(dictionary.checkout.cardInitializing);
+      return;
+    }
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      setServerError(dictionary.checkout.cardElementUnavailable);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/payments/stripe/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = (await response.json()) as {
+        error?: string;
+        orderId?: string;
+        paymentIntentId?: string;
+        clientSecret?: string;
+      };
+
+      if (!response.ok || !result.clientSecret || !result.orderId) {
+        setServerError(result.error ?? dictionary.checkout.paymentServiceUnavailable);
+        setCardStatus("idle");
+        return;
+      }
+
+      setCardStatus("processing");
+      setServerError(null);
+      setCardStatusMessage(dictionary.checkout.cardProcessingMessage);
+
+      const confirmation = await stripe.confirmCardPayment(result.clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: stripeBillingDetails.name,
+            email: contact.email,
+            phone: contact.phone || undefined,
+            address: {
+              line1: stripeBillingDetails.line1,
+              line2: stripeBillingDetails.line2,
+              city: stripeBillingDetails.city,
+              postal_code: stripeBillingDetails.postalCode,
+              country: stripeBillingDetails.country,
+            },
+          },
+        },
+      });
+
+      if (confirmation.error) {
+        setServerError(
+          confirmation.error.message ?? dictionary.checkout.cardErrorFallback,
+        );
+        setCardStatus("idle");
+        return;
+      }
+
+      const paymentIntent = confirmation.paymentIntent;
+      if (!paymentIntent) {
+        setServerError(dictionary.checkout.paymentServiceUnavailable);
+        setCardStatus("idle");
+        return;
+      }
+
+      if (paymentIntent.status === "succeeded") {
+        setServerError(null);
+        setCardStatus("succeeded");
+        setCardStatusMessage(dictionary.checkout.cardSuccessMessage);
+        try {
+          const finalizeResponse = await fetch("/api/payments/stripe/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId: result.orderId,
+              paymentIntentId: paymentIntent.id,
+            }),
+          });
+          if (!finalizeResponse.ok) {
+            console.warn(
+              "[Stripe] Failed to confirm order status",
+              await finalizeResponse.text(),
+            );
+            setCardStatusMessage(dictionary.checkout.cardFinalizeWarning);
+          }
+        } catch (error) {
+          console.error("[Stripe] Failed to finalize order", error);
+          setCardStatusMessage(dictionary.checkout.cardFinalizeWarning);
+        }
+        cardElement.clear();
+        setIsCardComplete(false);
+        clearCartOnce();
+        setTimeout(() => router.push(withLocale(locale, "/orders")), 1800);
+        return;
+      }
+
+      const friendlyStatus = paymentIntent.status.replace(/_/g, " ");
+      const pendingMessage =
+        paymentIntent.status === "processing"
+          ? dictionary.checkout.cardPendingProcessing
+          : dictionary.checkout.cardPendingGeneric.replace("{status}", friendlyStatus);
+      setCardStatus("pending");
+      setServerError(null);
+      setCardStatusMessage(pendingMessage);
+    } catch (error) {
+      console.error("[Stripe] Checkout error", error);
+      setServerError(dictionary.checkout.paymentServiceUnavailable);
+      setCardStatus("idle");
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setServerError(null);
+    setCardError(null);
 
     if (!items.length) {
       setServerError(dictionary.checkout.summaryEmpty);
@@ -6862,6 +7769,17 @@ export function CheckoutView({
           ? error.message
           : dictionary.checkout.paymentServiceUnavailable;
       setServerError(message);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (selectedMethod === "card") {
+      if (!isCardComplete) {
+        setServerError(dictionary.checkout.cardDetailsIncomplete);
+        setIsSubmitting(false);
+        return;
+      }
+      await handleStripePayment(payload);
       setIsSubmitting(false);
       return;
     }
@@ -6894,17 +7812,21 @@ export function CheckoutView({
         return;
       }
 
+      if (result.method === "mbway") {
+        const pendingUrl = withLocale(
+          locale,
+          `/checkout/pending?orderId=${encodeURIComponent(
+            result.orderId,
+          )}&transactionId=${encodeURIComponent(result.transactionId ?? "")}`,
+        );
+        router.push(pendingUrl);
+        return;
+      }
+
       setPaymentResult(result);
 
       if (result.method === "multibanco") {
         setTimeout(() => clearCartOnce(), 300);
-      }
-
-      if (result.method === "mbway") {
-        if (result.transactionId) {
-          startMbWayPolling(result.transactionId);
-        }
-        return;
       }
 
       if (result.method === "card") {
@@ -6958,6 +7880,37 @@ export function CheckoutView({
   });
 
   const renderPaymentResult = () => {
+    if (selectedMethod === "card" && cardStatus !== "idle") {
+      const isSuccess = cardStatus === "succeeded";
+      const heading = isSuccess
+        ? dictionary.checkout.cardSuccessHeading
+        : dictionary.checkout.cardPendingHeading;
+      const description =
+        cardStatus === "processing"
+          ? dictionary.checkout.cardStatusProcessing
+          : isSuccess
+            ? dictionary.checkout.cardStatusSuccess
+            : dictionary.checkout.cardStatusPending;
+      return (
+        <Card className="border border-neutral-200 bg-neutral-50">
+          <CardHeader>
+            <CardTitle>{heading}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-neutral-700">
+            <p className="rounded-lg bg-white p-3 text-neutral-600">
+              {cardStatusMessage ?? dictionary.checkout.cardProcessingMessage}
+            </p>
+            <Button asChild className="w-full sm:w-auto">
+              <Link href={withLocale(locale, "/orders")}>
+                {dictionary.checkout.viewOrdersCta}
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+
     if (!paymentResult) {
       return null;
     }
@@ -7024,50 +7977,6 @@ export function CheckoutView({
       );
     }
 
-    if (paymentResult.method === "mbway") {
-      return (
-        <Card className="border border-neutral-200 bg-neutral-50">
-          <CardHeader>
-            <CardTitle>{dictionary.checkout.resultHeading}</CardTitle>
-            <CardDescription>
-              {dictionary.checkout.resultInstructions.mbway}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-neutral-700">
-            <p className="rounded-lg bg-white p-3 text-neutral-600">
-              {dictionary.checkout.mbwayPrompt}
-            </p>
-            {mbwayStatus ? (
-              <p className="text-xs uppercase tracking-wide text-neutral-500">
-                {`${dictionary.checkout.statusLabel}: ${mbwayStatus}`}
-              </p>
-            ) : null}
-            {pollingState === "polling" ? (
-              <p className="text-xs text-neutral-500">
-                {dictionary.checkout.statusCheckInProgress}
-              </p>
-            ) : null}
-            {pollingState === "failed" ? (
-              <p className="text-xs text-red-600">{dictionary.checkout.statusFailed}</p>
-            ) : null}
-            {pollingState === "complete" ? (
-              <p className="text-xs text-neutral-600">{dictionary.checkout.statusPaid}</p>
-            ) : null}
-            {paymentResult.statusUrl ? (
-              <a
-                href={paymentResult.statusUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-semibold text-neutral-900 underline-offset-4 hover:underline"
-              >
-                {dictionary.checkout.mbwayStatusLink}
-              </a>
-            ) : null}
-          </CardContent>
-        </Card>
-      );
-    }
-
     return (
       <Card className="border border-neutral-200 bg-neutral-50">
         <CardHeader>
@@ -7082,6 +7991,12 @@ export function CheckoutView({
       </Card>
     );
   };
+
+  const isCardFlow = selectedMethod === "card";
+  const isCardReady = !stripeUnavailable && Boolean(stripe && elements);
+  const submitDisabled =
+    isSubmitting ||
+    (isCardFlow && (!isCardReady || !isCardComplete || cardStatus === "processing"));
 
   const buttonLabel = isSubmitting
     ? dictionary.checkout.processingPayment
@@ -7147,6 +8062,20 @@ export function CheckoutView({
                       setContact((prev) => ({ ...prev, phone: event.target.value }))
                     }
                   />
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <Label htmlFor="checkout-tax-id">
+                    {dictionary.checkout.taxIdLabel}
+                  </Label>
+                  <Input
+                    id="checkout-tax-id"
+                    value={taxId}
+                    onChange={(event) => setTaxId(event.target.value)}
+                    placeholder="123456789"
+                  />
+                  <p className="text-xs text-neutral-500">
+                    {dictionary.checkout.taxIdHelper}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -7363,6 +8292,32 @@ export function CheckoutView({
                     />
                   </div>
                 ) : null}
+                {selectedMethod === "card" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="card-element">
+                      {dictionary.checkout.cardDetailsLabel}
+                    </Label>
+                    {stripeUnavailable ? (
+                      <p className="text-sm text-neutral-600">
+                        {dictionary.checkout.cardUnavailable}
+                      </p>
+                    ) : (
+                      <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+                        <CardElement
+                          id="card-element"
+                          options={cardElementOptions}
+                          onChange={(event) => {
+                            setIsCardComplete(event.complete);
+                            setCardError(event.error?.message ?? null);
+                          }}
+                        />
+                      </div>
+                    )}
+                    {cardError ? (
+                      <p className="text-sm text-red-600">{cardError}</p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="checkout-notes">{dictionary.checkout.notesLabel}</Label>
                   <Textarea
@@ -7376,7 +8331,7 @@ export function CheckoutView({
                 {serverError ? (
                   <p className="text-sm text-red-600">{serverError}</p>
                 ) : null}
-                <Button type="submit" disabled={isSubmitting} className="w-full">
+                <Button type="submit" disabled={submitDisabled} className="w-full">
                   {buttonLabel}
                 </Button>
               </CardContent>
@@ -7453,6 +8408,165 @@ export function CheckoutView({
   );
 }
 # --- end of components/checkout/CheckoutView.tsx ---
+
+# --- components/checkout/MbwayPendingView.tsx ---
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import type { Locale } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { useCartStore } from "@/lib/store/cart";
+import { withLocale } from "@/lib/utils/locale";
+
+type MbwayPendingViewProps = {
+  dictionary: Dictionary;
+  locale: Locale;
+  orderId: string;
+  transactionId?: string;
+};
+
+type StatusState = "pending" | "paid" | "failed";
+
+export function MbwayPendingView({
+  dictionary,
+  locale,
+  orderId,
+  transactionId,
+}: MbwayPendingViewProps) {
+  const router = useRouter();
+  const clearCart = useCartStore((state) => state.clear);
+  const [statusState, setStatusState] = useState<StatusState>("pending");
+  const [statusMessage, setStatusMessage] = useState(
+    dictionary.checkout.pendingStatusAwaiting,
+  );
+  const [isChecking, setIsChecking] = useState(false);
+
+  useEffect(() => {
+    if (!transactionId) return;
+    let cancelled = false;
+
+    const poll = async () => {
+      setIsChecking(true);
+      try {
+        const response = await fetch(
+          `/api/payments/eupago/status?transactionId=${encodeURIComponent(transactionId)}`,
+          { cache: "no-store" },
+        );
+        const payload = (await response.json().catch(() => ({}))) as {
+          status?: { status?: string; error?: string };
+        };
+
+        if (cancelled) return;
+
+        if (!response.ok) {
+          setStatusState("pending");
+          setStatusMessage(dictionary.checkout.pendingStatusAwaiting);
+          return;
+        }
+
+        const rawStatus = (payload.status?.status ?? "").toLowerCase();
+        if (rawStatus.includes("paid") || rawStatus === "ok" || rawStatus === "success") {
+          setStatusState("paid");
+          setStatusMessage(dictionary.checkout.pendingStatusPaid);
+          clearCart();
+          setTimeout(() => {
+            router.push(withLocale(locale, "/orders"));
+          }, 1500);
+          return;
+        }
+
+        if (rawStatus.includes("fail") || rawStatus.includes("error")) {
+          setStatusState("failed");
+          setStatusMessage(
+            payload.status?.error ?? dictionary.checkout.pendingStatusFailed,
+          );
+          return;
+        }
+
+        setStatusState("pending");
+        setStatusMessage(
+          payload.status?.error
+            ? `${dictionary.checkout.pendingStatusAwaiting} (${payload.status.error})`
+            : dictionary.checkout.pendingStatusAwaiting,
+        );
+      } catch {
+        if (!cancelled) {
+          setStatusState("pending");
+          setStatusMessage(dictionary.checkout.pendingStatusAwaiting);
+        }
+      } finally {
+        if (!cancelled) setIsChecking(false);
+      }
+    };
+
+    poll();
+    const timer = window.setInterval(poll, 7000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [
+    transactionId,
+    dictionary.checkout.pendingStatusAwaiting,
+    dictionary.checkout.pendingStatusFailed,
+    dictionary.checkout.pendingStatusPaid,
+    clearCart,
+    locale,
+    router,
+  ]);
+
+  return (
+    <section className="mx-auto max-w-2xl space-y-6 rounded-3xl border border-[rgb(var(--border))] bg-white p-8 text-center shadow-sm">
+      <header className="space-y-2">
+        <p className="text-sm text-neutral-500">
+          {dictionary.checkout.pendingSubheading}
+        </p>
+        <h1 className="text-3xl font-semibold text-neutral-900">
+          {dictionary.checkout.pendingHeading}
+        </h1>
+        <p className="text-neutral-600">{dictionary.checkout.pendingDescription}</p>
+      </header>
+      <div className="rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 p-4 text-left text-sm text-neutral-700">
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          {dictionary.checkout.pendingStatusLabel}
+        </p>
+        <p className="text-base font-semibold text-neutral-900">{statusMessage}</p>
+        {transactionId ? (
+          <p className="mt-2 text-xs text-neutral-500">
+            ID: {transactionId.slice(0, 12)}…
+            {isChecking && (
+              <span className="ml-2 text-neutral-400">
+                {dictionary.checkout.statusCheckInProgress}
+              </span>
+            )}
+          </p>
+        ) : null}
+      </div>
+      {statusState !== "paid" ? (
+        <p className="text-sm text-neutral-500">{dictionary.checkout.pendingHint}</p>
+      ) : null}
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => router.refresh()}
+          disabled={isChecking}
+        >
+          {dictionary.checkout.pendingRefresh}
+        </Button>
+        <Button asChild>
+          <Link href={withLocale(locale, "/orders")}>
+            {dictionary.checkout.pendingOrdersCta}
+          </Link>
+        </Button>
+      </div>
+    </section>
+  );
+}
+# --- end of components/checkout/MbwayPendingView.tsx ---
 
 # --- components/common/ContactForm.tsx ---
 "use client";
@@ -10108,7 +11222,7 @@ export const siteConfig = {
   freeShippingThreshold: 50,
   currency: "EUR",
   contact: {
-    email: "info@palmanhac.pt",
+    email: "info@palmanhac-shop.pt",
     phone: "+351 964 690 254",
     address:
       "Destilaria-Adega Rua de Mercúrio lote 38, Vale do Alecrim, Palmela, 2950-019, Portugal",
@@ -10696,6 +11810,7 @@ async function seedAdminUser() {
 # --- end of lib/data/seed.ts ---
 
 # --- lib/email/mailer.ts ---
+// lib/email/mailer.ts
 import nodemailer from "nodemailer";
 
 export class EmailConfigurationError extends Error {
@@ -10725,8 +11840,10 @@ const resolveTransporter = async () => {
     const user = process.env.SMTP_USER?.trim();
     const pass = process.env.SMTP_PASS?.trim();
 
-    if (!host || !portRaw) {
-      throw new EmailConfigurationError("SMTP_HOST and SMTP_PORT must be configured.");
+    if (!host || !portRaw || !user || !pass) {
+      throw new EmailConfigurationError(
+        "SMTP is not fully configured. Please set SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS env variables.",
+      );
     }
 
     const port = Number.parseInt(portRaw, 10);
@@ -10737,13 +11854,22 @@ const resolveTransporter = async () => {
     const transporter = nodemailer.createTransport({
       host,
       port,
-      secure: port === 465,
-      auth: user && pass ? { user, pass } : undefined,
+      secure: port === 465, // true for 465 (SSL), false for 587 (TLS STARTTLS)
+      auth: {
+        user,
+        pass,
+      },
     });
 
-    await transporter.verify().catch((error: unknown) => {
-      console.warn("[Email] Transport verification failed", error);
-    });
+    try {
+      await transporter.verify();
+      console.log("[Email] SMTP transport verified successfully");
+    } catch (error) {
+      console.error("[Email] SMTP transport verification failed", error);
+      throw new EmailConfigurationError(
+        "Failed to verify SMTP connection. Check your SMTP_* env vars.",
+      );
+    }
 
     return transporter;
   })();
@@ -10752,10 +11878,10 @@ const resolveTransporter = async () => {
 };
 
 export const sendEmail = async ({ to, subject, text, html }: EmailMessage) => {
-  const from = process.env.EMAIL_FROM?.trim();
-  if (!from) {
-    throw new EmailConfigurationError("EMAIL_FROM must be configured.");
-  }
+  const from =
+    process.env.EMAIL_FROM?.trim() ??
+    process.env.ADMIN_EMAIL?.trim() ??
+    "no-reply@palmanhac-shop.pt";
 
   const transporter = await resolveTransporter();
 
@@ -10773,15 +11899,181 @@ export const sendAdminEmail = async ({
   text,
   html,
 }: Omit<EmailMessage, "to">) => {
-  const adminEmail = process.env.ADMIN_EMAIL?.trim();
-  if (!adminEmail) {
-    throw new EmailConfigurationError("ADMIN_EMAIL must be configured.");
-  }
+  const adminEmail = process.env.ADMIN_EMAIL?.trim() || "suren.norekyan123@gmail.com";
   await sendEmail({ to: adminEmail, subject, text, html });
 };
 
 export const formatEmailBlock = (lines: string[]) => lines.filter(Boolean).join("\n");
 # --- end of lib/email/mailer.ts ---
+
+# --- lib/email/order-notifications.ts ---
+import { formatEmailBlock, sendAdminEmail, sendEmail } from "@/lib/email/mailer";
+
+export type OrderEmailItem = {
+  name: string;
+  quantity: number;
+};
+
+export type BilingualInstructions = {
+  pt?: string[];
+  en?: string[];
+};
+
+export type OrderNotificationOptions = {
+  orderId: string;
+  totalCents: number;
+  items: OrderEmailItem[];
+  customerName: string;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  shippingCity?: string | null;
+  paymentSummary?: string;
+  nif?: string | null;
+  notes?: string | null;
+  methodInstructions?: BilingualInstructions;
+  adminSubject?: string;
+  customerSubject?: string;
+};
+
+const formatEuro = (cents: number) => `€${(cents / 100).toFixed(2)}`;
+
+const sanitize = (lines?: string[]) => (lines ?? []).filter(Boolean);
+
+const formatItems = (items: OrderEmailItem[]) =>
+  items.length
+    ? items.map((item) => `- ${item.name} × ${item.quantity}`)
+    : ["- (no items provided)"];
+
+type BaseEmailOptions = {
+  shortCode: string;
+  totalCents: number;
+  nif?: string | null;
+  items: OrderEmailItem[];
+  methodInstructions?: BilingualInstructions;
+};
+
+const buildOrderEmailLines = ({
+  shortCode,
+  totalCents,
+  nif,
+  items,
+  methodInstructions,
+}: BaseEmailOptions) => {
+  const total = formatEuro(totalCents);
+  const itemLines = formatItems(items);
+  const ptSection = [
+    "PT",
+    "Olá!",
+    "",
+    "Obrigado pela sua encomenda na Palmanhac.",
+    "",
+    "Recebemos o seu pedido com sucesso.",
+    "Aqui estão os detalhes da sua encomenda:",
+    "",
+    `Número da encomenda: ${shortCode}`,
+    ...(nif ? [`NIF / TIN: ${nif}`] : []),
+    "Itens encomendados:",
+    ...itemLines,
+    `Valor total (incluindo IVA): ${total}`,
+    "",
+    "A sua encomenda será enviada após a confirmação do pagamento.",
+    "Caso tenha alguma dúvida ou precise de assistência, estamos sempre disponíveis.",
+    "",
+    "Pode contactar-nos através de:",
+    "Email: info@palmanhac-shop.pt",
+    "Telefone: +351 964 690 254",
+    "",
+    "Obrigado por escolher a Palmanhac!",
+    "",
+    "Com os melhores cumprimentos,",
+    "Equipa Palmanhac",
+    "",
+    ...sanitize(methodInstructions?.pt),
+  ];
+
+  const enSection = [
+    "EN",
+    "Hello!",
+    "",
+    "Thank you for your order at Palmanhac.",
+    "",
+    "We have successfully received your order.",
+    "Here are the details of your purchase:",
+    "",
+    `Order number: ${shortCode}`,
+    ...(nif ? [`Tax ID (NIF/TIN): ${nif}`] : []),
+    "Ordered items:",
+    ...itemLines,
+    `Total amount (including VAT): ${total}`,
+    "",
+    "Your order will be shipped once the payment is confirmed.",
+    "If you have any questions or need assistance, we are always here to help.",
+    "",
+    "You can contact us at:",
+    "Email: info@palmanhac-shop.pt",
+    "Phone: +351 964 690 254",
+    "",
+    "Thank you for choosing Palmanhac!",
+    "",
+    "Best regards,",
+    "Palmanhac Team",
+    "",
+    ...sanitize(methodInstructions?.en),
+  ];
+
+  return [...ptSection, "", ...enSection];
+};
+
+export const sendOrderCreationNotifications = async ({
+  orderId,
+  totalCents,
+  items,
+  customerName,
+  customerEmail,
+  customerPhone,
+  shippingCity,
+  paymentSummary,
+  nif,
+  notes,
+  methodInstructions,
+  adminSubject,
+  customerSubject,
+}: OrderNotificationOptions) => {
+  const shortCode = `#${orderId.slice(0, 8).toUpperCase()}`;
+  const baseLines = buildOrderEmailLines({
+    shortCode,
+    totalCents,
+    nif,
+    items,
+    methodInstructions,
+  });
+
+  const adminLines = [
+    "Admin details:",
+    `Full order ID: ${orderId}`,
+    `Short reference: ${shortCode}`,
+    `Customer: ${customerName}`,
+    customerEmail ? `Email: ${customerEmail}` : "",
+    customerPhone ? `Phone: ${customerPhone}` : "",
+    shippingCity ? `City: ${shippingCity}` : "",
+    paymentSummary ? `Payment: ${paymentSummary}` : "",
+    notes ? `Notes: ${notes}` : "",
+  ];
+
+  await sendAdminEmail({
+    subject: adminSubject ?? `New order ${shortCode}`,
+    text: formatEmailBlock([...baseLines, "", ...sanitize(adminLines)]),
+  });
+
+  if (customerEmail) {
+    await sendEmail({
+      to: customerEmail,
+      subject: customerSubject ?? `We received your order ${shortCode}`,
+      text: formatEmailBlock(baseLines),
+    });
+  }
+};
+# --- end of lib/email/order-notifications.ts ---
 
 # --- lib/hooks/useAnonCartImport.ts ---
 "use client";
@@ -11023,6 +12315,8 @@ export type Dictionary = {
     contactInformation: string;
     contactEmailLabel: string;
     contactPhoneLabel: string;
+    taxIdLabel: string;
+    taxIdHelper: string;
     shippingAddress: string;
     shippingNameLabel: string;
     shippingAddress1Label: string;
@@ -11043,6 +12337,17 @@ export type Dictionary = {
     mbwayPhoneLabel: string;
     mbwayPhonePlaceholder: string;
     mbwayPhoneRequired: string;
+    pendingHeading: string;
+    pendingSubheading: string;
+    pendingDescription: string;
+    pendingStatusLabel: string;
+    pendingStatusAwaiting: string;
+    pendingStatusPaid: string;
+    pendingStatusFailed: string;
+    pendingHint: string;
+    pendingRefresh: string;
+    pendingOrdersCta: string;
+    pendingMissingOrder: string;
     methods: Record<"multibanco" | "mbway" | "card", string>;
     methodDescriptions: Record<"multibanco" | "mbway" | "card", string>;
     resultHeading: string;
@@ -11067,6 +12372,22 @@ export type Dictionary = {
     statusPaid: string;
     statusPollingTimedOut: string;
     cardRedirectMessage: string;
+    cardDetailsLabel: string;
+    cardUnavailable: string;
+    cardInitializing: string;
+    cardElementUnavailable: string;
+    cardDetailsIncomplete: string;
+    cardErrorFallback: string;
+    cardProcessingMessage: string;
+    cardStatusProcessing: string;
+    cardStatusSuccess: string;
+    cardStatusPending: string;
+    cardSuccessHeading: string;
+    cardSuccessMessage: string;
+    cardPendingHeading: string;
+    cardPendingProcessing: string;
+    cardPendingGeneric: string;
+    cardFinalizeWarning: string;
     viewOrdersCta: string;
     summary: string;
     summaryItems: string;
@@ -11099,6 +12420,14 @@ export type Dictionary = {
       string
     >;
     paymentStatus: Record<"UNPAID" | "PENDING" | "PAID" | "FAILED" | "REFUNDED", string>;
+    statusDetails: {
+      mbwayPending: string;
+      multibancoPending: string;
+      cardPending: string;
+      paid: string;
+    };
+    paymentMethodLabel: string;
+    paymentMethodUnknown: string;
     viewDetails: string;
   };
   twoFactor: {
@@ -11218,8 +12547,8 @@ const dictionaries: Record<Locale, Dictionary> = {
         contact: [
           {
             label: "Email",
-            value: "info@palmanhac.pt",
-            href: "mailto:info@palmanhac.pt",
+            value: "info@palmanhac-shop.pt",
+            href: "mailto:info@palmanhac-shop.pt",
           },
           {
             label: "Phone / WhatsApp",
@@ -11267,7 +12596,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "How can I contact you?",
                 answer: [
-                  "You can contact us by email at info@palmanhac.pt or by phone/WhatsApp at (+351) 964 690 254.",
+                  "You can contact us by email at info@palmanhac-shop.pt or by phone/WhatsApp at (+351) 964 690 254.",
                   "We are available Monday to Friday, from 9:00 AM to 6:00 PM.",
                 ],
               },
@@ -11292,7 +12621,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "How can I edit or delete my account?",
                 answer: [
-                  "To delete your account, please send an email to info@palmanhac.pt from your registered address requesting deletion.",
+                  "To delete your account, please send an email to info@palmanhac-shop.pt from your registered address requesting deletion.",
                   'To update your details or password, access your personal area ("My Account") and edit the desired information.',
                 ],
               },
@@ -11367,7 +12696,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 question: "Which countries do you ship to?",
                 answer: [
                   "Currently, we ship to mainland Portugal, Madeira, and Spain.",
-                  "For other international orders, please contact us at info@palmanhac.pt to check the possibility of shipping.",
+                  "For other international orders, please contact us at info@palmanhac-shop.pt to check the possibility of shipping.",
                 ],
               },
               {
@@ -11452,7 +12781,7 @@ const dictionaries: Record<Locale, Dictionary> = {
           supportTitle: "Need assistance?",
           supportDetails: [
             "If the product is defective, damaged during shipping, or sent incorrectly, Palmanhac will provide a full replacement or refund.",
-            "Return requests should be sent to info@palmanhac.pt or +351 964 690 254 (business days, 9:00 AM – 6:00 PM).",
+            "Return requests should be sent to info@palmanhac-shop.pt or +351 964 690 254 (business days, 9:00 AM – 6:00 PM).",
             "Refunds will be processed within a maximum of 30 days after receipt and verification of the returned item.",
             "If the order arrives in unsuitable condition, photograph the item and the back label (where the seal is visible) and email the images so we can arrange collection and replacement.",
           ],
@@ -11531,6 +12860,8 @@ const dictionaries: Record<Locale, Dictionary> = {
       contactInformation: "Contact information",
       contactEmailLabel: "Email address",
       contactPhoneLabel: "Phone (optional)",
+      taxIdLabel: "Tax ID (NIF / TIN, optional)",
+      taxIdHelper: "Included on your confirmation emails when provided.",
       shippingAddress: "Shipping address",
       shippingNameLabel: "Full name",
       shippingAddress1Label: "Address line 1",
@@ -11544,15 +12875,31 @@ const dictionaries: Record<Locale, Dictionary> = {
       notesPlaceholder: "Share delivery preferences or gift messages.",
       paymentDetails: "Payment",
       paymentMethodDescription:
-        "Pay securely with EuPago (Multibanco, MB WAY, or Cards).",
+        "Pay securely via EuPago (Multibanco / MB WAY) or Stripe for cards.",
       paymentMethodLabel: "Choose a payment method",
       paymentServiceUnavailable:
         "Payments are unavailable right now. Please try again shortly.",
       startPaymentCta: "Place order",
       processingPayment: "Processing payment...",
       mbwayPhoneLabel: "MB WAY phone number",
-      mbwayPhonePlaceholder: "e.g. 912345678",
+      mbwayPhonePlaceholder: "e.g. +351912345678",
       mbwayPhoneRequired: "Please provide a phone number for MB WAY.",
+      pendingHeading: "Order placed — confirm the payment",
+      pendingSubheading:
+        "We’ll keep checking with EuPago until the payment is confirmed.",
+      pendingDescription:
+        "Approve the MB WAY request on your phone. If you already approved it, keep this tab open or go to Orders to see the latest status.",
+      pendingStatusLabel: "Live status",
+      pendingStatusAwaiting: "Awaiting approval in the MB WAY app.",
+      pendingStatusPaid: "Payment confirmed. Redirecting to Orders…",
+      pendingStatusFailed:
+        "The payment was not approved. Choose a different method in the Orders page.",
+      pendingHint:
+        "Need to double-check? Open the Orders page to review the latest payment status.",
+      pendingRefresh: "Refresh status",
+      pendingOrdersCta: "Go to Orders",
+      pendingMissingOrder:
+        "We could not find that order reference. Please return to checkout and try again.",
       methods: {
         multibanco: "Multibanco",
         mbway: "MB WAY",
@@ -11562,13 +12909,13 @@ const dictionaries: Record<Locale, Dictionary> = {
         multibanco:
           "Pay later at an ATM or online banking using the generated reference.",
         mbway: "Approve the request in your MB WAY app to complete the order instantly.",
-        card: "Secure card payment via EuPago’s hosted checkout.",
+        card: "Secure card payment powered by Stripe.",
       },
       resultHeading: "Payment instructions",
       resultInstructions: {
         multibanco: "Use these references to complete the payment via Multibanco.",
         mbway: "Approve the payment in your MB WAY app to confirm your order.",
-        card: "You will be redirected to EuPago’s secure card checkout.",
+        card: "Enter your card details below to pay with Stripe.",
       },
       resultFields: {
         entity: "Entity",
@@ -11590,7 +12937,31 @@ const dictionaries: Record<Locale, Dictionary> = {
       statusPollingTimedOut:
         "We could not confirm the payment automatically. Please review the Orders page for the latest status.",
       cardRedirectMessage:
-        "You’ll be redirected to EuPago’s secure card page to finish the payment.",
+        "Confirm the payment in the card form above. Stripe may ask for additional verification.",
+      cardDetailsLabel: "Card details",
+      cardUnavailable:
+        "Card payments are temporarily unavailable. Please select another method.",
+      cardInitializing: "Stripe is still loading. Please wait a moment.",
+      cardElementUnavailable:
+        "Unable to initialize the card form. Refresh the page and try again.",
+      cardDetailsIncomplete: "Please complete your card details before continuing.",
+      cardErrorFallback:
+        "Unable to confirm the card payment. Please try again with another card.",
+      cardProcessingMessage: "Confirming your card payment securely via Stripe.",
+      cardStatusProcessing:
+        "Confirming the payment with Stripe. This only takes a moment.",
+      cardStatusSuccess: "Payment confirmed. Redirecting to Orders…",
+      cardStatusPending: "Payment created — we’re finalising the status.",
+      cardSuccessHeading: "Payment confirmed",
+      cardSuccessMessage:
+        "Thanks! Your payment went through and we’re preparing your order. You can review the latest details from the Orders page.",
+      cardPendingHeading: "Payment pending",
+      cardPendingProcessing:
+        "Stripe is still processing this payment. This usually takes less than a minute.",
+      cardPendingGeneric:
+        "Stripe marked this payment as “{status}”. We’ll update your Orders page automatically once it changes.",
+      cardFinalizeWarning:
+        "The payment succeeded but we could not refresh the order automatically. Please review the Orders page for the latest status.",
       viewOrdersCta: "Go to Orders",
       summary: "Order summary",
       summaryItems: "{count} items",
@@ -11632,6 +13003,17 @@ const dictionaries: Record<Locale, Dictionary> = {
         FAILED: "Payment failed",
         REFUNDED: "Refunded",
       },
+      paymentMethodLabel: "Payment method",
+      paymentMethodUnknown: "Not specified",
+      statusDetails: {
+        mbwayPending:
+          "Awaiting approval in the MB WAY app. Confirm the payment on your phone or wait for EuPago to update the status automatically.",
+        multibancoPending:
+          "Awaiting Multibanco payment. Use the generated reference and the order will update once the payment is confirmed.",
+        cardPending:
+          "Awaiting Stripe confirmation. Complete the card payment to update this order.",
+        paid: "Payment received. No further action is required.",
+      },
       viewDetails: "View details",
     },
     twoFactor: {
@@ -11671,7 +13053,7 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Post Code 2950-019",
         "Tel: T.964 690 254",
         "Site: www.palmanhac.pt",
-        "Mail: info@palmanhac.pt",
+        "Mail: info@palmanhac-shop.pt",
         "Working hours: 09.00 - 18.00",
       ],
       complaintsBook: "Livro de Reclamações",
@@ -11764,8 +13146,8 @@ const dictionaries: Record<Locale, Dictionary> = {
         contact: [
           {
             label: "Email",
-            value: "info@palmanhac.pt",
-            href: "mailto:info@palmanhac.pt",
+            value: "info@palmanhac-shop.pt",
+            href: "mailto:info@palmanhac-shop.pt",
           },
           {
             label: "Telefone / WhatsApp",
@@ -11813,7 +13195,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "Como posso entrar em contacto convosco?",
                 answer: [
-                  "Pode contactar-nos por e-mail através de info@palmanhac.pt ou por telefone/WhatsApp pelo (+351) 964 690 254.",
+                  "Pode contactar-nos por e-mail através de info@palmanhac-shop.pt ou por telefone/WhatsApp pelo (+351) 964 690 254.",
                   "Estamos disponíveis de segunda a sexta-feira, das 9h00 às 18h00.",
                 ],
               },
@@ -11838,7 +13220,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "Como posso alterar ou eliminar a minha conta?",
                 answer: [
-                  "Para eliminar a sua conta, envie um e-mail para info@palmanhac.pt a partir do endereço registado, solicitando a eliminação.",
+                  "Para eliminar a sua conta, envie um e-mail para info@palmanhac-shop.pt a partir do endereço registado, solicitando a eliminação.",
                   'Para atualizar os seus dados ou palavra-passe, aceda à sua área pessoal ("Minha Conta") e edite as informações desejadas.',
                 ],
               },
@@ -11913,7 +13295,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 question: "Para que países enviam encomendas?",
                 answer: [
                   "Atualmente, enviamos para Portugal Continental, Madeira e Espanha.",
-                  "Para outros destinos internacionais, contacte-nos através de info@palmanhac.pt para verificar a possibilidade de envio.",
+                  "Para outros destinos internacionais, contacte-nos através de info@palmanhac-shop.pt para verificar a possibilidade de envio.",
                 ],
               },
               {
@@ -12000,7 +13382,7 @@ const dictionaries: Record<Locale, Dictionary> = {
           supportTitle: "Precisa de ajuda?",
           supportDetails: [
             "Se o produto estiver defeituoso, danificado durante o transporte ou se houver erro no envio, a Palmanhac procederá à substituição ou reembolso total.",
-            "O pedido de devolução deve ser enviado para info@palmanhac.pt ou +351 964 690 254 (dias úteis, das 9h00 às 18h00).",
+            "O pedido de devolução deve ser enviado para info@palmanhac-shop.pt ou +351 964 690 254 (dias úteis, das 9h00 às 18h00).",
             "Os reembolsos serão processados no prazo máximo de 30 dias após a receção e verificação do artigo devolvido.",
             "Caso a encomenda chegue em condições inadequadas, fotografe o artigo e a etiqueta traseira (onde o selo é visível) e envie as imagens por e-mail para que possamos agendar a recolha e substituição.",
           ],
@@ -12080,6 +13462,8 @@ const dictionaries: Record<Locale, Dictionary> = {
       contactInformation: "Informações de contacto",
       contactEmailLabel: "Email",
       contactPhoneLabel: "Telefone (opcional)",
+      taxIdLabel: "NIF / TIN (opcional)",
+      taxIdHelper: "Incluído no email e no comprovativo caso seja preenchido.",
       shippingAddress: "Morada de envio",
       shippingNameLabel: "Nome completo",
       shippingAddress1Label: "Morada linha 1",
@@ -12093,15 +13477,31 @@ const dictionaries: Record<Locale, Dictionary> = {
       notesPlaceholder: "Partilhe preferências de entrega ou mensagens de oferta.",
       paymentDetails: "Pagamento",
       paymentMethodDescription:
-        "Pague com segurança através da EuPago (Multibanco, MB WAY ou Cartões).",
+        "Pague com segurança via EuPago (Multibanco / MB WAY) ou Stripe para cartões.",
       paymentMethodLabel: "Escolha o método de pagamento",
       paymentServiceUnavailable:
         "Os pagamentos não estão disponíveis neste momento. Tente novamente em breve.",
       startPaymentCta: "Finalizar encomenda",
       processingPayment: "A processar pagamento...",
       mbwayPhoneLabel: "Telemóvel MB WAY",
-      mbwayPhonePlaceholder: "ex.: 912345678",
+      mbwayPhonePlaceholder: "ex.: +351912345678",
       mbwayPhoneRequired: "Indique um número de telefone para MB WAY.",
+      pendingHeading: "Encomenda registada — confirme o pagamento",
+      pendingSubheading:
+        "Atualizaremos o estado automaticamente assim que a EuPago confirmar.",
+      pendingDescription:
+        "Aprove o pedido na app MB WAY. Se já confirmou, mantenha esta página aberta ou visite as encomendas para acompanhar o estado.",
+      pendingStatusLabel: "Estado em tempo real",
+      pendingStatusAwaiting: "A aguardar aprovação na app MB WAY.",
+      pendingStatusPaid: "Pagamento confirmado. A redirecionar para Encomendas…",
+      pendingStatusFailed:
+        "O pagamento não foi aprovado. Pode escolher outro método na página de Encomendas.",
+      pendingHint:
+        "Já confirmou o pagamento? Visite a página de Encomendas para ver o estado mais recente.",
+      pendingRefresh: "Atualizar estado",
+      pendingOrdersCta: "Ver Encomendas",
+      pendingMissingOrder:
+        "Não encontrámos a referência da encomenda. Volte a tentar a partir do checkout.",
       methods: {
         multibanco: "Multibanco",
         mbway: "MB WAY",
@@ -12111,13 +13511,13 @@ const dictionaries: Record<Locale, Dictionary> = {
         multibanco:
           "Pague mais tarde no Multibanco ou homebanking com a referência gerada.",
         mbway: "Aprove o pedido na app MB WAY para confirmar de imediato.",
-        card: "Pagamento seguro com cartão através da EuPago.",
+        card: "Pagamento seguro com cartão através da Stripe.",
       },
       resultHeading: "Instruções de pagamento",
       resultInstructions: {
         multibanco: "Use estes dados para concluir o pagamento via Multibanco.",
         mbway: "Aprove o pagamento na app MB WAY para confirmar a encomenda.",
-        card: "Será redirecionado para o checkout seguro da EuPago.",
+        card: "Introduza os dados do cartão abaixo para pagar com a Stripe.",
       },
       resultFields: {
         entity: "Entidade",
@@ -12139,7 +13539,32 @@ const dictionaries: Record<Locale, Dictionary> = {
       statusPollingTimedOut:
         "Não foi possível confirmar automaticamente. Consulte a página de Encomendas para o estado atual.",
       cardRedirectMessage:
-        "Será redirecionado para a página segura da EuPago para concluir o pagamento.",
+        "Conclua o pagamento no formulário acima. A Stripe pode pedir uma verificação adicional.",
+      cardDetailsLabel: "Dados do cartão",
+      cardUnavailable:
+        "Os pagamentos com cartão estão temporariamente indisponíveis. Escolha outro método.",
+      cardInitializing: "O Stripe ainda está a carregar. Aguarde um momento.",
+      cardElementUnavailable:
+        "Não foi possível iniciar o formulário do cartão. Atualize a página e tente novamente.",
+      cardDetailsIncomplete: "Preencha os dados do cartão antes de continuar.",
+      cardErrorFallback:
+        "Não foi possível confirmar o pagamento com cartão. Tente novamente com outro cartão.",
+      cardProcessingMessage:
+        "A confirmar o pagamento com cartão de forma segura através da Stripe.",
+      cardStatusProcessing:
+        "A confirmar o pagamento com a Stripe. Normalmente demora apenas alguns segundos.",
+      cardStatusSuccess: "Pagamento confirmado. A redirecionar para Encomendas…",
+      cardStatusPending: "Pagamento criado — a atualizar o estado.",
+      cardSuccessHeading: "Pagamento confirmado",
+      cardSuccessMessage:
+        "Obrigado! O pagamento foi concluído e estamos a preparar a encomenda. Consulte os detalhes mais recentes na página de Encomendas.",
+      cardPendingHeading: "Pagamento pendente",
+      cardPendingProcessing:
+        "A Stripe ainda está a processar este pagamento. Normalmente demora menos de um minuto.",
+      cardPendingGeneric:
+        "A Stripe identificou este pagamento como “{status}”. Atualizaremos automaticamente a página de Encomendas assim que houver alterações.",
+      cardFinalizeWarning:
+        "O pagamento foi concluído, mas não conseguimos atualizar a encomenda automaticamente. Verifique a página de Encomendas para confirmar o estado.",
       viewOrdersCta: "Ir para Encomendas",
       summary: "Resumo da encomenda",
       summaryItems: "{count} artigos",
@@ -12181,6 +13606,17 @@ const dictionaries: Record<Locale, Dictionary> = {
         FAILED: "Pagamento falhou",
         REFUNDED: "Reembolsado",
       },
+      paymentMethodLabel: "Método de pagamento",
+      paymentMethodUnknown: "Não indicado",
+      statusDetails: {
+        mbwayPending:
+          "A aguardar aprovação na app MB WAY. Confirme o pagamento no telemóvel ou aguarde a atualização automática.",
+        multibancoPending:
+          "A aguardar pagamento Multibanco. Utilize a referência gerada e a encomenda atualizará automaticamente após o pagamento.",
+        cardPending:
+          "A aguardar confirmação do cartão na Stripe. Termine o pagamento para atualizar esta encomenda.",
+        paid: "Pagamento recebido. Não é necessária nenhuma ação adicional.",
+      },
       viewDetails: "Ver detalhes",
     },
     twoFactor: {
@@ -12220,7 +13656,7 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Código Postal 2950-019",
         "Tel.: T.964 690 254",
         "Site: www.palmanhac.pt",
-        "Email: info@palmanhac.pt",
+        "Email: info@palmanhac-shop.pt",
         "Horário: 09h00 - 18h00",
       ],
       complaintsBook: "Livro de Reclamações",
@@ -12275,9 +13711,94 @@ export const getDictionary = (locale: Locale): Dictionary => {
 };
 # --- end of lib/i18n/dictionaries.ts ---
 
+# --- lib/payments/checkout-schema.ts ---
+import { z } from "zod";
+import { normalizeCountryInput } from "@/lib/utils/country";
+
+const countryCodeSchema = z
+  .string()
+  .min(2)
+  .max(120)
+  .transform((value, ctx) => {
+    try {
+      return normalizeCountryInput(value);
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "Invalid country.",
+      });
+      return z.NEVER;
+    }
+  });
+
+const addressSchema = z.object({
+  name: z.string().min(1).max(120),
+  line1: z.string().min(1).max(200),
+  line2: z.string().max(200).optional(),
+  city: z.string().min(1).max(120),
+  postalCode: z.string().min(1).max(60),
+  country: countryCodeSchema,
+});
+
+export const checkoutPayloadSchema = z.object({
+  method: z.enum(["multibanco", "mbway", "card"]),
+  items: z
+    .array(
+      z.object({
+        productId: z.number().int().min(1),
+        quantity: z.number().int().min(1).max(99),
+      }),
+    )
+    .min(1),
+  contact: z.object({
+    email: z.string().email(),
+    phone: z.string().max(50).optional(),
+    name: z.string().max(120).optional(),
+  }),
+  shipping: addressSchema,
+  billing: addressSchema,
+  notes: z.string().max(500).optional(),
+  taxId: z.string().trim().max(32).optional(),
+  currency: z.string().default("EUR"),
+  locale: z.string().optional(),
+  mbwayPhone: z.string().max(20).optional(),
+  totals: z
+    .object({
+      itemsSubtotalCents: z.number().int().nonnegative(),
+      deliveryCents: z.number().int().nonnegative(),
+      discountCents: z.number().int().nonnegative(),
+      totalCents: z.number().int().positive(),
+    })
+    .optional(),
+});
+
+export type CheckoutPayload = z.infer<typeof checkoutPayloadSchema>;
+
+export const normalizeCurrency = (currency: string) =>
+  currency.trim().toUpperCase() || "EUR";
+
+export const parseMbwayPhone = (input: string) => {
+  const digits = input.replace(/\D/g, "");
+  if (digits.length < 9) {
+    throw new Error("Invalid phone number.");
+  }
+  const msisdn = digits.slice(-9);
+  const countryCode = digits.length > 9 ? digits.slice(0, digits.length - 9) : "351";
+  return { phone: msisdn, countryCode };
+};
+# --- end of lib/payments/checkout-schema.ts ---
+
 # --- lib/payments/eupago.ts ---
 // lib/payments/eupago.ts
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { redactForLogging } from "@/lib/utils/redact";
+
+const logEuPagoEvent = (
+  level: Parameters<typeof logPaymentEvent>[0],
+  event: string,
+  details: Record<string, unknown> = {},
+) => logPaymentEvent(level, event, redactForLogging(details) as Record<string, unknown>);
+
 export class EuPagoConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -12343,7 +13864,11 @@ export type EuPagoStatusResult = {
 };
 
 const normalizeBaseUrl = (value: string) =>
-  value.trim().replace(/\s+/g, "").replace(/\/+$/, "").replace(/\/api$/i, "");
+  value
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/\/+$/, "")
+    .replace(/\/api$/i, "");
 const LIVE_BASE_CANDIDATES = ["https://clientes.eupago.pt", "https://eupago.pt"];
 let liveWarningIssued = false;
 
@@ -12385,14 +13910,25 @@ const parseJsonSafely = async <T>(res: Response): Promise<T> => {
 
 type Mode = "header" | "body";
 type Format = "form" | "json";
-type EuPagoPayloadValue = string | number | boolean | null | undefined;
-type EuPagoPayload = Record<string, EuPagoPayloadValue>;
+type EuPagoSerializable =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | EuPagoSerializable[]
+  | { [key: string]: EuPagoSerializable };
+type EuPagoPayload = Record<string, EuPagoSerializable>;
+type EuPagoFetchOptions = {
+  disableAuthInjection?: boolean;
+};
 
 const euPagoFetch = async <T>(
   path: string,
   payload: EuPagoPayload,
   mode: Mode,
   format: Format,
+  options: EuPagoFetchOptions = {},
 ) => {
   const url = buildUrl(path);
   const headers: Record<string, string> = {
@@ -12401,8 +13937,16 @@ const euPagoFetch = async <T>(
   };
   const key = ensureApiKey();
 
-  const toFormValue = (value: EuPagoPayloadValue) =>
-    typeof value === "string" ? value : value !== undefined && value !== null ? String(value) : undefined;
+  const toFormValue = (value: EuPagoSerializable) => {
+    if (
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      return String(value);
+    }
+    return undefined;
+  };
 
   const bodyParams = new URLSearchParams();
   for (const [k, v] of Object.entries(payload)) {
@@ -12410,16 +13954,16 @@ const euPagoFetch = async <T>(
     if (stringValue !== undefined) bodyParams.set(k, stringValue);
   }
 
-  const jsonPayload: Record<string, EuPagoPayloadValue> = {};
+  const jsonPayload: Record<string, EuPagoSerializable> = {};
   for (const [k, v] of Object.entries(payload)) {
     if (v !== undefined && v !== null) jsonPayload[k] = v;
   }
 
-  if (mode === "header") {
+  if (mode === "header" && !options.disableAuthInjection) {
     headers["ApiKey"] = key;
     headers["Authorization"] = `ApiKey ${key}`;
     headers["X-Api-Key"] = key;
-  } else {
+  } else if (mode === "body" && !options.disableAuthInjection) {
     bodyParams.set("apiKey", key);
   }
 
@@ -12429,7 +13973,7 @@ const euPagoFetch = async <T>(
     headers["Content-Type"] = "application/json";
   }
 
-  const redactPayload = (input: Record<string, EuPagoPayloadValue>) =>
+  const redactPayload = (input: Record<string, EuPagoSerializable>) =>
     Object.fromEntries(
       Object.entries(input).map(([k, v]) =>
         k.toLowerCase().includes("key") ? [k, "<redacted>"] : [k, v],
@@ -12451,7 +13995,7 @@ const euPagoFetch = async <T>(
   if (loggedHeaders.Authorization) loggedHeaders.Authorization = "<redacted>";
   if (loggedHeaders["X-Api-Key"]) loggedHeaders["X-Api-Key"] = "<redacted>";
 
-  await logPaymentEvent("info", "eupago_request", {
+  await logEuPagoEvent("info", "eupago_request", {
     url,
     headers: loggedHeaders,
     body: debugBody,
@@ -12468,14 +14012,13 @@ const euPagoFetch = async <T>(
 
   if (!res.ok) {
     const errorClone = res.clone();
-    const errorPayload =
-      (await errorClone.json().catch(async () => {
-        const fallbackText = await res.text().catch(() => null);
-        return fallbackText
-          ? { message: fallbackText }
-          : { message: "EuPago error response was empty." };
-      })) ?? { message: "EuPago error response missing." };
-    await logPaymentEvent("error", "eupago_response_error", {
+    const errorPayload = (await errorClone.json().catch(async () => {
+      const fallbackText = await res.text().catch(() => null);
+      return fallbackText
+        ? { message: fallbackText }
+        : { message: "EuPago error response was empty." };
+    })) ?? { message: "EuPago error response missing." };
+    await logEuPagoEvent("error", "eupago_response_error", {
       url,
       status: res.status,
       response: errorPayload,
@@ -12486,7 +14029,7 @@ const euPagoFetch = async <T>(
     );
   }
   const parsed = await parseJsonSafely<T>(res);
-  await logPaymentEvent("info", "eupago_response_success", {
+  await logEuPagoEvent("info", "eupago_response_success", {
     url,
     status: res.status,
     response: parsed,
@@ -12601,31 +14144,33 @@ export const createCard = async (order: EuPagoOrderInput): Promise<EuPagoCardRes
 };
 
 export const createMBWay = async (
-  order: EuPagoOrderInput & { phone: string },
+  order: EuPagoOrderInput & { phone: string; countryCode: string },
 ): Promise<EuPagoMBWayResult> => {
   const eur = Math.max(order.amountCents, 100) / 100;
-  const value = asTwoDecimals(eur);
+  const value = Number.parseFloat(asTwoDecimals(eur));
   const payload: EuPagoPayload = {
-    id: order.orderId,
-    value,
-    currency: (order.currency || "EUR").toUpperCase(),
-    description: order.description ?? `Order ${order.orderId}`,
-    customer_email: order.customer.email,
-    customer_name: order.customer.name ?? "",
-    alias: order.phone, // MB WAY phone
-    locale: order.locale ?? "en",
+    payment: {
+      amount: {
+        currency: (order.currency || "EUR").toUpperCase(),
+        value,
+      },
+      identifier: order.orderId,
+      customerPhone: order.phone,
+      countryCode: order.countryCode,
+    },
   };
 
   const res = await euPagoFetch<Record<string, unknown>>(
     "/api/v1.02/mbway/create",
     payload,
     "header",
-    "form",
+    "json",
   );
 
   const transactionId =
     (typeof res.transactionId === "string" && res.transactionId) ||
     (typeof res.transaction_id === "string" && res.transaction_id) ||
+    (typeof res.transactionID === "string" && res.transactionID) ||
     (typeof res.id === "string" && res.id) ||
     null;
   if (!transactionId)
@@ -12645,20 +14190,19 @@ export const createMBWay = async (
 export const createMultibanco = async (
   order: EuPagoOrderInput,
 ): Promise<EuPagoMultibancoResult> => {
-  const amount = asTwoDecimals(Math.max(order.amountCents, 100) / 100);
-  const payload: Record<string, string> = {
+  const amount = Number.parseFloat(asTwoDecimals(Math.max(order.amountCents, 100) / 100));
+  const payload: EuPagoPayload = {
+    key: ensureApiKey(),
+    value: amount,
     id: order.orderId,
-    valor: amount, // Multibanco uses "valor"
-    descricao: order.description ?? `Order ${order.orderId}`,
-    email: order.customer.email,
-    currency: (order.currency || "EUR").toUpperCase(),
   };
 
   const res = await euPagoFetch<Record<string, unknown>>(
     "/clientes/rest_api/multibanco/create",
     payload,
-    "body", // multibanco uses apiKey in body
-    "form",
+    "body",
+    "json",
+    { disableAuthInjection: true },
   );
 
   const entity =
@@ -12702,7 +14246,7 @@ export const fetchMBWayStatus = async (
   statusUrl: string,
 ): Promise<EuPagoStatusResult> => {
   const url = /^https?:\/\//i.test(statusUrl) ? statusUrl : buildUrl(statusUrl);
-  await logPaymentEvent("info", "eupago_status_request", { method: "mbway", url });
+  await logEuPagoEvent("info", "eupago_status_request", { method: "mbway", url });
   const res = await fetch(url, {
     method: "GET",
     headers: {
@@ -12714,7 +14258,7 @@ export const fetchMBWayStatus = async (
   });
   if (!res.ok) {
     const e = await res.json().catch(async () => ({ message: await res.text() }));
-    await logPaymentEvent("error", "eupago_status_error", {
+    await logEuPagoEvent("error", "eupago_status_error", {
       method: "mbway",
       url,
       status: res.status,
@@ -12726,7 +14270,7 @@ export const fetchMBWayStatus = async (
     );
   }
   const parsed = await parseJsonSafely<Record<string, unknown>>(res);
-  await logPaymentEvent("info", "eupago_status_success", {
+  await logEuPagoEvent("info", "eupago_status_success", {
     method: "mbway",
     url,
     status: res.status,
@@ -12784,6 +14328,29 @@ export const normaliseProviderReference = (value: string | null | undefined) => 
   return trimmed.replace(/[^0-9A-Za-z_-]/g, "").toUpperCase();
 };
 # --- end of lib/payments/eupago.ts ---
+
+# --- lib/payments/stripe.ts ---
+import Stripe from "stripe";
+
+let stripeClient: Stripe | null = null;
+
+const resolveSecretKey = () => {
+  const secret = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!secret) {
+    throw new Error("STRIPE_SECRET_KEY is not configured.");
+  }
+  return secret;
+};
+
+export const getStripeClient = () => {
+  if (!stripeClient) {
+    stripeClient = new Stripe(resolveSecretKey(), {
+      typescript: true,
+    });
+  }
+  return stripeClient;
+};
+# --- end of lib/payments/stripe.ts ---
 
 # --- lib/security/password.ts ---
 import { z } from "zod";
@@ -12970,9 +14537,17 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error(
+    "DATABASE_URL is not configured. Set it in the environment before starting the server.",
+  );
+}
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
+    datasources: { db: { url: databaseUrl } },
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 
@@ -13471,28 +15046,18 @@ type DisplayNamesLike = {
 
 const SUPPORTED_REGIONS: string[] = (() => {
   try {
-    const supported = (Intl as typeof Intl & {
-      supportedValuesOf?: (input: string) => string[];
-    }).supportedValuesOf;
+    const supported = (
+      Intl as typeof Intl & {
+        supportedValuesOf?: (input: string) => string[];
+      }
+    ).supportedValuesOf;
     if (typeof supported === "function") {
       return supported("region").filter((item) => /^[A-Za-z]{2,3}$/.test(item));
     }
   } catch {
     // Ignore
   }
-  return [
-    "PT",
-    "ES",
-    "FR",
-    "DE",
-    "IT",
-    "NL",
-    "BE",
-    "GB",
-    "US",
-    "BR",
-    "CA",
-  ];
+  return ["PT", "ES", "FR", "DE", "IT", "NL", "BE", "GB", "US", "BR", "CA"];
 })();
 
 const LOCALES = ["en", "pt", "es", "fr"];
@@ -13785,6 +15350,126 @@ export const logPaymentEvent = async (
 };
 # --- end of lib/utils/payment-logger.ts ---
 
+# --- lib/utils/redact.ts ---
+const SENSITIVE_KEY_PATTERNS = [
+  "apikey",
+  "api_key",
+  "api-key",
+  "key",
+  "secret",
+  "token",
+  "signature",
+  "password",
+  "pass",
+  "authorization",
+  "cookie",
+  "email",
+  "phone",
+  "alias",
+  "customer",
+  "address",
+  "line1",
+  "line2",
+  "city",
+  "postal",
+  "zip",
+  "country",
+  "name",
+  "notes",
+  "reference",
+  "transaction",
+  "card",
+  "iban",
+  "entity",
+];
+
+const SENSITIVE_VALUE_PATTERNS = [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, /^\+?\d[0-9()\s-]{5,}$/];
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  Object.prototype.toString.call(value) === "[object Object]";
+
+const shouldRedactKey = (key: string) => {
+  const lowered = key.toLowerCase();
+  return SENSITIVE_KEY_PATTERNS.some((pattern) => lowered.includes(pattern));
+};
+
+const shouldRedactValue = (value: unknown) =>
+  typeof value === "string" &&
+  (SENSITIVE_VALUE_PATTERNS.some((pattern) => pattern.test(value)) || value.length > 40);
+
+const maskString = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "<redacted>";
+  if (trimmed.length <= 4) return `${trimmed[0] ?? "*"}***`;
+  const [localPartRaw, domain] = trimmed.split("@");
+  const localPart = localPartRaw ?? "";
+  if (domain) {
+    const safeLocal =
+      localPart.length <= 2
+        ? `${localPart.charAt(0) || "*"}***`
+        : `${localPart.slice(0, 2)}***`;
+    return `${safeLocal}@${domain}`;
+  }
+  return `${trimmed.slice(0, 3)}***${trimmed.slice(-2)}`;
+};
+
+const maskValue = (value: unknown): unknown => {
+  if (typeof value === "string") {
+    return maskString(value);
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? "[redacted-number]" : "<redacted>";
+  }
+  if (Array.isArray(value)) {
+    return value.map(() => "<redacted>");
+  }
+  if (value && typeof value === "object") {
+    return "[redacted]";
+  }
+  return "<redacted>";
+};
+
+const redactInternal = (input: unknown, seen: WeakSet<object>): unknown => {
+  if (input === null || input === undefined) {
+    return input;
+  }
+
+  if (input instanceof Date) {
+    return input.toISOString();
+  }
+
+  if (Array.isArray(input)) {
+    return input.map((item) => redactInternal(item, seen));
+  }
+
+  if (!isPlainObject(input)) {
+    if (shouldRedactValue(input)) {
+      return maskValue(input);
+    }
+    return input;
+  }
+
+  if (seen.has(input)) {
+    return "[circular]";
+  }
+  seen.add(input);
+
+  const output: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined) continue;
+    if (shouldRedactKey(key) || shouldRedactValue(value)) {
+      output[key] = maskValue(value);
+      continue;
+    }
+    output[key] = redactInternal(value, seen);
+  }
+  return output;
+};
+
+export const redactForLogging = <T>(input: T): T =>
+  redactInternal(input, new WeakSet()) as T;
+# --- end of lib/utils/redact.ts ---
+
 # --- prisma/schema.prisma ---
 generator client {
   provider = "prisma-client-js"
@@ -13865,18 +15550,18 @@ model User {
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
   oauth_token_secret String? @db.Text
   oauth_token        String? @db.Text
 
@@ -13917,6 +15602,7 @@ model Order {
   providerMetadata Json?
   contactEmail  String?
   contactPhone  String?
+  taxId         String?
   shippingAddress Json?
   billingAddress Json?
   locale        String?

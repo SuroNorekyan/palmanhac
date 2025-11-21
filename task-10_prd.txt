@@ -1,0 +1,269 @@
+Please modify the proeject files to complete these tasks:
+
+- We do not support Madeira deliveires, so please remove the Madeira deliveries in the entire project (like the CheckoutView, TopBanner, Footer.tsx, about/page.tsx, dictionaries etc). Keep the message like 
+"Currently, we ship to mainland Portugal and Spain", make sure both en and pt messages are updated
+
+- The delivery should be free starting from 60 euros, nut current "Free shipping from €50".Modify the entire project to reference 60 euros instead of 50. Also for the entire project, updte the shipping calculations
+so the delivery now is free starting from 60 euros (like in the CheckoutView page). 
+
+- In the /checkout page, sometimes VAT for some products isn't visible, please fix this bug, ensure that VAT is correctly displayed and calculated
+
+- Currently, the app has an integrated mailing system, but we want a new format. To the user who've made the order, we should send 2 emails as you can see in the USER-EMAIL-1 and USER-EMAIL-2 sections below.
+To the admin, we should send the ADMIN-EMAIL-1 + the ADMIN-EMAIL-2. For all the emails, the priority should be the pt language, meaning that email should display PT message first, below the english one.
+In the mails, before the PT message, say that they can see the EN mail below the PT. Ensure proper formatting. Rely on the files from lib/email directory. Also please modify the /scripts/send-test-email.ts to send all of the 4 emails
+to "suren.norekyan123@gmail.com" so I can verify that the formatting is correct
+
+- I'm not sure whether the app correctly understands whether the payment was confirmed or not. Please make sure that we first send the USER-EMAIL-1 and once the payment was confirmed (either MB WAY, MULTIBANCO or Credit),
+we send the USER-EMAIL-2 (same for the admin). For the Credit it might be easier to check, but I'm not sure about the MB WAY or Multibanco. Please make sure that once user confirms the transaction through the app,
+website displays the confirmation status + sends correct emails. Also for the confirmation pages, please have a warnings like if you've confirmed the order but didn't receive an email, please reach us at
+info@palmanhac-shop.pt with your order number, we will be happy to assist. For the warning message, you can use "              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 text-orange-600" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">
+                      {dictionary.checkout.multibancoNoticeTitle}
+                    </p>
+                    <p>
+                      {formatNoticeWithEmail(
+                        dictionary.checkout.multibancoNotice,
+                        "font-semibold underline text-orange-900 underline-offset-2",
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>"
+
+seen from the CheckoutView component. please dedicate a separate component for this form, something like warningcard or similar so it becomes reusable
+
+
+MAILS TO SEND:
+
+_USER-EMAIL-1__
+
+ Assunto: A Sua Encomenda #{{order_number}} Foi Recebida – Palmanhac  
+
+Olá, {{customer_name}}! 
+Obrigado pela sua compra na Palmanhac. Temos o prazer de confirmar que a sua encomenda foi recebida com sucesso.
+
+Aqui estão os detalhes da sua encomenda:
+
+🧾 DETALHES DA ENCOMENDA
+Número da encomenda: {{order_number}}
+
+🛒 Itens encomendados:
+{{order_items}}
+(cada item no formato: produto — quantidade × preço)
+
+Custo de envio: {{shipping_cost}}
+Valor total (IVA incluído): {{order_total}}
+
+📦 Informações de envio
+Nome: {{customer_name}}
+Endereço de entrega: {{shipping_address}}
+Telefone: {{phone_number}}
+
+🚚 O que acontece a seguir?
+Após a confirmação do pagamento, iremos enviar-lhe:
+
+a confirmação de envio,
+
+o número de rastreamento para acompanhar a sua entrega.
+
+Obrigado por escolher a Palmanhac.
+Se tiver alguma dúvida, estamos sempre disponíveis para ajudar.
+
+Email: info@palmanhac-shop.pt
+Telefone: +351 964 690 254
+
+
+Com os melhores cumprimentos,
+Equipa Palmanhac
+
+
+Subject: Your Order #{{order_number}} Has Been Received – Palmanhac
+
+Hello, {{customer_name}}!
+Thank you for your purchase at Palmanhac. We are happy to confirm that your order has been successfully received.
+
+Here are the details of your order:
+
+🧾 ORDER DETAILS
+Order number: {{order_number}}
+
+🛒 Items ordered:
+{{order_items}}
+(each item in the format: product — quantity × price)
+
+Shipping cost: {{shipping_cost}}
+Total amount (IVA included): {{order_total}}
+
+📦 Shipping Information
+Name: {{customer_name}}
+Delivery address: {{shipping_address}}
+Phone number: {{phone_number}}
+
+🚚 What happens next?
+Once your payment is confirmed, we will send you:
+
+a shipping confirmation,
+
+a tracking number so you can follow your delivery.
+
+Thank you for choosing Palmanhac.
+If you have any questions, we are always here to help.
+
+Email: info@palmanhac-shop.pt
+Phone: +351 964 690 254
+
+Best regards,
+Palmanhac Team
+
+__USER-EMAIL-2__
+
+PAGAMENTO RECEBIDO – CONFIRMAÇÃO
+Assunto: Confirmação de Pagamento – Pedido #{{order_number}}
+
+Olá {{customer_name}},
+
+Confirmamos que o pagamento do seu pedido foi recebido com sucesso.
+
+Detalhes do Pagamento
+Método de pagamento: {{payment_method}}
+
+Valor recebido: {{order_total}} (IVA incluído)
+
+Data de pagamento: {{payment_date}}
+
+Detalhes do Pedido
+Número do pedido: {{order_number}}
+
+Produtos encomendados:
+{{order_items}}
+
+Custos de envio: {{shipping_cost}}
+
+Total: {{order_total}} (IVA incluído)
+
+Endereço de Entrega
+Nome: {{customer_name}}
+
+Endereço: {{shipping_address}}
+
+Telefone: {{customer_phone}}
+
+O seu pedido será agora preparado. Assim que for enviado, receberá uma nova notificação com o número de rastreamento.
+
+Agradecemos a sua confiança na Palmanhac!
+
+Com os melhores cumprimentos,
+Equipa Palmanhac
+
+🇬🇧 PAYMENT RECEIVED – CONFIRMATION
+Subject: Payment Confirmation – Order #{{order_number}}
+
+Hello {{customer_name}},
+
+We confirm that the payment for your order has been successfully received.
+
+Payment Details
+Payment method: {{payment_method}}
+
+Amount received: {{order_total}} (VAT included)
+
+Payment date: {{payment_date}}
+
+Order Details
+Order number: {{order_number}}
+
+Ordered products:
+{{order_items}}
+
+Shipping cost: {{shipping_cost}}
+
+Total: {{order_total}} (VAT included)
+
+Shipping Address
+Name: {{customer_name}}
+
+Address: {{shipping_address}}
+
+Phone: {{customer_phone}}
+
+Your order will now be prepared. As soon as it is shipped, you will receive another notification with the tracking number.
+
+Thank you for choosing Palmanhac!
+
+Kind regards,
+Palmanhac Team
+
+__ADMIN-EMAIL-1__
+Olá,
+
+Foi registada uma nova encomenda na loja online.
+
+DETALHES DA ENCOMENDA
+Data da encomenda: {{order_date}}
+Número da encomenda: {{order_number}}
+NIF do cliente: {{customer_nif}}
+Email do cliente: {{customer_email}}
+
+🛒 Itens encomendados:
+{{order_items}}
+(cada item no formato: produto — quantidade × preço)
+
+Custo de envio: {{shipping_cost}}
+Valor total (IVA incluído): {{order_total}}
+IVA incluído: {{iva_amount}} ← campo para inserir valor do IVA
+
+📦 Informações de envio
+Nome: {{customer_name}}
+Endereço de entrega: {{shipping_address}}
+Telefone: {{phone_number}}
+
+Se precisar de atualizar ou verificar esta encomenda, pode fazê-lo no painel de administração.
+
+Cumprimentos,
+Sistema Palmanhac-Shop
+
+__ADMIN-EMAIL-2__
+ASSUNTO: Pagamento Confirmado – Encomenda #{{order_number}}
+Pagamento Confirmado
+Data do pagamento: {{payment_date}}
+Número da encomenda: {{order_number}}
+
+💳 Método de pagamento
+(assinalar a opção correspondente)
+
+☐ Cartão (Visa / MasterCard)
+☐ Multibanco
+☐ MB Way
+
+🧾 Valor recebido: {{payment_amount}} EUR
+IVA incluído ({{iva_value}} EUR)
+
+
+
+DETALHES DA ENCOMENDA
+Data da encomenda: {{order_date}}
+Número da encomenda: {{order_number}}
+NIF do cliente: {{customer_nif}}
+Email do cliente: {{customer_email}}
+
+🛒 Itens encomendados:
+{{order_items}}
+(cada item no formato: produto — quantidade × preço)
+
+Custo de envio: {{shipping_cost}}
+Valor total (IVA incluído): {{order_total}}
+IVA incluído: {{iva_amount}} ← campo para inserir valor do IVA
+
+📦 Informações de envio
+Nome: {{customer_name}}
+Endereço de entrega: {{shipping_address}}
+Telefone: {{phone_number}}
+
+Se precisar de atualizar ou verificar esta encomenda, pode fazê-lo no painel de administração.
+
+Cumprimentos,
+Sistema Palmanhac-Shop

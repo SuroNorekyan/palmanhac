@@ -154,6 +154,8 @@ export type Dictionary = {
     shippingNoticeTitle: string;
     multibancoNoticeTitle: string;
     multibancoNotice: string;
+    confirmationNoticeTitle: string;
+    confirmationNotice: string;
     contactInformation: string;
     contactEmailLabel: string;
     contactPhoneLabel: string;
@@ -358,8 +360,8 @@ const dictionaries: Record<Locale, Dictionary> = {
       account: "Account",
     },
     banner: {
-      freeShipping: "Free shipping from €50",
-      shippingIntro: "Currently, we ship to mainland Portugal, Madeira, and Spain.",
+      freeShipping: "Free shipping from €60",
+      shippingIntro: "Currently, we ship to mainland Portugal and Spain.",
       shippingContact:
         "For other international orders, please contact us at info@palmanhac-shop.pt to check the possibility of shipping.",
       dismissLabel: "Close announcement",
@@ -551,7 +553,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "Which countries do you ship to?",
                 answer: [
-                  "Currently, we ship to mainland Portugal, Madeira, and Spain.",
+                  "Currently, we ship to mainland Portugal and Spain.",
                   "For other international orders, please contact us at info@palmanhac-shop.pt to check the possibility of shipping.",
                 ],
               },
@@ -563,7 +565,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 question: "What is the average delivery time?",
                 answer: [
                   "The usual delivery time is 1 to 4 business days after payment confirmation.",
-                  "Deliveries to Madeira and Spain may take slightly longer depending on logistics and customs handling.",
+                  "Deliveries to Spain may take slightly longer depending on logistics and customs handling.",
                   "Delays may occur due to courier issues or external factors beyond Palmanhac's control.",
                 ],
               },
@@ -572,7 +574,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 answer: [
                   "- €6.00 — 1 to 2 bottles",
                   "- €8.00 — 3 or more bottles",
-                  "- Free shipping — for orders over €50.00",
+                  "- Free shipping — for orders over €60.00",
                 ],
               },
               {
@@ -616,7 +618,7 @@ const dictionaries: Record<Locale, Dictionary> = {
           costs: [
             "€6 for 1 or 2 bottles",
             "€8 for 3 or more bottles",
-            "Free delivery for orders over €50",
+            "Free delivery for orders over €60",
           ],
           extraNotes: [
             "Palmanhac uses secure, custom packaging designed to ensure the integrity of products during transit.",
@@ -717,6 +719,9 @@ const dictionaries: Record<Locale, Dictionary> = {
       multibancoNoticeTitle: "Multibanco temporarily unavailable",
       multibancoNotice:
         "Multibanco payments are currently unavailable while we work on a fix. You can continue using MB WAY and card payments. For any questions, please contact info@palmanhac-shop.pt and we will be happy to assist.",
+      confirmationNoticeTitle: "Need help with your confirmation?",
+      confirmationNotice:
+        "If you've already confirmed the payment but did not receive an email, please reach us at info@palmanhac-shop.pt with your order number and we'll assist right away.",
       contactInformation: "Contact information",
       contactEmailLabel: "Email address",
       contactPhoneLabel: "Phone (optional)",
@@ -916,7 +921,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       emailPlaceholder: "Email address",
       submit: "Subscribe",
       logisticsBlurb:
-        "Deliveries within 24–48h in Mainland Portugal. Free shipping for orders over €50.",
+        "Deliveries within 24–48h in Mainland Portugal. Free shipping for orders over €60.",
       addressHeading: "Client Services",
       addressLines: [
         "KARMUXILON LDA",
@@ -978,9 +983,8 @@ const dictionaries: Record<Locale, Dictionary> = {
       account: "Conta",
     },
     banner: {
-      freeShipping: "Portes grátis a partir de 50 €",
-      shippingIntro:
-        "Neste momento enviamos para Portugal continental, Madeira e Espanha.",
+      freeShipping: "Portes grátis a partir de 60 €",
+      shippingIntro: "Neste momento enviamos para Portugal continental e Espanha.",
       shippingContact:
         "Para outras encomendas internacionais, contacte-nos através de info@palmanhac-shop.pt para verificarmos a possibilidade de envio.",
       dismissLabel: "Fechar aviso",
@@ -1172,7 +1176,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "Para que países enviam encomendas?",
                 answer: [
-                  "Atualmente, enviamos para Portugal Continental, Madeira e Espanha.",
+                  "Atualmente, enviamos para Portugal Continental e Espanha.",
                   "Para outros destinos internacionais, contacte-nos através de info@palmanhac-shop.pt para verificar a possibilidade de envio.",
                 ],
               },
@@ -1184,7 +1188,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 question: "Qual é o prazo médio de entrega?",
                 answer: [
                   "O prazo habitual é de 1 a 4 dias úteis após a confirmação do pagamento.",
-                  "As entregas para Madeira e Espanha podem demorar um pouco mais, dependendo da logística e do tratamento aduaneiro.",
+                  "As entregas para Espanha podem demorar um pouco mais, dependendo da logística e do tratamento aduaneiro.",
                   "Podem ocorrer atrasos devido a problemas da transportadora ou fatores externos fora do controlo da Palmanhac.",
                 ],
               },
@@ -1193,7 +1197,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 answer: [
                   "- 6,00 € — 1 a 2 garrafas",
                   "- 8,00 € — 3 ou mais garrafas",
-                  "- Grátis — para encomendas superiores a 50,00 €",
+                  "- Grátis — para encomendas superiores a 60,00 €",
                 ],
               },
               {
@@ -1239,7 +1243,7 @@ const dictionaries: Record<Locale, Dictionary> = {
           costs: [
             "6€ para 1 ou 2 garrafas",
             "8€ para 3 ou mais garrafas",
-            "Entrega gratuita para encomendas superiores a 50€",
+            "Entrega gratuita para encomendas superiores a 60€",
           ],
           extraNotes: [
             "A Palmanhac utiliza embalagens seguras e personalizadas, concebidas para garantir a integridade dos produtos durante o transporte.",
@@ -1341,6 +1345,9 @@ const dictionaries: Record<Locale, Dictionary> = {
       multibancoNoticeTitle: "Multibanco temporariamente indisponível",
       multibancoNotice:
         "Os pagamentos por Multibanco estão temporariamente indisponíveis enquanto resolvemos o problema. Pode continuar a utilizar MB WAY e pagamentos por cartão. Para qualquer questão contacte info@palmanhac-shop.pt e teremos todo o gosto em ajudar.",
+      confirmationNoticeTitle: "Precisa de ajuda com a confirmação?",
+      confirmationNotice:
+        "Se já confirmou o pagamento mas não recebeu um email, contacte info@palmanhac-shop.pt com o número da encomenda e teremos todo o gosto em ajudar.",
       contactInformation: "Informações de contacto",
       contactEmailLabel: "Email",
       contactPhoneLabel: "Telefone (opcional)",
@@ -1541,7 +1548,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       emailPlaceholder: "Endereço de email",
       submit: "Subscrever",
       logisticsBlurb:
-        "Entregas em 24–48h em Portugal Continental. Portes gratuitos para encomendas superiores a 50€.",
+        "Entregas em 24–48h em Portugal Continental. Portes gratuitos para encomendas superiores a 60€.",
       addressHeading: "Atendimento ao Cliente",
       addressLines: [
         "KARMUXILON LDA",

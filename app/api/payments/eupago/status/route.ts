@@ -6,6 +6,11 @@ import {
   PaymentStatus,
 } from "@prisma/client";
 import { auth } from "@/auth";
+import { EmailConfigurationError } from "@/lib/email/mailer";
+import {
+  normalizeMailingAddress,
+  sendPaymentConfirmationEmails,
+} from "@/lib/email/order-notifications";
 import {
   EuPagoAPIError,
   EuPagoConfigurationError,
@@ -36,6 +41,50 @@ const asRecord = (value: unknown) =>
 const asString = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim().length > 0 ? value : undefined;
 
+const dispatchPaymentEmails = async (
+  order: {
+    id: string;
+    totalAmount: number;
+    paymentMethod: PaymentMethod | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    taxId: string | null;
+    shippingAddress: unknown;
+    createdAt: Date;
+    items: Array<{
+      productId: number;
+      quantity: number;
+      unitPrice: number;
+      product?: { name: string | null };
+    }>;
+    user?: { name: string | null; email: string | null };
+  },
+  paidAt: Date,
+) => {
+  const address = normalizeMailingAddress(order.shippingAddress);
+  const emailItems = order.items.map((item) => ({
+    name: item.product?.name ?? `Product ${item.productId}`,
+    quantity: item.quantity,
+    unitPriceCents: item.unitPrice,
+  }));
+  const customerEmail = order.contactEmail ?? order.user?.email ?? undefined;
+  const customerName = order.user?.name || address.name || "Cliente Palmanhac";
+
+  await sendPaymentConfirmationEmails({
+    orderId: order.id,
+    orderDate: order.createdAt,
+    totalCents: order.totalAmount,
+    items: emailItems,
+    customerName,
+    customerEmail,
+    customerPhone: order.contactPhone ?? undefined,
+    shippingAddress: address,
+    taxId: order.taxId ?? undefined,
+    paymentDate: paidAt,
+    paymentMethod: order.paymentMethod,
+  });
+};
+
 const markOrderStatusFromPayment = async (
   order: {
     id: string;
@@ -61,7 +110,7 @@ const markOrderStatusFromPayment = async (
       orderId: order.id,
       paidAt: paidAt.toISOString(),
     });
-    return;
+    return { changedToPaid: true, paidAt };
   }
 
   if (
@@ -81,7 +130,10 @@ const markOrderStatusFromPayment = async (
       orderId: order.id,
       paymentStatus: status.status,
     });
+    return { changedToPaid: false };
   }
+
+  return { changedToPaid: false };
 };
 
 export async function GET(request: NextRequest) {
@@ -126,6 +178,22 @@ export async function GET(request: NextRequest) {
       providerRef: true,
       paidAt: true,
       totalAmount: true,
+      contactEmail: true,
+      contactPhone: true,
+      taxId: true,
+      shippingAddress: true,
+      createdAt: true,
+      items: {
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          product: { select: { name: true } },
+        },
+      },
+      user: {
+        select: { name: true, email: true },
+      },
     },
   });
 
@@ -191,7 +259,24 @@ export async function GET(request: NextRequest) {
         method: "mbway",
         status,
       });
-      await markOrderStatusFromPayment(order, status);
+      const updateResult = await markOrderStatusFromPayment(order, status);
+      if (updateResult.changedToPaid) {
+        try {
+          await dispatchPaymentEmails(order, updateResult.paidAt ?? new Date());
+        } catch (error) {
+          if (error instanceof EmailConfigurationError) {
+            await logStatusEvent("warn", "checkout_status_email_skipped", {
+              orderId: order.id,
+              reason: error.message,
+            });
+          } else {
+            await logStatusEvent("error", "checkout_status_email_failed", {
+              orderId: order.id,
+              error: error instanceof Error ? error.message : "Unknown email error",
+            });
+          }
+        }
+      }
       return NextResponse.json({ status });
     }
 
@@ -251,7 +336,24 @@ export async function GET(request: NextRequest) {
         method: "multibanco",
         status,
       });
-      await markOrderStatusFromPayment(order, status);
+      const updateResult = await markOrderStatusFromPayment(order, status);
+      if (updateResult.changedToPaid) {
+        try {
+          await dispatchPaymentEmails(order, updateResult.paidAt ?? new Date());
+        } catch (error) {
+          if (error instanceof EmailConfigurationError) {
+            await logStatusEvent("warn", "checkout_status_email_skipped", {
+              orderId: order.id,
+              reason: error.message,
+            });
+          } else {
+            await logStatusEvent("error", "checkout_status_email_failed", {
+              orderId: order.id,
+              error: error instanceof Error ? error.message : "Unknown email error",
+            });
+          }
+        }
+      }
       return NextResponse.json({ status });
     }
 

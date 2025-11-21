@@ -2,12 +2,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { PaymentStatus } from "@prisma/client";
+import { EmailConfigurationError } from "@/lib/email/mailer";
 import {
-  EmailConfigurationError,
-  formatEmailBlock,
-  sendAdminEmail,
-  sendEmail,
-} from "@/lib/email/mailer";
+  normalizeMailingAddress,
+  sendPaymentConfirmationEmails,
+} from "@/lib/email/order-notifications";
 import { normaliseProviderReference } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { appendOrderEvent } from "@/lib/utils/order-events";
@@ -176,6 +175,18 @@ export async function POST(request: NextRequest) {
       totalAmount: true,
       paymentMethod: true,
       contactEmail: true,
+      contactPhone: true,
+      taxId: true,
+      shippingAddress: true,
+      createdAt: true,
+      items: {
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          product: { select: { name: true } },
+        },
+      },
       user: {
         select: { name: true, email: true },
       },
@@ -211,7 +222,7 @@ export async function POST(request: NextRequest) {
   const paidAt = extractPaidAt(payload) ?? new Date();
 
   if (status === "paid") {
-    const updatedOrder = (await prisma.order.update({
+    const updatedOrder = await prisma.order.update({
       where: { id: order.id },
       data: {
         paymentStatus: PaymentStatus.PAID,
@@ -224,14 +235,28 @@ export async function POST(request: NextRequest) {
           },
         }) as Prisma.InputJsonValue,
       },
-      include: {
+      select: {
+        id: true,
+        totalAmount: true,
+        paymentMethod: true,
+        contactEmail: true,
+        contactPhone: true,
+        taxId: true,
+        shippingAddress: true,
+        createdAt: true,
+        items: {
+          select: {
+            productId: true,
+            quantity: true,
+            unitPrice: true,
+            product: { select: { name: true } },
+          },
+        },
         user: {
           select: { name: true, email: true },
         },
       },
-    })) as Prisma.OrderGetPayload<{
-      include: { user: { select: { name: true; email: true } } };
-    }>;
+    });
     await logWebhookEvent("info", "eupago_webhook_payment_captured", {
       orderId: updatedOrder.id,
       providerRef,
@@ -239,43 +264,31 @@ export async function POST(request: NextRequest) {
     });
 
     try {
-      await sendAdminEmail({
-        subject: `Payment confirmed ${updatedOrder.id}`,
-        text: formatEmailBlock([
-          `Order ID: ${updatedOrder.id}`,
-          `Status: ${updatedOrder.paymentStatus}`,
-          `Method: ${updatedOrder.paymentMethod ?? "—"}`,
-          `Total: €${(updatedOrder.totalAmount / 100).toFixed(2)}`,
-          updatedOrder.paidAt
-            ? `Paid at: ${updatedOrder.paidAt.toISOString()}`
-            : "Paid at: not provided",
-          `Customer: ${updatedOrder.user?.name ?? "Customer"}`,
-          `Email: ${updatedOrder.contactEmail ?? updatedOrder.user?.email ?? "—"}`,
-        ]),
-      });
-
+      const normalizedAddress = normalizeMailingAddress(updatedOrder.shippingAddress);
+      const emailItems = updatedOrder.items.map((item) => ({
+        name: item.product?.name ?? `Product ${item.productId}`,
+        quantity: item.quantity,
+        unitPriceCents: item.unitPrice,
+      }));
       const customerEmail =
         updatedOrder.contactEmail ?? updatedOrder.user?.email ?? undefined;
-      if (customerEmail) {
-        await sendEmail({
-          to: customerEmail,
-          subject: `Payment confirmed for order ${updatedOrder.id}`,
-          text: formatEmailBlock([
-            `Olá ${updatedOrder.user?.name ?? "cliente"},`,
-            "",
-            "Recebemos o pagamento da sua encomenda Palmanhac e estamos a preparar o envio.",
-            `Total: €${(updatedOrder.totalAmount / 100).toFixed(2)}`,
-            updatedOrder.paidAt
-              ? `Confirmado em: ${updatedOrder.paidAt.toLocaleString("en-GB", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}`
-              : "",
-            "",
-            "Pode acompanhar o estado da encomenda na área de Encomendas.",
-          ]),
-        });
-      }
+      const customerName =
+        updatedOrder.user?.name || normalizedAddress.name || "Cliente Palmanhac";
+
+      await sendPaymentConfirmationEmails({
+        orderId: updatedOrder.id,
+        orderDate: updatedOrder.createdAt,
+        totalCents: updatedOrder.totalAmount,
+        shippingCostCents: undefined,
+        items: emailItems,
+        customerName,
+        customerEmail,
+        customerPhone: updatedOrder.contactPhone ?? undefined,
+        shippingAddress: normalizedAddress,
+        taxId: updatedOrder.taxId ?? undefined,
+        paymentDate: paidAt,
+        paymentMethod: updatedOrder.paymentMethod,
+      });
     } catch (error) {
       if (error instanceof EmailConfigurationError) {
         console.warn("[Email] Payment confirmation notification skipped:", error.message);

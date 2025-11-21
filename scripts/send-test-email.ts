@@ -1,34 +1,48 @@
 // scripts/send-test-email.ts
 import "dotenv/config";
-import { formatEmailBlock, formatEmailHtml, sendEmail } from "../lib/email/mailer.ts";
+import { PaymentMethod } from "@prisma/client";
+import {
+  sendOrderPlacedEmails,
+  sendPaymentConfirmationEmails,
+  type OrderEmailBaseOptions,
+} from "../lib/email/order-notifications.ts";
 
 const recipient = "suren.norekyan123@gmail.com";
 
 async function main() {
-  const timestamp = new Date().toISOString();
-  const previewId = `T-${timestamp.replace(/\D/g, "").slice(-6)}`;
-  const lines = [
-    "**Palmanhac formatted email test**",
-    "",
-    `**Order number:** #${previewId}`,
-    `**Total amount:** €42.50`,
-    "",
-    "This automated test verifies that bold formatting now renders correctly in Palmanhac order notifications.",
-    "",
-    "Obrigado / Thank you,",
-    "**Palmanhac Team**",
-    "",
-    `Sent at ${timestamp}`,
-  ];
+  process.env.ADMIN_EMAIL = recipient;
 
-  await sendEmail({
-    to: recipient,
-    subject: "Palmanhac formatted email test",
-    text: formatEmailBlock(lines),
-    html: formatEmailHtml(lines),
+  const baseOrder: OrderEmailBaseOptions = {
+    orderId: `test-${Date.now()}`,
+    orderDate: new Date(),
+    totalCents: 7250,
+    shippingCostCents: 800,
+    items: [
+      { name: "Licor de Café", quantity: 1, unitPriceCents: 1850 },
+      { name: "Aguardente XO", quantity: 2, unitPriceCents: 2700 },
+    ],
+    customerName: "Palmanhac Admin",
+    customerEmail: recipient,
+    customerPhone: "+351 964 690 254",
+    shippingAddress: {
+      name: "Palmanhac Admin",
+      line1: "Rua do Progresso 10",
+      line2: "Apartamento 3B",
+      city: "Palmela",
+      postalCode: "2950-000",
+      country: "Portugal",
+    },
+    taxId: "123456789",
+  };
+
+  await sendOrderPlacedEmails(baseOrder);
+  await sendPaymentConfirmationEmails({
+    ...baseOrder,
+    paymentDate: new Date(),
+    paymentMethod: PaymentMethod.CARD,
   });
 
-  console.log(`Formatted test email dispatched to ${recipient}`);
+  console.log(`Dispatched sample order and payment confirmation emails to ${recipient}`);
 }
 
 main().catch((error) => {

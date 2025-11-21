@@ -1,12 +1,12 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import { AlertTriangle } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { formatNoticeWithEmail, WarningNotice } from "@/components/common/WarningNotice";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -47,27 +47,6 @@ const formatDateTime = (locale: Locale, value?: string) => {
 const DEFAULT_COUNTRY = "Portugal";
 
 const supportEmail = siteConfig.contact.email;
-
-const formatNoticeWithEmail = (message: string, linkClassName: string): ReactNode => {
-  if (!message.includes(supportEmail)) {
-    return message;
-  }
-  const parts = message.split(supportEmail);
-  return (
-    <>
-      {parts.map((part, index) => (
-        <Fragment key={`notice-${index}`}>
-          {part}
-          {index < parts.length - 1 ? (
-            <a href={`mailto:${supportEmail}`} className={linkClassName}>
-              {supportEmail}
-            </a>
-          ) : null}
-        </Fragment>
-      ))}
-    </>
-  );
-};
 
 type PaymentMethodOption = "multibanco" | "mbway" | "card";
 
@@ -830,39 +809,30 @@ function CheckoutForm({
         <form className="grid gap-10 lg:grid-cols-[2fr_1fr]" onSubmit={handleSubmit}>
           <div className="space-y-6">
             <div className="space-y-3">
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
+              <WarningNotice
+                title={dictionary.checkout.shippingNoticeTitle}
+                message={
                   <div className="space-y-1">
-                    <p className="font-semibold">
-                      {dictionary.checkout.shippingNoticeTitle}
-                    </p>
                     <p>{dictionary.banner.shippingIntro}</p>
                     <p>
                       {formatNoticeWithEmail(
                         dictionary.banner.shippingContact,
+                        supportEmail,
                         "font-semibold underline text-amber-900 underline-offset-2",
                       )}
                     </p>
                   </div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 text-orange-600" />
-                  <div className="space-y-1">
-                    <p className="font-semibold">
-                      {dictionary.checkout.multibancoNoticeTitle}
-                    </p>
-                    <p>
-                      {formatNoticeWithEmail(
-                        dictionary.checkout.multibancoNotice,
-                        "font-semibold underline text-orange-900 underline-offset-2",
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                }
+              />
+              <WarningNotice
+                variant="orange"
+                title={dictionary.checkout.multibancoNoticeTitle}
+                message={formatNoticeWithEmail(
+                  dictionary.checkout.multibancoNotice,
+                  supportEmail,
+                  "font-semibold underline text-orange-900 underline-offset-2",
+                )}
+              />
             </div>
             <Card>
               <CardHeader>
@@ -1232,9 +1202,10 @@ function CheckoutForm({
                   <span>{dictionary.checkout.total}</span>
                   <span>{formatCurrency(locale, totals.totalCents)}</span>
                 </div>
-                <p className="text-xs text-neutral-500">
-                  {dictionary.checkout.vatIncluded}
-                </p>
+                <div className="flex justify-between text-xs text-neutral-500">
+                  <span>{dictionary.checkout.vatIncluded}</span>
+                  <span>{formatCurrency(locale, totals.vatCents)}</span>
+                </div>
               </CardContent>
             </Card>
           </div>
