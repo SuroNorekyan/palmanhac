@@ -60,7 +60,7 @@ const dispatchPaymentEmails = async (
       unitPrice: number;
       product?: { name: string | null };
     }>;
-    user?: { name: string | null; email: string | null };
+    user?: { name: string | null; email: string | null } | null;
   },
   paidAt: Date,
 ) => {

@@ -35,6 +35,7 @@ type RestoredOrderConfig = {
   notes?: string;
   items: Array<{
     productName: string;
+    productSlug?: string;
     quantity: number;
     unitPriceCents?: number;
   }>;
@@ -65,6 +66,7 @@ const ORDERS_TO_APPEND: RestoredOrderConfig[] = [
     items: [
       {
         productName: "Palmanhac Strawberry Liqueur",
+        productSlug: "palmanhac-licor-morango",
         quantity: 1,
         unitPriceCents: 1003,
       },
@@ -102,12 +104,25 @@ async function restoreOrders() {
       continue;
     }
 
-    const normalizedItems = [];
+    const normalizedItems: Array<{
+      productId: number;
+      quantity: number;
+      unitPrice: number;
+    }> = [];
     for (const item of entry.items) {
-      const product = await prisma.product.findFirst({
-        where: { name: item.productName },
-        select: { id: true, priceCents: true },
-      });
+      let product = null;
+      if (item.productSlug) {
+        product = await prisma.product.findUnique({
+          where: { slug: item.productSlug },
+          select: { id: true, priceCents: true },
+        });
+      }
+      if (!product) {
+        product = await prisma.product.findFirst({
+          where: { name: { equals: item.productName, mode: "insensitive" } },
+          select: { id: true, priceCents: true },
+        });
+      }
       if (!product) {
         throw new Error(
           `Unable to restore order ${entry.displayCode}: product "${item.productName}" not found.`,

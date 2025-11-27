@@ -571,8 +571,8 @@ export const fetchMultibancoInfo = async (params: {
 
 export const deriveProviderReference = (result: {
   method: "multibanco" | "mbway" | "card";
-  reference?: string;
-  transactionId?: string;
+  reference?: string | null;
+  transactionId?: string | null;
 }) => {
   if (result.method === "multibanco" && result.reference)
     return normaliseProviderReference(result.reference);

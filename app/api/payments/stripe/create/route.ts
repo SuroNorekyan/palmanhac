@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         orderId,
         ...(userId ? { userId } : {}),
-        guest: isGuestCheckout,
+        guest: isGuestCheckout ? "true" : "false",
         locale: payload.locale ?? "",
       },
       shipping: {
