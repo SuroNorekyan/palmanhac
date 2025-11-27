@@ -141,6 +141,11 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           <p>{order.contactEmail ?? order.user?.email ?? "—"}</p>
           <p>{order.contactPhone ?? "—"}</p>
           <p>NIF/TIN: {order.taxId ?? "—"}</p>
+          {order.isGuest ? (
+            <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              Guest order
+            </span>
+          ) : null}
         </div>
         <div className="space-y-2 text-sm text-neutral-700">
           <p className="text-xs uppercase tracking-wide text-neutral-500">Payment</p>

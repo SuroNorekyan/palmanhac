@@ -35,9 +35,7 @@ const logStripeConfirmEvent = (
 
 export async function POST(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const userId = session?.user?.id ?? null;
 
   const payload = (await request.json().catch(() => null)) as ConfirmPayload | null;
   if (!payload?.orderId || !payload?.paymentIntentId) {
@@ -49,6 +47,7 @@ export async function POST(request: NextRequest) {
     select: {
       id: true,
       userId: true,
+      isGuest: true,
       paymentProvider: true,
       paymentStatus: true,
       providerRef: true,
@@ -76,7 +75,7 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  if (!order || order.userId !== session.user.id) {
+  if (!order || (order.userId && order.userId !== userId)) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
@@ -187,12 +186,12 @@ export async function POST(request: NextRequest) {
       updated.contactEmail ??
       order.contactEmail ??
       order.user?.email ??
-      session.user.email ??
+      session?.user?.email ??
       undefined;
     const customerName =
       order.user?.name ||
       normalizedAddress.name ||
-      session.user.name ||
+      session?.user?.name ||
       "Cliente Palmanhac";
 
     await sendPaymentConfirmationEmails({

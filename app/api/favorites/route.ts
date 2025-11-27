@@ -24,7 +24,7 @@ export async function GET() {
           image: true,
           galleryImages: true,
           priceCents: true,
-          abv: true,
+          vol: true,
           volumeMl: true,
           isActive: true,
         },

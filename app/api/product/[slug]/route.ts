@@ -27,7 +27,7 @@ export async function GET(
       priceCents: product.priceCents,
       category: product.category,
       volumeMl: product.volumeMl,
-      abv: product.abv,
+      vol: product.vol,
       name: product.name,
       description: product.description[locale] ?? product.description[defaultLocale],
       descriptionEn: product.description.en,

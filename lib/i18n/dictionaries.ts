@@ -673,7 +673,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       noAccountCta: "Don't have an account?",
       hasAccountCta: "Already have an account?",
       passwordHint:
-        "Passwords must be at least 12 characters and include uppercase, lowercase, numbers, and symbols.",
+        "Passwords must be at least 6 characters and include uppercase, lowercase, and numeric characters.",
       alerts: {
         loginFailed: "Unable to sign in with those credentials.",
         registrationSuccess: "Account created successfully. You can sign in now.",
@@ -1298,7 +1298,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       noAccountCta: "Ainda não tem conta?",
       hasAccountCta: "Já tem conta?",
       passwordHint:
-        "A palavra-passe deve ter pelo menos 12 caracteres e incluir maiúsculas, minúsculas, números e símbolos.",
+        "A palavra-passe deve ter pelo menos 6 caracteres e incluir letras maiúsculas, minúsculas e números.",
       alerts: {
         loginFailed: "Não foi possível iniciar sessão com essas credenciais.",
         registrationSuccess: "Conta criada com sucesso. Já pode iniciar sessão.",

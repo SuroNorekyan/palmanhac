@@ -70,13 +70,13 @@ const productFormSchema = z.object({
     },
     { message: "Enter a valid volume in ml" },
   ),
-  abv: z.string().refine(
+  vol: z.string().refine(
     (value) => {
       if (!value.trim()) return true;
       const parsed = Number.parseFloat(value.replace(",", "."));
       return Number.isFinite(parsed) && parsed >= 0;
     },
-    { message: "Enter a valid ABV" },
+    { message: "Enter a valid VOL" },
   ),
   stock: z.string().refine(
     (value) => {
@@ -104,7 +104,7 @@ type ProductFormProps = {
     image: string;
     galleryImages: string[];
     volumeMl: number;
-    abv: number;
+    vol: number;
     stock: number;
     isActive: boolean;
     descriptionEn: string;
@@ -128,7 +128,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     image: product?.image ?? "",
     galleryImages: product?.galleryImages?.join(", ") ?? "",
     volumeMl: product?.volumeMl?.toString() ?? "",
-    abv: product?.abv?.toString() ?? "",
+    vol: product?.vol?.toString() ?? "",
     stock: product?.stock?.toString() ?? "",
     descriptionEn: product?.descriptionEn ?? "",
     descriptionPt: product?.descriptionPt ?? "",
@@ -215,7 +215,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           image: parsed.data.image,
           galleryImages: galleryImagesRaw.length ? galleryImagesRaw : [parsed.data.image],
           volumeMl: Number.parseInt(parsed.data.volumeMl || "0", 10) || 0,
-          abv: Number.parseFloat(parsed.data.abv || "0") || 0,
+          vol: Number.parseFloat(parsed.data.vol || "0") || 0,
           stock: Number.parseInt(parsed.data.stock || "0", 10) || 0,
           isActive: parsed.data.isActive,
           description: {
@@ -411,14 +411,14 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           />
         </Field>
 
-        <Field label="ABV (%)" error={errors.abv}>
+        <Field label="VOL (%)" error={errors.vol}>
           <Input
-            className={cn(errors.abv && "ring-1 ring-red-500")}
+            className={cn(errors.vol && "ring-1 ring-red-500")}
             type="number"
             min="0"
             step="0.1"
-            value={form.abv}
-            onChange={(e) => handleChange("abv", e.target.value)}
+            value={form.vol}
+            onChange={(e) => handleChange("vol", e.target.value)}
           />
         </Field>
 

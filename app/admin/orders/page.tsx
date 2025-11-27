@@ -64,7 +64,18 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
       orderBy: { createdAt: "desc" },
       skip,
       take: ADMIN_PAGE_SIZE,
-      include: {
+      select: {
+        id: true,
+        status: true,
+        paymentStatus: true,
+        paymentMethod: true,
+        paymentProvider: true,
+        paidAt: true,
+        totalAmount: true,
+        createdAt: true,
+        taxId: true,
+        contactEmail: true,
+        isGuest: true,
         user: {
           select: {
             name: true,
@@ -150,11 +161,16 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
                   <td className="px-4 py-3 text-sm text-neutral-600">
                     <div className="space-y-1">
                       <p className="font-medium text-neutral-900">
-                        {order.user?.name ?? "—"}
+                        {order.user?.name ?? (order.isGuest ? "Guest checkout" : "—")}
                       </p>
                       <p className="text-xs text-neutral-500">
-                        {order.user?.email ?? "—"}
+                        {order.user?.email ?? order.contactEmail ?? "—"}
                       </p>
+                      {order.isGuest ? (
+                        <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                          Guest order
+                        </span>
+                      ) : null}
                       {order.taxId ? (
                         <p className="text-xs text-neutral-500">NIF/TIN: {order.taxId}</p>
                       ) : null}

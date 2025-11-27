@@ -57,6 +57,7 @@ export type EuPagoMBWayResult = {
   method: "mbway";
   transactionId: string;
   statusUrl?: string;
+  reference?: string | null;
   metadata?: Record<string, unknown>;
 };
 export type EuPagoCardResult = {
@@ -105,6 +106,18 @@ const ensureCardReturnUrl = () => {
   if (!url) throw new EuPagoConfigurationError("EUPAGO_CARD_RETURN_URL is not defined.");
   return url.trim();
 };
+const resolveMultibancoPerDup = () => {
+  const raw = process.env.EUPAGO_MULTIBANCO_PER_DUP;
+  if (!raw) return 0;
+  if (raw === "1") return 1;
+  if (raw === "0") return 0;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "true" || normalized === "yes") return 1;
+  if (normalized === "false" || normalized === "no") return 0;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed)) return 0;
+  return parsed === 1 ? 1 : 0;
+};
 
 const buildUrl = (path: string) =>
   `${ensureBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
@@ -129,8 +142,13 @@ type EuPagoSerializable =
   | { [key: string]: EuPagoSerializable };
 type EuPagoPayload = Record<string, EuPagoSerializable>;
 type EuPagoFetchOptions = {
-  disableAuthInjection?: boolean;
+  authStrategy?: EuPagoAuthStrategy;
 };
+
+type EuPagoAuthStrategy =
+  | { type: "apiKey" }
+  | { type: "bearer"; token: string }
+  | { type: "none" };
 
 const euPagoFetch = async <T>(
   path: string,
@@ -168,12 +186,14 @@ const euPagoFetch = async <T>(
     if (v !== undefined && v !== null) jsonPayload[k] = v;
   }
 
-  if (mode === "header" && !options.disableAuthInjection) {
-    headers["ApiKey"] = key;
+  headers["ApiKey"] = key;
+  headers["X-Api-Key"] = key;
+
+  const authStrategy = options.authStrategy ?? { type: "apiKey" };
+  if (authStrategy.type === "apiKey") {
     headers["Authorization"] = `ApiKey ${key}`;
-    headers["X-Api-Key"] = key;
-  } else if (mode === "body" && !options.disableAuthInjection) {
-    bodyParams.set("apiKey", key);
+  } else if (authStrategy.type === "bearer") {
+    headers["Authorization"] = `Bearer ${authStrategy.token}`;
   }
 
   if (format === "form") {
@@ -416,25 +436,33 @@ export const createMBWay = async (
     (typeof res.status_url === "string" && res.status_url) ||
     undefined;
 
-  return { method: "mbway", transactionId, statusUrl, metadata: res };
+  const reference =
+    (typeof res.reference === "string" && res.reference) ||
+    (typeof res.referencia === "string" && res.referencia) ||
+    null;
+
+  return { method: "mbway", transactionId, statusUrl, reference, metadata: res };
 };
 
 export const createMultibanco = async (
   order: EuPagoOrderInput,
 ): Promise<EuPagoMultibancoResult> => {
-  const amount = Number.parseFloat(asTwoDecimals(Math.max(order.amountCents, 100) / 100));
+  const amountValue = Math.max(order.amountCents, 100) / 100;
+  const amount = asTwoDecimals(amountValue);
   const payload: EuPagoPayload = {
-    key: ensureApiKey(),
-    value: amount,
+    chave: ensureApiKey(),
+    valor: amount,
     id: order.orderId,
+    per_dup: resolveMultibancoPerDup(),
   };
+  if (order.customer.email) payload.email = order.customer.email;
+  if (order.customer.phone) payload.contacto = order.customer.phone;
 
   const res = await euPagoFetch<Record<string, unknown>>(
     "/clientes/rest_api/multibanco/create",
     payload,
     "body",
     "json",
-    { disableAuthInjection: true },
   );
 
   const entity =
@@ -558,4 +586,290 @@ export const normaliseProviderReference = (value: string | null | undefined) => 
   const trimmed = value.trim();
   if (!trimmed) return null;
   return trimmed.replace(/[^0-9A-Za-z_-]/g, "").toUpperCase();
+};
+
+const normaliseDigits = (value: string | null | undefined) => {
+  if (!value) return null;
+  const digits = value.replace(/[^0-9]/g, "");
+  return digits || null;
+};
+
+type EuPagoBearerTokenResponse = {
+  transactionStatus?: string;
+  access_token?: string;
+  token_type?: string;
+  expires_in?: string | number;
+  expiresIn?: string | number;
+  expiration?: string | number;
+  [key: string]: EuPagoSerializable;
+};
+
+const ensureOAuthClientId = () => {
+  const value = process.env.EUPAGO_OAUTH_CLIENT_ID;
+  if (!value)
+    throw new EuPagoConfigurationError("EUPAGO_OAUTH_CLIENT_ID is not defined.");
+  return value.trim();
+};
+const ensureOAuthClientSecret = () => {
+  const value = process.env.EUPAGO_OAUTH_CLIENT_SECRET;
+  if (!value)
+    throw new EuPagoConfigurationError("EUPAGO_OAUTH_CLIENT_SECRET is not defined.");
+  return value.trim();
+};
+const getOAuthGrantType = () =>
+  (process.env.EUPAGO_OAUTH_GRANT_TYPE ?? "client_credentials").trim().toLowerCase();
+const ensureOAuthUsername = () => {
+  const value = process.env.EUPAGO_OAUTH_USERNAME;
+  if (!value) throw new EuPagoConfigurationError("EUPAGO_OAUTH_USERNAME is not defined.");
+  return value.trim();
+};
+const ensureOAuthPassword = () => {
+  const value = process.env.EUPAGO_OAUTH_PASSWORD;
+  if (!value) throw new EuPagoConfigurationError("EUPAGO_OAUTH_PASSWORD is not defined.");
+  return value.trim();
+};
+const ensureOAuthRefreshToken = () => {
+  const value = process.env.EUPAGO_OAUTH_REFRESH_TOKEN;
+  if (!value)
+    throw new EuPagoConfigurationError("EUPAGO_OAUTH_REFRESH_TOKEN is not defined.");
+  return value.trim();
+};
+
+type BearerTokenCache = {
+  token: string;
+  expiresAt: number;
+};
+let bearerTokenCache: BearerTokenCache | null = null;
+let bearerTokenPromise: Promise<BearerTokenCache> | null = null;
+
+const logTokenRequest = async (
+  level: Parameters<typeof logEuPagoEvent>[0],
+  event: string,
+  details: Record<string, unknown>,
+) => logEuPagoEvent(level, event, details);
+
+const requestBearerToken = async (): Promise<BearerTokenCache> => {
+  const grantType = getOAuthGrantType();
+  const body: Record<string, EuPagoSerializable> = {
+    client_id: ensureOAuthClientId(),
+    client_secret: ensureOAuthClientSecret(),
+    grant_type: grantType,
+  };
+  if (grantType === "password") {
+    body.username = ensureOAuthUsername();
+    body.password = ensureOAuthPassword();
+  } else if (grantType === "refresh_token") {
+    body.refresh_token = ensureOAuthRefreshToken();
+  }
+  await logTokenRequest("info", "eupago_oauth_token_request", {
+    grantType,
+    hasUsername: Boolean(body.username),
+  });
+  const res = await fetch(buildUrl("/api/auth/token"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "palmanhac-payments-adapter",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const parsed = await parseJsonSafely<EuPagoBearerTokenResponse>(res);
+  if (!res.ok) {
+    await logTokenRequest("error", "eupago_oauth_token_error", {
+      status: res.status,
+      response: parsed,
+    });
+    throw new EuPagoAPIError(
+      `EuPago bearer token request failed with status ${res.status}.`,
+      parsed,
+    );
+  }
+  const token =
+    (typeof parsed.access_token === "string" && parsed.access_token.trim()) || null;
+  if (!token) {
+    await logTokenRequest("error", "eupago_oauth_token_missing", { response: parsed });
+    throw new EuPagoAPIError(
+      "EuPago bearer token response missing access token.",
+      parsed,
+    );
+  }
+  const expirySource =
+    parsed.expires_in ?? parsed.expiresIn ?? parsed.expiration ?? parsed.expiresIn;
+  let expiresAt = Date.now() + 10 * 60 * 1000;
+  if (typeof expirySource === "number" && Number.isFinite(expirySource)) {
+    expiresAt = Date.now() + Math.max(expirySource - 60, 30) * 1000;
+  } else if (typeof expirySource === "string" && expirySource.trim()) {
+    const numeric = Number(expirySource);
+    if (Number.isFinite(numeric)) {
+      expiresAt = Date.now() + Math.max(numeric - 60, 30) * 1000;
+    } else {
+      const timestamp = Date.parse(expirySource);
+      if (!Number.isNaN(timestamp)) {
+        expiresAt = timestamp - 60 * 1000;
+      }
+    }
+  }
+  const cacheEntry: BearerTokenCache = { token, expiresAt };
+  await logTokenRequest("info", "eupago_oauth_token_received", {
+    expiresAt: new Date(expiresAt).toISOString(),
+  });
+  return cacheEntry;
+};
+
+const ensureBearerToken = async () => {
+  if (bearerTokenCache && bearerTokenCache.expiresAt > Date.now() + 5_000) {
+    return bearerTokenCache.token;
+  }
+  if (bearerTokenPromise) {
+    const pending = await bearerTokenPromise;
+    bearerTokenCache = pending;
+    bearerTokenPromise = null;
+    return pending.token;
+  }
+  bearerTokenPromise = requestBearerToken().catch((error) => {
+    bearerTokenPromise = null;
+    throw error;
+  });
+  const fresh = await bearerTokenPromise;
+  bearerTokenCache = fresh;
+  bearerTokenPromise = null;
+  return fresh.token;
+};
+
+export type EuPagoReferenceEntry = {
+  reference?: string;
+  amount?: string | number;
+  datetime?: string;
+  status?: string;
+  identifier?: string;
+  method?: string;
+  trid?: string | number;
+  [key: string]: EuPagoSerializable;
+};
+
+type ReferencesResponse = {
+  transactionStatus?: string;
+  referenceList?: EuPagoReferenceEntry[];
+  response?: string;
+  code?: string;
+  estado?: number;
+  sucesso?: boolean;
+  [key: string]: EuPagoSerializable;
+};
+
+const REFERENCE_STATUS_CACHE_TTL = 30_000;
+const referenceStatusCache = new Map<
+  string,
+  { result: EuPagoReferenceEntry | null; fetchedAt: number }
+>();
+const DEFAULT_REFERENCE_STATUS_SEQUENCE = [
+  "paga",
+  "pendente",
+  "expirada",
+  "cancelada",
+  "erro",
+  "reembolsada",
+  "devolvida",
+  "arquivada",
+];
+
+const fetchReferencesByStatus = async (status?: string) => {
+  const token = await ensureBearerToken();
+  const searchParams = new URLSearchParams();
+  if (status) searchParams.set("status", status);
+  const path = `/api/management/v1.02/references${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  await logEuPagoEvent("info", "eupago_references_request", {
+    url: path,
+    status,
+  });
+  const res = await fetch(buildUrl(path), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "palmanhac-payments-adapter",
+      ApiKey: ensureApiKey(),
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+  const parsed = await parseJsonSafely<ReferencesResponse>(res);
+  if (!res.ok || parsed.transactionStatus?.toLowerCase().includes("reject")) {
+    await logEuPagoEvent("error", "eupago_references_error", {
+      status: res.status,
+      url: path,
+      response: parsed,
+    });
+    throw new EuPagoAPIError(
+      `EuPago references request failed with status ${res.status}.`,
+      parsed,
+    );
+  }
+  await logEuPagoEvent("info", "eupago_references_success", {
+    url: path,
+    status: res.status,
+    entries: parsed.referenceList?.length ?? 0,
+  });
+  return Array.isArray(parsed.referenceList) ? parsed.referenceList : [];
+};
+
+export const lookupReferenceStatus = async (
+  reference: string,
+  statuses: string[] = DEFAULT_REFERENCE_STATUS_SEQUENCE,
+) => {
+  const normalized = normaliseDigits(reference);
+  if (!normalized) return null;
+  const cacheEntry = referenceStatusCache.get(normalized);
+  if (cacheEntry && Date.now() - cacheEntry.fetchedAt < REFERENCE_STATUS_CACHE_TTL) {
+    return cacheEntry.result;
+  }
+  for (const status of statuses) {
+    const list = await fetchReferencesByStatus(status);
+    const match = list.find((entry) => {
+      const entryRef = normaliseDigits(entry.reference ?? null);
+      return entryRef === normalized;
+    });
+    if (match) {
+      referenceStatusCache.set(normalized, {
+        result: { ...match, status: status ?? match.status },
+        fetchedAt: Date.now(),
+      });
+      return match;
+    }
+  }
+  referenceStatusCache.set(normalized, { result: null, fetchedAt: Date.now() });
+  return null;
+};
+
+const mapReferenceStatus = (status: string | undefined): EuPagoStatusResult["status"] => {
+  if (!status) return "unknown";
+  const normalized = status.toLowerCase();
+  if (normalized.startsWith("pag")) return "paid";
+  if (normalized.startsWith("pen")) return "pending";
+  if (normalized.startsWith("exp")) return "expired";
+  if (normalized.startsWith("can")) return "cancelled";
+  if (normalized.startsWith("err")) return "failed";
+  if (normalized.startsWith("dev") || normalized.startsWith("reemb")) return "refunded";
+  if (normalized.startsWith("arquiv")) return "cancelled";
+  return normalized;
+};
+
+export const referenceEntryToStatus = (
+  entry: EuPagoReferenceEntry | null,
+): EuPagoStatusResult | null => {
+  if (!entry) return null;
+  const status = mapReferenceStatus(
+    typeof entry.status === "string" ? entry.status : undefined,
+  );
+  let paidAt: string | undefined;
+  if (entry.datetime) {
+    const parsed = Date.parse(entry.datetime);
+    paidAt = Number.isNaN(parsed) ? undefined : new Date(parsed).toISOString();
+  }
+  return {
+    status,
+    paidAt,
+    raw: entry as Record<string, unknown>,
+  };
 };

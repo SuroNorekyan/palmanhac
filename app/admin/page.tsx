@@ -36,6 +36,8 @@ export default async function AdminDashboardPage() {
           paymentMethod: true,
           taxId: true,
           createdAt: true,
+          contactEmail: true,
+          isGuest: true,
           user: { select: { name: true, email: true } },
         },
       }),
@@ -96,8 +98,16 @@ export default async function AdminDashboardPage() {
                     #{order.id.slice(0, 8).toUpperCase()}
                   </p>
                   <p className="text-sm text-neutral-600">
-                    {order.user?.name ?? order.user?.email ?? "Guest"}
+                    {order.user?.name ??
+                      order.user?.email ??
+                      order.contactEmail ??
+                      "Guest"}
                   </p>
+                  {order.isGuest ? (
+                    <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                      Guest order
+                    </span>
+                  ) : null}
                   {order.taxId ? (
                     <p className="text-xs text-neutral-500">NIF/TIN: {order.taxId}</p>
                   ) : null}

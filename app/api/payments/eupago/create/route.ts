@@ -41,15 +41,14 @@ type EuPagoPaymentResult =
 
 export async function POST(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const userId = session?.user?.id ?? null;
+  const isGuestCheckout = !userId;
 
   const body = await request.json().catch(() => null);
   const parsed = checkoutPayloadSchema.safeParse(body);
   if (!parsed.success) {
     await logCheckoutEvent("warn", "checkout_invalid_payload", {
-      userId: session.user.id,
+      userId,
       issues: parsed.error.flatten(),
     });
     return NextResponse.json(
@@ -93,7 +92,7 @@ export async function POST(request: NextRequest) {
     description: orderDescription,
     customer: {
       email: payload.contact.email,
-      name: contactName ?? payload.shipping.name,
+      name: contactName ?? payload.shipping.name ?? payload.contact.email,
       phone: payload.contact.phone,
     },
     shipping: payload.shipping,
@@ -101,12 +100,13 @@ export async function POST(request: NextRequest) {
     locale: payload.locale,
     metadata: {
       notes: payload.notes,
-      userId: session.user.id,
+      ...(userId ? { userId } : {}),
+      guest: isGuestCheckout,
     },
   };
 
   await logCheckoutEvent("info", "checkout_request_received", {
-    userId: session.user.id,
+    userId,
     orderId,
     method: payload.method,
     totals,
@@ -244,7 +244,8 @@ export async function POST(request: NextRequest) {
       const createdOrder = await tx.order.create({
         data: {
           id: orderId,
-          userId: session.user.id,
+          userId,
+          isGuest: isGuestCheckout,
           totalAmount: totals.totalCents,
           paymentStatus: PaymentStatus.PENDING,
           notes: payload.notes,
@@ -271,6 +272,7 @@ export async function POST(request: NextRequest) {
               ? {
                   transactionId: paymentResult.transactionId,
                   statusUrl: paymentResult.statusUrl,
+                  reference: paymentResult.reference,
                 }
               : {}),
             ...(paymentResult.method === "card"
@@ -329,7 +331,7 @@ export async function POST(request: NextRequest) {
   try {
     const nameMap = new Map(products.map((product) => [product.id, product.name]));
     const customerName =
-      payload.shipping.name || payload.contact.name || session.user.name || "Customer";
+      payload.shipping.name || payload.contact.name || session?.user?.name || "Customer";
     const itemSummaries = payload.items.map((item) => ({
       name: nameMap.get(item.productId) ?? `Product ${item.productId}`,
       quantity: item.quantity,
@@ -379,6 +381,7 @@ export async function POST(request: NextRequest) {
       method: "mbway" as const,
       transactionId: paymentResult.transactionId,
       statusUrl: paymentResult.statusUrl,
+      reference: paymentResult.reference ?? undefined,
     });
   }
 

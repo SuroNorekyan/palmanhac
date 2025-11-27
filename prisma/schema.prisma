@@ -43,7 +43,9 @@ model Product {
   image          String
   galleryImages  String[]     @default([])
   volumeMl       Int
-  abv            Float
+  vol            Float
+  baseEn         String       @default("")
+  basePt         String       @default("")
   stock          Int          @default(0)
   isActive       Boolean      @default(true)
   descriptionEn  String
@@ -117,7 +119,8 @@ model VerificationToken {
 
 model Order {
   id            String         @id @default(cuid())
-  userId        String
+  userId        String?
+  isGuest       Boolean        @default(false)
   status        OrderStatus    @default(PENDING)
   totalAmount   Int
   paymentStatus PaymentStatus  @default(UNPAID)
@@ -138,7 +141,7 @@ model Order {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   items      OrderItem[]
 }
 

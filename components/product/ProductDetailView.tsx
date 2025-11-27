@@ -23,7 +23,7 @@ export interface ProductDetailData {
   priceCents: number;
   category: string;
   volumeMl: number;
-  abv: number;
+  vol: number;
   region: string;
   base: string;
   type: string;
@@ -76,7 +76,7 @@ export function ProductDetailView({
     {
       key: "alcohol",
       label: dictionary.product.details.alcoholContent,
-      value: product.alcoholContent || `${product.abv}%`,
+      value: product.alcoholContent || `${product.vol}%`,
     },
     {
       key: "bottle",
@@ -115,7 +115,7 @@ export function ProductDetailView({
             <div className="flex items-center gap-3 text-sm text-neutral-500">
               <span>{product.volumeMl} ml</span>
               <span>•</span>
-              <span>{product.abv}% ABV</span>
+              <span>{product.vol}% VOL</span>
             </div>
           </div>
           <div className="flex items-center gap-6">

@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import type { ComponentProps } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +35,11 @@ export function AccountAuthPanel({
     email: "",
     password: "",
     confirmPassword: "",
+  });
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    register: false,
+    confirm: false,
+    login: false,
   });
 
   const toggleMode = () => setMode((value) => (value === "login" ? "register" : "login"));
@@ -120,6 +127,31 @@ export function AccountAuthPanel({
     void signIn("google", { callbackUrl: redirectUrl });
   };
 
+  const togglePasswordVisibility = (field: "register" | "confirm" | "login") => {
+    setPasswordVisibility((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  const renderPasswordInput = (
+    props: ComponentProps<typeof Input> & { field: "register" | "confirm" | "login" },
+  ) => {
+    const { field, ...inputProps } = props;
+    const isVisible = passwordVisibility[field];
+    return (
+      <div className="relative">
+        <Input {...inputProps} type={isVisible ? "text" : "password"} className="pr-11" />
+        <button
+          type="button"
+          className="absolute inset-y-0 right-3 flex items-center text-neutral-500 hover:text-neutral-900"
+          onClick={() => togglePasswordVisibility(field)}
+          aria-pressed={isVisible}
+        >
+          {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          <span className="sr-only">{isVisible ? "Hide password" : "Show password"}</span>
+        </button>
+      </div>
+    );
+  };
+
   return (
     <section className="mx-auto max-w-xl space-y-8 rounded-3xl border border-[rgb(var(--border))] bg-white p-8 shadow-sm">
       <header className="space-y-2 text-center">
@@ -157,29 +189,29 @@ export function AccountAuthPanel({
             </div>
             <div>
               <Label htmlFor="account-password">{dictionary.account.password}</Label>
-              <Input
-                id="account-password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={form.password}
-                onChange={updateField("password")}
-              />
+              {renderPasswordInput({
+                id: "account-password",
+                name: "password",
+                autoComplete: "new-password",
+                required: true,
+                value: form.password,
+                onChange: updateField("password"),
+                field: "register",
+              })}
             </div>
             <div>
               <Label htmlFor="account-confirm">
                 {dictionary.account.confirmPassword}
               </Label>
-              <Input
-                id="account-confirm"
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={form.confirmPassword}
-                onChange={updateField("confirmPassword")}
-              />
+              {renderPasswordInput({
+                id: "account-confirm",
+                name: "confirmPassword",
+                autoComplete: "new-password",
+                required: true,
+                value: form.confirmPassword,
+                onChange: updateField("confirmPassword"),
+                field: "confirm",
+              })}
             </div>
             <p className="text-xs text-neutral-500">{dictionary.account.passwordHint}</p>
           </div>
@@ -199,15 +231,15 @@ export function AccountAuthPanel({
             </div>
             <div>
               <Label htmlFor="account-password">{dictionary.account.password}</Label>
-              <Input
-                id="account-password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={form.password}
-                onChange={updateField("password")}
-              />
+              {renderPasswordInput({
+                id: "account-password",
+                name: "password",
+                autoComplete: "current-password",
+                required: true,
+                value: form.password,
+                onChange: updateField("password"),
+                field: "login",
+              })}
             </div>
           </>
         )}

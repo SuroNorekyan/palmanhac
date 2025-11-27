@@ -21,7 +21,7 @@ export type Product = {
   image: string;
   galleryImages: string[];
   volumeMl: number;
-  abv: number;
+  vol: number;
   stock: number;
   isActive: boolean;
   description: Record<Locale, string>;
@@ -39,6 +39,6 @@ export type ProductListItem = {
   name: string;
   description: string;
   volumeMl: number;
-  abv: number;
+  vol: number;
   isActive: boolean;
 };

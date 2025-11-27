@@ -50,7 +50,7 @@ export default async function ProductPage({
     type: withFallback(product.details.type[locale], product.details.type[defaultLocale]),
     alcoholContent: withFallback(
       product.details.alcoholContent[locale],
-      product.details.alcoholContent[defaultLocale] ?? `${product.abv}%`,
+      product.details.alcoholContent[defaultLocale] ?? `${product.vol}%`,
     ),
     bottleSize: withFallback(
       product.details.bottleSize[locale],
@@ -74,7 +74,7 @@ export default async function ProductPage({
     priceCents: product.priceCents,
     category: product.category,
     volumeMl: product.volumeMl,
-    abv: product.abv,
+    vol: product.vol,
     region: localizedDetails.region,
     base: localizedDetails.base,
     type: localizedDetails.type,

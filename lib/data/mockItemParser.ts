@@ -14,7 +14,7 @@ export type ParsedMockItem = {
   description: Record<Locale, string>;
   category: ProductCategorySlug;
   priceCents: number;
-  abv: number;
+  vol: number;
   volumeMl: number;
   image: string;
   imageSourcePath: string | null;
@@ -50,14 +50,14 @@ const parsePrice = (content: string): number => {
   return Math.round(euros * 100);
 };
 
-const parseAbv = (content: string): number => {
+const parseVol = (content: string): number => {
   const match = content.match(/(\d+(?:[.,]\d+)?)\s*%/);
   if (!match || match[1] === undefined) {
-    throw new Error("ABV not found in mock item content.");
+    throw new Error("VOL not found in mock item content.");
   }
   const value = Number.parseFloat(match[1].replace(",", "."));
   if (Number.isNaN(value)) {
-    throw new Error(`Invalid ABV value "${match[1]}".`);
+    throw new Error(`Invalid VOL value "${match[1]}".`);
   }
   return value;
 };
@@ -312,7 +312,7 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
 
     const category = inferCategory(content);
     const priceCents = parsePrice(content);
-    const abv = parseAbv(content);
+    const vol = parseVol(content);
     const volumeMl = parseVolume(content);
     const imageFilename = await discoverImageFilename(folderPath);
 
@@ -364,11 +364,11 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
     const alcoholEn =
       extractFieldValue(linesForLocale("en"), englishLabels.alcoholContent) ||
       extractFieldValue(linesForLocale("pt"), portugueseLabels.alcoholContent) ||
-      `${abv}%`;
+      `${vol}%`;
     const alcoholPt =
       extractFieldValue(linesForLocale("pt"), portugueseLabels.alcoholContent) ||
       extractFieldValue(linesForLocale("en"), englishLabels.alcoholContent) ||
-      `${abv}%`;
+      `${vol}%`;
 
     const awardsEn = extractListValue(linesForLocale("en"), englishLabels.awards);
     const awardsPt = extractListValue(linesForLocale("pt"), portugueseLabels.awards);
@@ -416,7 +416,7 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
       description,
       category,
       priceCents,
-      abv,
+      vol,
       volumeMl,
       image: resolveImagePath(slug, imageFilename),
       imageSourcePath: imageFilename ? path.join(folderPath, imageFilename) : null,

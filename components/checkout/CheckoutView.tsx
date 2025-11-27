@@ -206,17 +206,6 @@ function CheckoutForm({
   }, [billingSameAsShipping, shipping]);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace(
-        withLocale(
-          locale,
-          `/account?callbackUrl=${encodeURIComponent(withLocale(locale, "/checkout"))}`,
-        ),
-      );
-    }
-  }, [status, locale, router]);
-
-  useEffect(() => {
     if (!items.length) {
       setProducts([]);
       return;

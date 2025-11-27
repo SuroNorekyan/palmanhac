@@ -97,7 +97,7 @@ const toListItem = (product: PrismaProduct, locale: Locale): ProductListItem => 
     name: product.name,
     description: summarizeDescription(description),
     volumeMl: product.volumeMl,
-    abv: product.abv,
+    vol: product.vol,
     isActive: product.isActive,
   };
 };
@@ -111,7 +111,7 @@ const toProduct = (product: PrismaProduct): Product => ({
   image: product.image,
   galleryImages: product.galleryImages,
   volumeMl: product.volumeMl,
-  abv: product.abv,
+  vol: product.vol,
   stock: product.stock,
   isActive: product.isActive,
   description: {
@@ -122,7 +122,16 @@ const toProduct = (product: PrismaProduct): Product => ({
     en: product.tastingNotesEn ?? null,
     pt: product.tastingNotesPt ?? null,
   },
-  details: deserializeDetails(product.details),
+  details: (() => {
+    const details = deserializeDetails(product.details);
+    return {
+      ...details,
+      base: {
+        en: product.baseEn ?? details.base.en,
+        pt: product.basePt ?? details.base.pt,
+      },
+    } satisfies ProductDetails;
+  })(),
 });
 
 export const getAllProducts = async (locale: Locale, filters: ProductFilters = {}) => {

@@ -13,11 +13,10 @@ const loadBcrypt = async (): Promise<BcryptModule> => {
 
 export const passwordSchema = z
   .string()
-  .min(12, "Password must be at least 12 characters.")
+  .min(6, "Password must be at least 6 characters.")
   .regex(/[A-Z]/, "Password must include an uppercase letter.")
   .regex(/[a-z]/, "Password must include a lowercase letter.")
-  .regex(/\d/, "Password must include a number.")
-  .regex(/[^A-Za-z0-9]/, "Password must include a special character.");
+  .regex(/\d/, "Password must include a number.");
 
 const resolveCost = () => {
   const envCost = Number.parseInt(process.env.BCRYPT_COST ?? "", 10);

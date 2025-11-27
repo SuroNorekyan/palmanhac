@@ -120,7 +120,7 @@ export function ProductCard({
           <p className="line-clamp-2 text-sm text-neutral-500">{product.description}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
             <span>{dictionary.product.details.alcoholContent}</span>
-            <span className="font-semibold text-neutral-900">{product.abv}%</span>
+            <span className="font-semibold text-neutral-900">{product.vol}%</span>
             <span className="text-neutral-300">•</span>
             <span>{dictionary.product.details.bottleSize}</span>
             <span className="font-semibold text-neutral-900">{product.volumeMl} ml</span>

@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { DeleteProductButton } from "@/components/admin/products/DeleteProductButton";
-import { ProductForm } from "@/components/admin/products/ProductForm";
+import { ProductBaseForm } from "@/components/admin/products/ProductBaseForm";
 import { prisma } from "@/lib/server/db";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +10,7 @@ type Params = {
   params: Promise<{ id: string }>;
 };
 
-export default async function AdminProductEditPage({ params }: Params) {
+export default async function AdminProductBasePage({ params }: Params) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN") {
     redirect("/account");
@@ -31,17 +30,8 @@ export default async function AdminProductEditPage({ params }: Params) {
     select: {
       id: true,
       name: true,
-      slug: true,
-      category: true,
-      priceCents: true,
-      image: true,
-      galleryImages: true,
-      volumeMl: true,
-      vol: true,
-      stock: true,
-      isActive: true,
-      descriptionEn: true,
-      descriptionPt: true,
+      baseEn: true,
+      basePt: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -55,9 +45,9 @@ export default async function AdminProductEditPage({ params }: Params) {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">Edit product</h1>
+          <h1 className="text-2xl font-semibold text-neutral-900">Edit base</h1>
           <p className="text-sm text-neutral-600">
-            Update catalogue details or adjust stock levels for {product.name}.
+            Provide the product base in English and Portuguese for {product.name}.
           </p>
           <p className="text-xs text-neutral-500">
             #{product.id} • Created {product.createdAt.toLocaleDateString("en-GB")} •
@@ -70,26 +60,15 @@ export default async function AdminProductEditPage({ params }: Params) {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/admin/products"
-            className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
-          >
-            Back to products
-          </Link>
-          <Link
-            href={`/admin/products/${product.id}/base`}
+            href={`/admin/products/${product.id}`}
             className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
           >
-            Edit base
+            Back to product
           </Link>
-          <DeleteProductButton
-            productId={product.id}
-            productName={product.name}
-            redirectTo="/admin/products"
-          />
         </div>
       </header>
       <div className="rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
-        <ProductForm mode="edit" product={product} />
+        <ProductBaseForm product={product} />
       </div>
     </div>
   );

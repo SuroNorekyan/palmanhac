@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import type { Prisma } from "@prisma/client";
 import {
   OrderStatus,
   PaymentMethod,
@@ -16,6 +17,8 @@ import {
   EuPagoConfigurationError,
   fetchMBWayStatus,
   fetchMultibancoInfo,
+  lookupReferenceStatus,
+  referenceEntryToStatus,
   type EuPagoStatusResult,
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
@@ -138,15 +141,18 @@ const markOrderStatusFromPayment = async (
 
 export async function GET(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const userId = session?.user?.id ?? null;
 
   const { searchParams } = new URL(request.url);
   const transactionId = searchParams.get("transactionId");
+  const orderIdParam = searchParams.get("orderId") ?? undefined;
+  if (!userId && !orderIdParam) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   if (!transactionId) {
     await logStatusEvent("warn", "checkout_status_missing_transaction", {
-      userId: session.user.id,
+      userId,
+      orderId: orderIdParam,
     });
     return NextResponse.json({ error: "transactionId is required." }, { status: 400 });
   }
@@ -163,12 +169,14 @@ export async function GET(request: NextRequest) {
   }
   const candidateRefs = Array.from(candidateSet);
 
+  const whereClause = {
+    paymentProvider: PaymentProvider.EUPAGO,
+    providerRef: { in: candidateRefs },
+    ...(userId ? { userId } : orderIdParam ? { id: orderIdParam } : {}),
+  } satisfies Prisma.OrderWhereInput;
+
   const order = await prisma.order.findFirst({
-    where: {
-      userId: session.user.id,
-      paymentProvider: PaymentProvider.EUPAGO,
-      providerRef: { in: candidateRefs },
-    },
+    where: whereClause,
     select: {
       id: true,
       status: true,
@@ -199,15 +207,16 @@ export async function GET(request: NextRequest) {
 
   if (!order) {
     await logStatusEvent("warn", "checkout_status_order_not_found", {
-      userId: session.user.id,
+      userId,
       transactionId,
       candidateRefs,
+      orderId: orderIdParam,
     });
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
   await logStatusEvent("info", "checkout_status_request", {
-    userId: session.user.id,
+    userId,
     orderId: order.id,
     providerRef: order.providerRef,
     paymentMethod: order.paymentMethod,
@@ -238,7 +247,98 @@ export async function GET(request: NextRequest) {
     if (order.paymentMethod === PaymentMethod.MBWAY) {
       const statusUrl =
         asString(providerMetadata.statusUrl) ?? asString(providerMetadata.status_url);
-      if (!statusUrl) {
+      const metadataReference =
+        normalizeReferenceDigits(
+          asString(providerMetadata.reference) ??
+            asString(providerMetadata.referencia) ??
+            undefined,
+        ) ?? normalizeReferenceDigits(order.providerRef);
+
+      const fetchReferenceStatus = async () => {
+        if (!metadataReference) return null;
+        const entry = await lookupReferenceStatus(metadataReference);
+        const normalizedStatus = referenceEntryToStatus(entry);
+        if (normalizedStatus) {
+          await logStatusEvent("info", "checkout_status_reference_match", {
+            orderId: order.id,
+            providerRef: order.providerRef,
+            reference: metadataReference,
+            upstreamStatus: entry?.status,
+          });
+        }
+        return normalizedStatus;
+      };
+
+      const handleStatusResult = async (status: EuPagoStatusResult | null) => {
+        if (!status) {
+          return NextResponse.json({
+            status: {
+              status: "pending" as const,
+              error: "Unable to retrieve MB WAY status at this time.",
+              raw: providerMetadata,
+            },
+          });
+        }
+        await logStatusEvent("info", "checkout_status_polled", {
+          orderId: order.id,
+          providerRef: order.providerRef,
+          method: "mbway",
+          status,
+        });
+        const updateResult = await markOrderStatusFromPayment(order, status);
+        if (updateResult.changedToPaid) {
+          try {
+            await dispatchPaymentEmails(order, updateResult.paidAt ?? new Date());
+          } catch (error) {
+            if (error instanceof EmailConfigurationError) {
+              await logStatusEvent("warn", "checkout_status_email_skipped", {
+                orderId: order.id,
+                reason: error.message,
+              });
+            } else {
+              await logStatusEvent("error", "checkout_status_email_failed", {
+                orderId: order.id,
+                error: error instanceof Error ? error.message : "Unknown email error",
+              });
+            }
+          }
+        }
+        return NextResponse.json({ status });
+      };
+
+      if (statusUrl) {
+        try {
+          const status = await fetchMBWayStatus(statusUrl);
+          return handleStatusResult(status);
+        } catch (error) {
+          await logStatusEvent("warn", "checkout_status_mbway_statusurl_failed", {
+            orderId: order.id,
+            providerRef: order.providerRef,
+            method: "mbway",
+            error: error instanceof Error ? error.message : "Unknown status error",
+          });
+          const fallbackStatus = await fetchReferenceStatus().catch(
+            async (referenceError) => {
+              await logStatusEvent("error", "checkout_status_reference_error", {
+                orderId: order.id,
+                providerRef: order.providerRef,
+                reference: metadataReference,
+                error:
+                  referenceError instanceof Error
+                    ? referenceError.message
+                    : "Unknown reference error",
+              });
+              return null;
+            },
+          );
+          if (fallbackStatus) {
+            return handleStatusResult(fallbackStatus);
+          }
+          throw error;
+        }
+      }
+
+      if (!metadataReference) {
         await logStatusEvent("warn", "checkout_status_missing_status_url", {
           orderId: order.id,
           providerRef: order.providerRef,
@@ -247,37 +347,27 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           status: {
             status: "pending" as const,
-            error: "MB WAY status URL unavailable. Await webhook confirmation.",
+            error: "MB WAY status unavailable. Await webhook confirmation.",
             raw: providerMetadata,
           },
         });
       }
-      const status = await fetchMBWayStatus(statusUrl);
-      await logStatusEvent("info", "checkout_status_polled", {
-        orderId: order.id,
-        providerRef: order.providerRef,
-        method: "mbway",
-        status,
-      });
-      const updateResult = await markOrderStatusFromPayment(order, status);
-      if (updateResult.changedToPaid) {
-        try {
-          await dispatchPaymentEmails(order, updateResult.paidAt ?? new Date());
-        } catch (error) {
-          if (error instanceof EmailConfigurationError) {
-            await logStatusEvent("warn", "checkout_status_email_skipped", {
-              orderId: order.id,
-              reason: error.message,
-            });
-          } else {
-            await logStatusEvent("error", "checkout_status_email_failed", {
-              orderId: order.id,
-              error: error instanceof Error ? error.message : "Unknown email error",
-            });
-          }
-        }
-      }
-      return NextResponse.json({ status });
+
+      const referenceStatus = await fetchReferenceStatus().catch(
+        async (referenceError) => {
+          await logStatusEvent("error", "checkout_status_reference_error", {
+            orderId: order.id,
+            providerRef: order.providerRef,
+            reference: metadataReference,
+            error:
+              referenceError instanceof Error
+                ? referenceError.message
+                : "Unknown reference error",
+          });
+          return null;
+        },
+      );
+      return handleStatusResult(referenceStatus);
     }
 
     if (order.paymentMethod === PaymentMethod.MULTIBANCO) {

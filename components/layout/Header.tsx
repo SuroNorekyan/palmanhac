@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { User } from "lucide-react";
 import { IconButton } from "@/components/common/IconButton";
@@ -44,9 +45,18 @@ export function Header({
           </div>
           <Link
             href={withLocale(locale, "/")}
-            className="text-lg font-semibold tracking-tight text-neutral-900"
+            className="flex items-center gap-2 text-lg font-semibold tracking-tight text-neutral-900"
+            aria-label="Palmanhac home"
           >
-            Palmanhac
+            <Image
+              src="/assets/logo/palmanhac-logo.png"
+              alt="Palmanhac logo"
+              width={40}
+              height={40}
+              className="h-10 w-10 rounded-full object-cover"
+              priority
+            />
+            <span className="hidden text-base font-semibold sm:inline">Palmanhac</span>
           </Link>
         </div>
         <DesktopNav items={aboutFirstMain} locale={locale} />

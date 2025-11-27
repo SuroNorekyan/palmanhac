@@ -40,15 +40,14 @@ const assertCardMethod = (payload: CheckoutPayload) => {
 
 export async function POST(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const userId = session?.user?.id ?? null;
+  const isGuestCheckout = !userId;
 
   const body = await request.json().catch(() => null);
   const parsed = checkoutPayloadSchema.safeParse(body);
   if (!parsed.success) {
     await logStripeCheckoutEvent("warn", "stripe_checkout_invalid_payload", {
-      userId: session.user.id,
+      userId,
       issues: parsed.error.flatten(),
     });
     return NextResponse.json(
@@ -95,7 +94,7 @@ export async function POST(request: NextRequest) {
   const stripe = getStripeClient();
 
   await logStripeCheckoutEvent("info", "stripe_checkout_payment_intent_creating", {
-    userId: session.user.id,
+    userId,
     orderId,
     totalCents: totals.totalCents,
     currency,
@@ -111,7 +110,8 @@ export async function POST(request: NextRequest) {
       receipt_email: payload.contact.email,
       metadata: {
         orderId,
-        userId: session.user.id,
+        ...(userId ? { userId } : {}),
+        guest: isGuestCheckout,
         locale: payload.locale ?? "",
       },
       shipping: {
@@ -161,7 +161,8 @@ export async function POST(request: NextRequest) {
       const createdOrder = await tx.order.create({
         data: {
           id: orderId,
-          userId: session.user.id,
+          userId,
+          isGuest: isGuestCheckout,
           totalAmount: totals.totalCents,
           paymentStatus: isPaid ? PaymentStatus.PAID : PaymentStatus.PENDING,
           status: isPaid ? OrderStatus.PROCESSING : OrderStatus.PENDING,
@@ -224,7 +225,7 @@ export async function POST(request: NextRequest) {
   try {
     const nameMap = new Map(products.map((product) => [product.id, product.name]));
     const customerName =
-      payload.shipping.name || payload.contact.name || session.user.name || "Customer";
+      payload.shipping.name || payload.contact.name || session?.user?.name || "Customer";
     const itemSummaries = payload.items.map((item) => ({
       name: nameMap.get(item.productId) ?? `Product ${item.productId}`,
       quantity: item.quantity,

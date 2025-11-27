@@ -54,10 +54,12 @@ export function MbwayPendingView({
     const poll = async () => {
       setIsChecking(true);
       try {
-        const response = await fetch(
-          `/api/payments/eupago/status?transactionId=${encodeURIComponent(transactionId)}`,
-          { cache: "no-store" },
-        );
+        const url = new URL("/api/payments/eupago/status", window.location.origin);
+        url.searchParams.set("transactionId", transactionId);
+        if (orderId) {
+          url.searchParams.set("orderId", orderId);
+        }
+        const response = await fetch(url.toString(), { cache: "no-store" });
         const payload = (await response.json().catch(() => ({}))) as {
           status?: { status?: string; error?: string };
         };
@@ -121,6 +123,7 @@ export function MbwayPendingView({
     };
   }, [
     transactionId,
+    orderId,
     dictionary.checkout.pendingStatusAwaiting,
     dictionary.checkout.pendingStatusFailed,
     dictionary.checkout.pendingStatusPaid,

@@ -36,6 +36,16 @@ const imageUrlOrPathSchema = z
     { message: "Provide an absolute URL or a path like /assets/file.png" },
   );
 
+const detailsSchema = z.object({
+  region: localeContentSchema,
+  base: localeContentSchema,
+  type: localeContentSchema,
+  bottleSize: localeContentSchema,
+  servingTemperature: localeContentSchema,
+  alcoholContent: localeContentSchema,
+  awards: localeStringArraySchema,
+});
+
 const productSchema = z.object({
   name: z.string().min(2),
   slug: z
@@ -47,22 +57,13 @@ const productSchema = z.object({
   image: imageUrlOrPathSchema,
   galleryImages: z.array(imageUrlOrPathSchema).optional(),
   volumeMl: z.number().int().min(0),
-  abv: z.number().min(0).max(100),
+  vol: z.number().min(0).max(100),
   stock: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
   description: localeContentSchema,
   tastingNotes: localeContentSchema.partial(),
-  details: z
-    .object({
-      region: localeContentSchema,
-      base: localeContentSchema,
-      type: localeContentSchema,
-      bottleSize: localeContentSchema,
-      servingTemperature: localeContentSchema,
-      alcoholContent: localeContentSchema,
-      awards: localeStringArraySchema,
-    })
-    .optional(),
+  base: localeContentSchema.optional(),
+  details: detailsSchema.optional(),
 });
 
 const slugify = (value: string) =>
@@ -154,14 +155,19 @@ export async function POST(request: NextRequest) {
             ? data.galleryImages
             : [data.image],
         volumeMl: data.volumeMl,
-        abv: data.abv,
+        vol: data.vol,
         stock: data.stock ?? 0,
         isActive: data.isActive ?? true,
         descriptionEn: data.description.en,
         descriptionPt: data.description.pt,
         tastingNotesEn: data.tastingNotes?.en,
         tastingNotesPt: data.tastingNotes?.pt,
-        details: data.details ?? undefined,
+        baseEn: data.base?.en ?? "",
+        basePt: data.base?.pt ?? "",
+        details:
+          data.details && data.base
+            ? { ...data.details, base: data.base }
+            : (data.details ?? undefined),
       },
     });
 

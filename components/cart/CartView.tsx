@@ -9,12 +9,7 @@ import { QuantitySelector } from "@/components/product/QuantitySelector";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import type { Locale } from "@/config/site";
-import {
-  ANON_CART_EXPIRES_KEY,
-  ANON_CART_FLAG_KEY,
-  ANON_CART_PAYLOAD_KEY,
-  useAnonCartImport,
-} from "@/lib/hooks/useAnonCartImport";
+import { useAnonCartImport } from "@/lib/hooks/useAnonCartImport";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useCartStore } from "@/lib/store/cart";
 import { useFavoritesStore } from "@/lib/store/favorites";
@@ -115,34 +110,6 @@ export function CartView({
   };
 
   const handleCheckout = () => {
-    if (status !== "authenticated") {
-      if (typeof window !== "undefined" && items.length) {
-        try {
-          const payload = items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-          }));
-
-          window.sessionStorage.setItem(ANON_CART_FLAG_KEY, "1");
-          window.sessionStorage.setItem(ANON_CART_PAYLOAD_KEY, JSON.stringify(payload));
-          window.sessionStorage.setItem(
-            ANON_CART_EXPIRES_KEY,
-            String(Date.now() + 5 * 60 * 1000),
-          );
-        } catch (error) {
-          console.error("Failed to persist anonymous cart snapshot", error);
-        }
-      }
-
-      router.push(
-        withLocale(
-          locale,
-          `/account?callbackUrl=${encodeURIComponent(withLocale(locale, "/checkout"))}`,
-        ),
-      );
-      return;
-    }
-
     router.push(withLocale(locale, "/checkout"));
   };
 

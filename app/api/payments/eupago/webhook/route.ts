@@ -41,13 +41,31 @@ const getSignature = (request: NextRequest) => {
   return url.searchParams.get("signature") ?? undefined;
 };
 
-const signaturesMatch = (incoming: string, expected: string) => {
-  const incomingBuffer = Buffer.from(incoming, "hex");
-  const expectedBuffer = Buffer.from(expected, "hex");
-  if (incomingBuffer.length !== expectedBuffer.length) {
+const decodeSignature = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const buffer = Buffer.from(trimmed, "base64");
+    if (buffer.length) return buffer;
+  } catch {
+    // fall through to hex decoding
+  }
+  try {
+    const buffer = Buffer.from(trimmed, "hex");
+    if (buffer.length) return buffer;
+  } catch {
+    // ignore
+  }
+  return null;
+};
+
+const signaturesMatch = (incoming: string, expected: Buffer) => {
+  const incomingBuffer = decodeSignature(incoming);
+  if (!incomingBuffer) return false;
+  if (incomingBuffer.length !== expected.length) {
     return false;
   }
-  return timingSafeEqual(incomingBuffer, expectedBuffer);
+  return timingSafeEqual(incomingBuffer, expected);
 };
 
 const deriveStatus = (payload: Record<string, unknown>) => {
@@ -76,7 +94,8 @@ const extractPaidAt = (payload: Record<string, unknown>) => {
   const paidAtCandidate =
     (payload.paid_at as string | undefined) ??
     (payload.payment_date as string | undefined) ??
-    (payload.processed_at as string | undefined);
+    (payload.processed_at as string | undefined) ??
+    (payload.date as string | undefined);
   if (!paidAtCandidate) {
     return undefined;
   }
@@ -125,10 +144,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing signature." }, { status: 400 });
   }
 
-  const expectedSignature = createHmac("sha256", secret).update(rawBody).digest("hex");
+  const expectedSignature = createHmac("sha256", secret).update(rawBody).digest();
   if (!signaturesMatch(signature, expectedSignature)) {
     await logWebhookEvent("warn", "eupago_webhook_invalid_signature", {
-      signature: `${signature.slice(0, 8)}...`,
+      signature: signature.slice(0, 8),
     });
     return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
   }
@@ -149,94 +168,53 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
   }
 
-  const providerRef = extractProviderRef(payload);
-  if (!providerRef) {
-    console.error("[EuPago] Webhook missing provider reference.");
-    await logWebhookEvent("error", "eupago_webhook_missing_provider_ref", {
-      payload,
-    });
-    return NextResponse.json({ error: "Missing provider reference." }, { status: 400 });
-  }
+  const transactions = Array.isArray(payload.transactions)
+    ? payload.transactions
+    : payload.transactions
+      ? [payload.transactions]
+      : [payload];
 
-  const status = deriveStatus(payload);
-  await logWebhookEvent("info", "eupago_webhook_payload_parsed", {
-    providerRef,
-    status,
-    payload,
-  });
+  for (const transaction of transactions) {
+    const transactionPayload =
+      transaction && typeof transaction === "object"
+        ? (transaction as Record<string, unknown>)
+        : {};
+    const providerRef = extractProviderRef(transactionPayload);
+    const identifier =
+      typeof transactionPayload.identifier === "string"
+        ? transactionPayload.identifier.trim().toLowerCase()
+        : undefined;
+    if (!providerRef && !identifier) {
+      await logWebhookEvent("warn", "eupago_webhook_missing_provider_ref", {
+        payload: transactionPayload,
+      });
+      continue;
+    }
 
-  const order = await prisma.order.findFirst({
-    where: { providerRef },
-    select: {
-      id: true,
-      paymentStatus: true,
-      paidAt: true,
-      events: true,
-      totalAmount: true,
-      paymentMethod: true,
-      contactEmail: true,
-      contactPhone: true,
-      taxId: true,
-      shippingAddress: true,
-      createdAt: true,
-      items: {
-        select: {
-          productId: true,
-          quantity: true,
-          unitPrice: true,
-          product: { select: { name: true } },
-        },
-      },
-      user: {
-        select: { name: true, email: true },
-      },
-    },
-  });
-
-  if (!order) {
-    console.warn("[EuPago] Order not found for providerRef.");
-    await logWebhookEvent("warn", "eupago_webhook_order_not_found", {
+    const status = deriveStatus(transactionPayload);
+    await logWebhookEvent("info", "eupago_webhook_payload_parsed", {
       providerRef,
-      payload,
+      identifier,
+      status,
+      payload: transactionPayload,
     });
-    return NextResponse.json({ success: true });
-  }
 
-  const baseEvents = appendOrderEvent(order.events, {
-    type: "eupago_webhook_received",
-    payload: { status, ...payload },
-  });
+    const whereClause: Prisma.OrderWhereInput =
+      providerRef && identifier
+        ? {
+            OR: [{ providerRef }, { id: identifier }],
+          }
+        : providerRef
+          ? { providerRef }
+          : { id: identifier! };
 
-  if (order.paymentStatus === PaymentStatus.PAID) {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { events: baseEvents as Prisma.InputJsonValue },
-    });
-    await logWebhookEvent("info", "eupago_webhook_already_paid", {
-      orderId: order.id,
-      providerRef,
-    });
-    return NextResponse.json({ success: true });
-  }
-
-  const paidAt = extractPaidAt(payload) ?? new Date();
-
-  if (status === "paid") {
-    const updatedOrder = await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        paymentStatus: PaymentStatus.PAID,
-        paidAt,
-        events: appendOrderEvent(baseEvents, {
-          type: "payment_captured",
-          payload: {
-            providerRef,
-            paidAt: paidAt.toISOString(),
-          },
-        }) as Prisma.InputJsonValue,
-      },
+    const order = await prisma.order.findFirst({
+      where: whereClause,
       select: {
         id: true,
+        paymentStatus: true,
+        paidAt: true,
+        events: true,
         totalAmount: true,
         paymentMethod: true,
         contactEmail: true,
@@ -257,106 +235,175 @@ export async function POST(request: NextRequest) {
         },
       },
     });
-    await logWebhookEvent("info", "eupago_webhook_payment_captured", {
-      orderId: updatedOrder.id,
-      providerRef,
-      paidAt: paidAt.toISOString(),
-    });
 
-    try {
-      const normalizedAddress = normalizeMailingAddress(updatedOrder.shippingAddress);
-      const emailItems = updatedOrder.items.map((item) => ({
-        name: item.product?.name ?? `Product ${item.productId}`,
-        quantity: item.quantity,
-        unitPriceCents: item.unitPrice,
-      }));
-      const customerEmail =
-        updatedOrder.contactEmail ?? updatedOrder.user?.email ?? undefined;
-      const customerName =
-        updatedOrder.user?.name || normalizedAddress.name || "Cliente Palmanhac";
-
-      await sendPaymentConfirmationEmails({
-        orderId: updatedOrder.id,
-        orderDate: updatedOrder.createdAt,
-        totalCents: updatedOrder.totalAmount,
-        shippingCostCents: undefined,
-        items: emailItems,
-        customerName,
-        customerEmail,
-        customerPhone: updatedOrder.contactPhone ?? undefined,
-        shippingAddress: normalizedAddress,
-        taxId: updatedOrder.taxId ?? undefined,
-        paymentDate: paidAt,
-        paymentMethod: updatedOrder.paymentMethod,
+    if (!order) {
+      console.warn("[EuPago] Order not found for webhook payload.");
+      await logWebhookEvent("warn", "eupago_webhook_order_not_found", {
+        providerRef,
+        identifier,
+        payload: transactionPayload,
       });
-    } catch (error) {
-      if (error instanceof EmailConfigurationError) {
-        console.warn("[Email] Payment confirmation notification skipped:", error.message);
-        await logWebhookEvent("warn", "eupago_webhook_email_skipped", {
-          orderId: order.id,
-          providerRef,
-          error: error.message,
-        });
-      } else {
-        console.error("[Email] Failed to send payment confirmation email:", error);
-        await logWebhookEvent("error", "eupago_webhook_email_failed", {
-          orderId: order.id,
-          providerRef,
-          error: error instanceof Error ? error.message : "Unknown email error",
-        });
-      }
+      continue;
     }
 
-    return NextResponse.json({ success: true });
-  }
+    const baseEvents = appendOrderEvent(order.events, {
+      type: "eupago_webhook_received",
+      payload: { status, ...transactionPayload },
+    });
 
-  if (status === "failed") {
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { events: baseEvents as Prisma.InputJsonValue },
+      });
+      await logWebhookEvent("info", "eupago_webhook_already_paid", {
+        orderId: order.id,
+        providerRef,
+      });
+      continue;
+    }
+
+    const paidAt = extractPaidAt(transactionPayload) ?? new Date();
+
+    if (status === "paid") {
+      const updatedOrder = await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: PaymentStatus.PAID,
+          paidAt,
+          events: appendOrderEvent(baseEvents, {
+            type: "payment_captured",
+            payload: {
+              providerRef,
+              paidAt: paidAt.toISOString(),
+            },
+          }) as Prisma.InputJsonValue,
+        },
+        select: {
+          id: true,
+          totalAmount: true,
+          paymentMethod: true,
+          contactEmail: true,
+          contactPhone: true,
+          taxId: true,
+          shippingAddress: true,
+          createdAt: true,
+          items: {
+            select: {
+              productId: true,
+              quantity: true,
+              unitPrice: true,
+              product: { select: { name: true } },
+            },
+          },
+          user: {
+            select: { name: true, email: true },
+          },
+        },
+      });
+      await logWebhookEvent("info", "eupago_webhook_payment_captured", {
+        orderId: updatedOrder.id,
+        providerRef,
+        paidAt: paidAt.toISOString(),
+      });
+
+      try {
+        const normalizedAddress = normalizeMailingAddress(updatedOrder.shippingAddress);
+        const emailItems = updatedOrder.items.map((item) => ({
+          name: item.product?.name ?? `Product ${item.productId}`,
+          quantity: item.quantity,
+          unitPriceCents: item.unitPrice,
+        }));
+        const customerEmail =
+          updatedOrder.contactEmail ?? updatedOrder.user?.email ?? undefined;
+        const customerName =
+          updatedOrder.user?.name || normalizedAddress.name || "Cliente Palmanhac";
+
+        await sendPaymentConfirmationEmails({
+          orderId: updatedOrder.id,
+          orderDate: updatedOrder.createdAt,
+          totalCents: updatedOrder.totalAmount,
+          shippingCostCents: undefined,
+          items: emailItems,
+          customerName,
+          customerEmail,
+          customerPhone: updatedOrder.contactPhone ?? undefined,
+          shippingAddress: normalizedAddress,
+          taxId: updatedOrder.taxId ?? undefined,
+          paymentDate: paidAt,
+          paymentMethod: updatedOrder.paymentMethod,
+        });
+      } catch (error) {
+        if (error instanceof EmailConfigurationError) {
+          console.warn(
+            "[Email] Payment confirmation notification skipped:",
+            error.message,
+          );
+          await logWebhookEvent("warn", "eupago_webhook_email_skipped", {
+            orderId: order.id,
+            providerRef,
+            error: error.message,
+          });
+        } else {
+          console.error("[Email] Failed to send payment confirmation email:", error);
+          await logWebhookEvent("error", "eupago_webhook_email_failed", {
+            orderId: order.id,
+            providerRef,
+            error: error instanceof Error ? error.message : "Unknown email error",
+          });
+        }
+      }
+      continue;
+    }
+
+    if (status === "failed") {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: PaymentStatus.FAILED,
+          events: appendOrderEvent(baseEvents, {
+            type: "payment_failed",
+            payload: { providerRef },
+          }) as Prisma.InputJsonValue,
+        },
+      });
+      await logWebhookEvent("warn", "eupago_webhook_payment_failed", {
+        orderId: order.id,
+        providerRef,
+      });
+      continue;
+    }
+
+    if (status === "cancelled" || status === "expired") {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus:
+            status === "cancelled" ? PaymentStatus.FAILED : PaymentStatus.UNPAID,
+          events: appendOrderEvent(baseEvents, {
+            type: `payment_${status}`,
+            payload: { providerRef },
+          }) as Prisma.InputJsonValue,
+        },
+      });
+      await logWebhookEvent("info", "eupago_webhook_payment_status_update", {
+        orderId: order.id,
+        providerRef,
+        status,
+      });
+      continue;
+    }
+
     await prisma.order.update({
       where: { id: order.id },
-      data: {
-        paymentStatus: PaymentStatus.FAILED,
-        events: appendOrderEvent(baseEvents, {
-          type: "payment_failed",
-          payload: { providerRef },
-        }) as Prisma.InputJsonValue,
-      },
+      data: { events: baseEvents as Prisma.InputJsonValue },
     });
-    await logWebhookEvent("warn", "eupago_webhook_payment_failed", {
-      orderId: order.id,
-      providerRef,
-    });
-    return NextResponse.json({ success: true });
-  }
-
-  if (status === "cancelled" || status === "expired") {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        paymentStatus:
-          status === "cancelled" ? PaymentStatus.FAILED : PaymentStatus.UNPAID,
-        events: appendOrderEvent(baseEvents, {
-          type: `payment_${status}`,
-          payload: { providerRef },
-        }) as Prisma.InputJsonValue,
-      },
-    });
-    await logWebhookEvent("info", "eupago_webhook_payment_status_update", {
+    await logWebhookEvent("info", "eupago_webhook_event_recorded", {
       orderId: order.id,
       providerRef,
       status,
     });
-    return NextResponse.json({ success: true });
   }
-
-  await prisma.order.update({
-    where: { id: order.id },
-    data: { events: baseEvents as Prisma.InputJsonValue },
-  });
-  await logWebhookEvent("info", "eupago_webhook_event_recorded", {
-    orderId: order.id,
-    providerRef,
-    status,
-  });
 
   return NextResponse.json({ success: true });
 }

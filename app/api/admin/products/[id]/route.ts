@@ -35,6 +35,16 @@ const imageUrlOrPathSchema = z
     { message: "Provide an absolute URL or a path like /assets/file.png" },
   );
 
+const detailsSchema = z.object({
+  region: localeContentSchema,
+  base: localeContentSchema,
+  type: localeContentSchema,
+  bottleSize: localeContentSchema,
+  servingTemperature: localeContentSchema,
+  alcoholContent: localeContentSchema,
+  awards: localeStringArraySchema,
+});
+
 const updateSchema = z
   .object({
     name: z.string().min(2).optional(),
@@ -48,22 +58,13 @@ const updateSchema = z
     image: imageUrlOrPathSchema.optional(),
     galleryImages: z.array(imageUrlOrPathSchema).optional(),
     volumeMl: z.number().int().min(0).optional(),
-    abv: z.number().min(0).max(100).optional(),
+    vol: z.number().min(0).max(100).optional(),
     stock: z.number().int().min(0).optional(),
     isActive: z.boolean().optional(),
     description: localeContentSchema.optional(),
     tastingNotes: localeContentSchema.partial().optional(),
-    details: z
-      .object({
-        region: localeContentSchema,
-        base: localeContentSchema,
-        type: localeContentSchema,
-        bottleSize: localeContentSchema,
-        servingTemperature: localeContentSchema,
-        alcoholContent: localeContentSchema,
-        awards: localeStringArraySchema,
-      })
-      .optional(),
+    base: localeContentSchema.optional(),
+    details: detailsSchema.optional(),
   })
   .strict();
 
@@ -154,7 +155,7 @@ export async function PATCH(
         ...(updates.image ? { image: updates.image } : {}),
         ...(updates.galleryImages ? { galleryImages: updates.galleryImages } : {}),
         ...(updates.volumeMl !== undefined ? { volumeMl: updates.volumeMl } : {}),
-        ...(updates.abv !== undefined ? { abv: updates.abv } : {}),
+        ...(updates.vol !== undefined ? { vol: updates.vol } : {}),
         ...(updates.stock !== undefined ? { stock: updates.stock } : {}),
         ...(updates.isActive !== undefined ? { isActive: updates.isActive } : {}),
         ...(updates.description
@@ -169,7 +170,19 @@ export async function PATCH(
               tastingNotesPt: updates.tastingNotes.pt,
             }
           : {}),
-        ...(updates.details ? { details: updates.details } : {}),
+        ...(updates.base
+          ? {
+              baseEn: updates.base.en,
+              basePt: updates.base.pt,
+            }
+          : {}),
+        ...(updates.details
+          ? {
+              details: updates.base
+                ? { ...updates.details, base: updates.base }
+                : updates.details,
+            }
+          : {}),
       },
     });
 
