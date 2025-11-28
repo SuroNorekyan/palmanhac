@@ -22,9 +22,6 @@ const asRecord = (value: unknown) =>
 const asString = (value: unknown) =>
   typeof value === "string" && value.trim().length > 0 ? value : undefined;
 
-const normalizeReferenceDigits = (value: string | null | undefined) =>
-  value ? value.replace(/[^0-9]/g, "") : undefined;
-
 const toOrderWhere = (code: string) => {
   const candidates: Prisma.OrderWhereInput[] = [];
   const trimmed = code.trim();
@@ -129,14 +126,21 @@ export async function GET(request: NextRequest) {
     let remoteStatus = null;
 
     if (order.paymentMethod === PaymentMethod.MBWAY) {
-      const reference =
-        normalizeReferenceDigits(
-          asString(providerMetadata.reference) ??
-            asString(providerMetadata.referencia) ??
-            undefined,
-        ) ?? normalizeReferenceDigits(order.providerRef);
-      if (reference) {
-        const entry = await lookupReferenceStatus(reference);
+      const referenceCandidates = Array.from(
+        new Set(
+          [
+            asString(providerMetadata.reference),
+            asString(providerMetadata.referencia),
+            asString(providerMetadata.identifier),
+            asString(providerMetadata.transactionId),
+            asString(providerMetadata.transaction_id),
+            order.providerRef,
+            order.id,
+          ].filter((value): value is string => Boolean(value && value.trim())),
+        ),
+      );
+      if (referenceCandidates.length) {
+        const entry = await lookupReferenceStatus(referenceCandidates);
         remoteStatus = referenceEntryToStatus(entry);
       }
     }

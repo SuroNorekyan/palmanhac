@@ -74,7 +74,14 @@ export function MbwayPendingView({
         }
 
         const rawStatus = (payload.status?.status ?? "").toLowerCase();
-        if (rawStatus.includes("paid") || rawStatus === "ok" || rawStatus === "success") {
+        const isPaidStatus =
+          rawStatus === "ok" ||
+          rawStatus === "success" ||
+          rawStatus.includes("paid") ||
+          rawStatus.includes("paga") ||
+          rawStatus.includes("sucesso") ||
+          rawStatus.includes("captur");
+        if (isPaidStatus) {
           setStatusState("paid");
           setStatusMessage(dictionary.checkout.pendingStatusPaid);
           clearCart();
@@ -84,7 +91,14 @@ export function MbwayPendingView({
           return;
         }
 
-        if (rawStatus.includes("fail") || rawStatus.includes("error")) {
+        const isFailureStatus =
+          rawStatus.includes("fail") ||
+          rawStatus.includes("error") ||
+          rawStatus.includes("denied") ||
+          rawStatus.includes("recus") ||
+          rawStatus.includes("cancel") ||
+          rawStatus.includes("expir");
+        if (isFailureStatus) {
           setStatusState("failed");
           setStatusMessage(
             payload.status?.error ?? dictionary.checkout.pendingStatusFailed,

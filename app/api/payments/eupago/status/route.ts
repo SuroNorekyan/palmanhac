@@ -247,26 +247,34 @@ export async function GET(request: NextRequest) {
     if (order.paymentMethod === PaymentMethod.MBWAY) {
       const statusUrl =
         asString(providerMetadata.statusUrl) ?? asString(providerMetadata.status_url);
-      const metadataReference =
-        normalizeReferenceDigits(
-          asString(providerMetadata.reference) ??
-            asString(providerMetadata.referencia) ??
-            undefined,
-        ) ?? normalizeReferenceDigits(order.providerRef);
+      const referenceCandidates = Array.from(
+        new Set(
+          [
+            asString(providerMetadata.reference),
+            asString(providerMetadata.referencia),
+            asString(providerMetadata.identifier),
+            asString(providerMetadata.transactionId),
+            asString(providerMetadata.transaction_id),
+            order.providerRef,
+            transactionId,
+            order.id,
+          ].filter((value): value is string => Boolean(value && value.trim())),
+        ),
+      );
 
       const fetchReferenceStatus = async () => {
-        if (!metadataReference) return null;
-        const entry = await lookupReferenceStatus(metadataReference);
-        const normalizedStatus = referenceEntryToStatus(entry);
-        if (normalizedStatus) {
+        if (!referenceCandidates.length) return null;
+        const entry = await lookupReferenceStatus(referenceCandidates);
+        if (entry) {
           await logStatusEvent("info", "checkout_status_reference_match", {
             orderId: order.id,
             providerRef: order.providerRef,
-            reference: metadataReference,
-            upstreamStatus: entry?.status,
+            referenceCandidates,
+            upstreamStatus: entry.status,
+            identifier: entry.identifier,
           });
         }
-        return normalizedStatus;
+        return referenceEntryToStatus(entry);
       };
 
       const handleStatusResult = async (status: EuPagoStatusResult | null) => {
@@ -322,7 +330,7 @@ export async function GET(request: NextRequest) {
               await logStatusEvent("error", "checkout_status_reference_error", {
                 orderId: order.id,
                 providerRef: order.providerRef,
-                reference: metadataReference,
+                referenceCandidates,
                 error:
                   referenceError instanceof Error
                     ? referenceError.message
@@ -338,7 +346,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      if (!metadataReference) {
+      if (!statusUrl && !referenceCandidates.length) {
         await logStatusEvent("warn", "checkout_status_missing_status_url", {
           orderId: order.id,
           providerRef: order.providerRef,
@@ -358,7 +366,7 @@ export async function GET(request: NextRequest) {
           await logStatusEvent("error", "checkout_status_reference_error", {
             orderId: order.id,
             providerRef: order.providerRef,
-            reference: metadataReference,
+            referenceCandidates,
             error:
               referenceError instanceof Error
                 ? referenceError.message

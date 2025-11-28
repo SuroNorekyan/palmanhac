@@ -1,0 +1,321 @@
+# EuPago Final Verification PRD
+# Goal: Ensure the entire payment system is fully correct and production-safe
+
+## Overview
+
+This PRD instructs Codex to perform a **full verification and correction pass** across the entire Palmanhac EuPago integration.
+
+The purpose is to confirm that **MB WAY**, **Multibanco**, and **Card** payment flows are now fully consistent with the official EuPago production APIs, and that the frontend and backend accurately reflect the live payment status in real time for both:
+
+- Customers (logged-in)  
+- Admin users  
+
+Additionally, Codex must confirm that after a successful payment, the system automatically dispatches a confirmation email via the logic in:
+
+`lib/email/order-notifications.ts`  
+(using both `enCustomerLines` and `ptCustomerLines`)
+
+And that **CheckoutView.tsx** and **MbwayPendingView.tsx** behave correctly when the user approves MB WAY payment inside the MB WAY mobile app.
+
+You must treat this PRD as a *full safety audit* before deployment.
+
+---
+
+# Part 1 — Official EuPago Flows That Must Be Verified
+
+Codex must check that the system supports **all three routes of receiving payment status**:
+
+## 1. MB WAY Webhook (Webhooks 2.0)
+Triggered instantly when the user approves MB WAY payment.
+
+Codex must verify:
+
+- Webhook signature verification logic is correct (`EUPAGO_WEBHOOK_SHARED_SECRET`)
+- The webhook route correctly parses:
+  - `transactionId`
+  - `reference`
+  - `identifier`
+  - new `transactions[]` payload structure
+- The route updates:
+  - `paymentStatus` to `"PAID"`
+  - `paidAt`
+  - order history events
+- Email confirmation is sent using `sendPaymentConfirmationEmails`
+
+---
+
+## 2. MB WAY "statusUrl" (if EuPago returns one)
+Many live MB WAY responses contain a `statusUrl`.
+
+Codex must verify:
+
+- The `/api/payments/eupago/status?transactionId` logic checks:
+  - `statusUrl` first
+  - Falls back to references-by-status if missing  
+
+This logic currently exists — Codex must ensure it is fully correct.
+
+---
+
+## 3. MB WAY + Multibanco References-by-Status fallback (Bearer token)
+Codex must confirm:
+
+- OAuth token generation using:
+  - `EUPAGO_OAUTH_CLIENT_ID`
+  - `EUPAGO_OAUTH_CLIENT_SECRET`
+  - `EUPAGO_OAUTH_GRANT_TYPE=client_credentials`
+- The app internally calls:
+  `/api/management/v1.02/references`
+- The returned structure matches what the backend expects
+- Status normalization:
+  - `"paga"` → `"paid"`
+  - `"pendente"` → `"pending"`
+  - `"expirada"` → `"expired"`
+  - `"cancelada"` → `"cancelled"`  
+- Correct handling of:
+  - `identifier`
+  - `reference`
+  - `datetime`
+
+Codex must verify that **lookupReferenceStatus()** matches the real EuPago structure.
+
+---
+
+# Part 2 — Curl Tests That Must Match the App’s Internal Logic
+
+These **successful curl tests** represent the actual responses from EuPago.  
+Codex must confirm that the internal code uses matching schemas:
+
+---
+
+### **Test 1 — Successful OAuth Token Generation**
+```bash
+curl -X POST "https://clientes.eupago.pt/api/auth/token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "'"$EUPAGO_OAUTH_CLIENT_ID"'",
+    "client_secret": "'"$EUPAGO_OAUTH_CLIENT_SECRET"'",
+    "grant_type": "client_credentials"
+  }'
+```
+
+Expected:
+
+status 200
+
+access_token field
+
+expires_in field
+
+Codex must confirm the backend uses identical structure.
+
+Test 2 — References-by-Status
+curl -X GET \
+  "https://clientes.eupago.pt/api/management/v1.02/references?status=paga" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "ApiKey: $EUPAGO_API_KEY" \
+  -H "Accept: application/json"
+
+
+Successful output (actual live result):
+
+{
+  "transactionStatus": "Success",
+  "referenceList": [
+    {
+      "reference": "53906556",
+      "entity": "10045",
+      "amount": "16.03000",
+      "datetime": "2025-11-23T20:33:29Z",
+      "status": "paga",
+      "identifier": "0ddb3009-8999-42a8-ae0c-76b01c084742"
+    },
+    {
+      "reference": "53591137",
+      "entity": "10045",
+      "amount": "14.09000",
+      "datetime": "2025-11-19T17:30:27Z",
+      "status": "paga",
+      "identifier": "f78b697f-ef38-4664-a4bf-f31757772507"
+    }
+  ]
+}
+
+
+Codex must ensure the backend correctly handles this exact structure.
+
+Part 3 — Required Frontend Behaviors
+
+Codex must verify and/or fix the following:
+
+1. Checkout Pending Screen Live Updates
+
+In:
+
+app/(checkout)/checkout/pending/CheckoutView.tsx
+
+app/(checkout)/checkout/pending/MbwayPendingView.tsx
+
+When MB WAY payment is approved in the mobile app, the following must happen:
+
+✔ The UI must automatically poll the backend
+
+Using /api/payments/eupago/status?transactionId=...
+
+✔ When the backend determines that status is "paid":
+
+The UI must:
+
+Stop showing “Awaiting approval in the MB WAY app.”
+
+Change the label to something like “Payment Confirmed”
+
+Redirect to the “thank you” page OR show a confirmation state
+
+Codex must verify that:
+
+Polling frequency is correct
+
+Status normalization is correct
+
+State transitions are correct
+
+UI updates without requiring manual refresh
+
+2. Email Sending
+
+Codex must verify:
+
+After a payment is confirmed (MB WAY webhook AND references fallback):
+
+sendPaymentConfirmationEmails() is called
+
+It uses:
+
+enCustomerLines
+
+ptCustomerLines
+
+Correct locale detection
+
+Correct recipient email
+
+Correct item summarization
+
+Correct totals
+
+3. Correct Status Reflected for Customers
+
+Codex must ensure that:
+
+/my-orders page
+
+/order/[id] page
+
+pending/payed/failed logic
+
+all reflect correct final statuses.
+
+4. Correct Status Reflected for Admins
+
+Codex must ensure admin UI:
+
+Lists correct statuses
+
+Admin endpoint
+/api/admin/orders/status?code=XYZ
+correctly updates paymentStatus in DB
+
+No stale cached values remain
+
+Emails trigger correctly
+
+Part 4 — Additional Requirements for Codex
+
+Codex must:
+
+1. Perform a full audit of:
+
+All EuPago API calls
+
+All pending status logic
+
+All webhook logic
+
+All admin-sync logic
+
+All email logic
+
+2. Confirm:
+
+No deprecated URLs remain
+
+ApiKey header sent on every EuPago call
+
+OAuth token used correctly
+
+References-by-Status is the fallback everywhere
+
+Multibanco “estado=-10” is fixed
+
+No missing env vars
+
+The new env vars are correctly read in Vercel
+
+No possible unhandled errors
+
+3. Simulate full MB WAY flow:
+
+User creates MB WAY order
+
+Pending UI appears
+
+User approves in MB WAY mobile app
+
+Webhook OR reference lookup updates order
+
+Confirmation email is sent
+
+UI updates automatically
+
+Codex must validate 100% end-to-end.
+
+Part 5 — Completion Criteria
+
+Codex should only mark changes as complete when:
+
+✔ All curl flows match backend behavior
+✔ The pending UI auto-updates
+✔ Emails are sent both for:
+
+Order placed
+
+Payment confirmed
+
+✔ Admin & User UIs reflect correct status
+✔ No silent failures or broken flows remain
+✔ All new env vars required for prod are listed clearly
+✔ I can deploy with full confidence
+
+
+please run a full logic + flow simulation, comparing:
+
+Real EuPago responses (provided above)
+
+The current project code
+
+All status types (paid, pending, expired, cancelled)
+
+Make any final adjustments necessary so the Palmanhac app 100% accurately processes, stores, displays, and emails MB WAY & Multibanco payment statuses in production.
+
+After your verification & patch, we must be confident that:
+
+Customers will ALWAYS see the correct order status
+
+Admins will ALWAYS see correct status
+
+Emails will ALWAYS send
+
+Payment will ALWAYS flip from pending → paid once approved
+
+No DB hacks needed

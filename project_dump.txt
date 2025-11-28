@@ -1,4 +1,4 @@
-# === Project Dump (2025-11-20T10:19:17.378Z) ===
+# === Project Dump (2025-11-28T08:18:00.496Z) ===
 
 
 # --- app/[locale]/about/page.tsx ---
@@ -395,12 +395,9 @@ export default async function CartPage({
 # --- end of app/[locale]/cart/page.tsx ---
 
 # --- app/[locale]/checkout/page.tsx ---
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import { CheckoutView } from "@/components/checkout/CheckoutView";
 import { extractLocale } from "@/config/site";
 import { getDictionary } from "@/lib/i18n/dictionaries";
-import { withLocale } from "@/lib/utils/locale";
 
 export default async function CheckoutPage({
   params,
@@ -409,16 +406,6 @@ export default async function CheckoutPage({
 }) {
   const locale = await extractLocale(params);
   const dictionary = getDictionary(locale);
-  const session = await auth();
-
-  if (!session?.user) {
-    redirect(
-      withLocale(
-        locale,
-        `/account?callbackUrl=${encodeURIComponent(withLocale(locale, "/checkout"))}`,
-      ),
-    );
-  }
 
   return <CheckoutView dictionary={dictionary} locale={locale} />;
 }
@@ -434,7 +421,11 @@ export default async function MbwayPendingPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams?: Promise<{ orderId?: string; transactionId?: string }>;
+  searchParams?: Promise<{
+    orderId?: string;
+    transactionId?: string;
+    statusUrl?: string;
+  }>;
 }) {
   const locale = await extractLocale(params);
   const dictionary = getDictionary(locale);
@@ -450,16 +441,46 @@ export default async function MbwayPendingPage({
     );
   }
 
+  const statusUrl =
+    typeof resolvedSearch.statusUrl === "string" && resolvedSearch.statusUrl.trim()
+      ? resolvedSearch.statusUrl.trim()
+      : undefined;
+
   return (
     <MbwayPendingView
       dictionary={dictionary}
       locale={locale}
       orderId={resolvedSearch.orderId}
       transactionId={resolvedSearch.transactionId}
+      statusUrl={statusUrl}
     />
   );
 }
 # --- end of app/[locale]/checkout/pending/page.tsx ---
+
+# --- app/[locale]/checkout/thank-you/page.tsx ---
+import { CheckoutThankYou } from "@/components/checkout/CheckoutThankYou";
+import { extractLocale } from "@/config/site";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function CheckoutThankYouPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ orderId?: string }>;
+}) {
+  const locale = await extractLocale(params);
+  const dictionary = getDictionary(locale);
+  const resolvedSearch = (await searchParams) ?? {};
+  const orderId =
+    typeof resolvedSearch.orderId === "string" && resolvedSearch.orderId.trim()
+      ? resolvedSearch.orderId.trim()
+      : undefined;
+
+  return <CheckoutThankYou dictionary={dictionary} locale={locale} orderId={orderId} />;
+}
+# --- end of app/[locale]/checkout/thank-you/page.tsx ---
 
 # --- app/[locale]/contact/page.tsx ---
 import { ContactForm } from "@/components/common/ContactForm";
@@ -672,6 +693,8 @@ export default async function NotFound({
 # --- app/[locale]/orders/page.tsx ---
 import Link from "next/link";
 import { auth } from "@/auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { extractLocale } from "@/config/site";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { getOrdersForUser } from "@/lib/server/orders";
@@ -691,12 +714,29 @@ const formatDate = (locale: keyof typeof localeFormatMap, value: Date) =>
 
 export default async function OrdersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const locale = await extractLocale(params);
   const dictionary = getDictionary(locale);
   const session = await auth();
+  const resolvedSearch = (await searchParams) ?? {};
+  const highlightParam =
+    typeof resolvedSearch.orderId === "string"
+      ? resolvedSearch.orderId
+      : typeof resolvedSearch.highlight === "string"
+        ? resolvedSearch.highlight
+        : undefined;
+  const highlightNormalized = highlightParam?.toLowerCase();
+  const searchValueRaw =
+    typeof resolvedSearch.q === "string"
+      ? resolvedSearch.q.trim()
+      : Array.isArray(resolvedSearch.q)
+        ? resolvedSearch.q[0]?.trim()
+        : "";
+  const searchQuery = (searchValueRaw || "").toLowerCase();
 
   if (!session?.user) {
     return (
@@ -719,14 +759,45 @@ export default async function OrdersPage({
   }
 
   const orders = await getOrdersForUser(session.user.id);
+  const filteredOrders = searchQuery
+    ? orders.filter((order) => {
+        const haystack = [
+          order.id,
+          order.providerRef ?? "",
+          order.contactEmail ?? "",
+          order.contactPhone ?? "",
+          order.items.map((item) => item.product.name).join(" "),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(searchQuery);
+      })
+    : orders;
 
-  if (!orders.length) {
+  if (!filteredOrders.length) {
     return (
       <section className="mx-auto max-w-3xl space-y-4 text-center">
         <h1 className="text-3xl font-semibold text-neutral-900">
           {dictionary.orders.heading}
         </h1>
-        <p className="text-neutral-600">{dictionary.orders.empty}</p>
+        <p className="text-neutral-600">
+          {orders.length === 0 ? dictionary.orders.empty : dictionary.orders.searchEmpty}
+        </p>
+        <form className="mx-auto flex max-w-md flex-col gap-3" method="GET">
+          <Input
+            name="q"
+            defaultValue={searchValueRaw}
+            placeholder={dictionary.orders.searchPlaceholder}
+          />
+          <Button type="submit" variant="secondary">
+            {dictionary.orders.searchLabel}
+          </Button>
+          {searchQuery ? (
+            <Button type="button" variant="ghost" asChild>
+              <Link href={withLocale(locale, "/orders")}>Clear</Link>
+            </Button>
+          ) : null}
+        </form>
         <Link
           href={withLocale(locale, "/")}
           className="font-semibold text-neutral-900 underline-offset-4 hover:underline"
@@ -747,8 +818,29 @@ export default async function OrdersPage({
           {dictionary.account.dashboard.manageAccount}
         </p>
       </header>
+      <form className="flex flex-col gap-2 sm:flex-row sm:items-center" method="GET">
+        <Input
+          name="q"
+          defaultValue={searchValueRaw}
+          placeholder={dictionary.orders.searchPlaceholder}
+          className="sm:max-w-sm"
+        />
+        <div className="flex gap-2">
+          <Button type="submit" variant="secondary">
+            {dictionary.orders.searchLabel}
+          </Button>
+          {searchQuery ? (
+            <Button type="button" variant="ghost" asChild>
+              <Link href={withLocale(locale, "/orders")}>Clear</Link>
+            </Button>
+          ) : null}
+        </div>
+      </form>
       <div className="space-y-6">
-        {orders.map((order) => {
+        {filteredOrders.map((order) => {
+          const isHighlighted = highlightNormalized
+            ? order.id.toLowerCase().startsWith(highlightNormalized)
+            : false;
           const itemCount = dictionary.orders.itemCount.replace(
             "{count}",
             order.items.length.toString(),
@@ -774,10 +866,21 @@ export default async function OrdersPage({
           const paymentMethodLabel = paymentMethodKey
             ? dictionary.checkout.methods[paymentMethodKey]
             : (order.paymentProvider ?? dictionary.orders.paymentMethodUnknown);
+          const friendlyOrderCode = `#${order.id.slice(0, 8).toUpperCase()}`;
+          const pendingSupportMessage =
+            order.paymentStatus === "PAID"
+              ? null
+              : dictionary.orders.pendingSupportMessage.replace(
+                  "{orderId}",
+                  friendlyOrderCode,
+                );
           return (
             <article
               key={order.id}
-              className="space-y-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm"
+              id={`order-${order.id}`}
+              className={`space-y-4 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm ${
+                isHighlighted ? "ring-2 ring-neutral-900" : ""
+              }`}
             >
               <div className="flex flex-wrap justify-between gap-3 text-sm text-neutral-600">
                 <div>
@@ -839,6 +942,11 @@ export default async function OrdersPage({
                   {paymentHint}
                 </p>
               ) : null}
+              {pendingSupportMessage ? (
+                <p className="rounded-lg bg-neutral-50 p-3 text-sm text-neutral-600">
+                  {pendingSupportMessage}
+                </p>
+              ) : null}
             </article>
           );
         })}
@@ -853,8 +961,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { HeroSection } from "@/components/home/HeroSection";
 import { FeaturedCarousel } from "@/components/product/FeaturedCarousel";
-import { ProductGrid } from "@/components/product/ProductGrid";
-import { ProductSortControl } from "@/components/product/ProductSortControl";
+import { ProductListingSection } from "@/components/product/ProductListingSection";
 import { Button } from "@/components/ui/button";
 import { navConfig } from "@/config/nav";
 import { extractLocale } from "@/config/site";
@@ -900,28 +1007,12 @@ export default async function HomePage({
         scrollTargetId="product-list"
       />
 
-      <section id="product-list" className="space-y-10">
-        <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-4">
-            <span className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500">
-              {dictionary.home.allProductsEyebrow}
-            </span>
-            <h2 className="text-3xl font-semibold text-neutral-900 sm:text-4xl">
-              {dictionary.home.allProductsTitle}
-            </h2>
-            <p className="max-w-2xl text-neutral-600">
-              {dictionary.home.allProductsDescription}
-            </p>
-          </div>
-          <ProductSortControl
-            sortLabel={dictionary.catalog.sortLabel}
-            ascLabel={dictionary.catalog.priceSort.asc}
-            descLabel={dictionary.catalog.priceSort.desc}
-            initialSort={sortParam}
-          />
-        </header>
-        <ProductGrid products={products} dictionary={dictionary} locale={locale} />
-      </section>
+      <ProductListingSection
+        products={products}
+        dictionary={dictionary}
+        locale={locale}
+        initialSort={sortParam}
+      />
 
       <section className="space-y-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -1068,7 +1159,7 @@ export default async function ProductPage({
     type: withFallback(product.details.type[locale], product.details.type[defaultLocale]),
     alcoholContent: withFallback(
       product.details.alcoholContent[locale],
-      product.details.alcoholContent[defaultLocale] ?? `${product.abv}%`,
+      product.details.alcoholContent[defaultLocale] ?? `${product.vol}%`,
     ),
     bottleSize: withFallback(
       product.details.bottleSize[locale],
@@ -1092,7 +1183,7 @@ export default async function ProductPage({
     priceCents: product.priceCents,
     category: product.category,
     volumeMl: product.volumeMl,
-    abv: product.abv,
+    vol: product.vol,
     region: localizedDetails.region,
     base: localizedDetails.base,
     type: localizedDetails.type,
@@ -1447,6 +1538,11 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           <p>{order.contactEmail ?? order.user?.email ?? "—"}</p>
           <p>{order.contactPhone ?? "—"}</p>
           <p>NIF/TIN: {order.taxId ?? "—"}</p>
+          {order.isGuest ? (
+            <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              Guest order
+            </span>
+          ) : null}
         </div>
         <div className="space-y-2 text-sm text-neutral-700">
           <p className="text-xs uppercase tracking-wide text-neutral-500">Payment</p>
@@ -1586,9 +1682,12 @@ function AddressCard({ title, address }: { title: string; address: Address | nul
 # --- app/admin/orders/page.tsx ---
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { ADMIN_PAGE_SIZE, AdminPagination } from "@/components/admin/AdminPagination";
 import { DeleteOrderButton } from "@/components/admin/orders/DeleteOrderButton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { defaultLocale } from "@/config/site";
 import { prisma } from "@/lib/server/db";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -1615,23 +1714,50 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
     : resolvedParams.page;
   const currentPage = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const skip = (currentPage - 1) * ADMIN_PAGE_SIZE;
+  const searchQueryRaw =
+    typeof resolvedParams.q === "string"
+      ? resolvedParams.q.trim()
+      : Array.isArray(resolvedParams.q)
+        ? resolvedParams.q[0]?.trim()
+        : "";
+  const searchQuery = searchQueryRaw || "";
+  const whereClause: Prisma.OrderWhereInput = searchQuery
+    ? {
+        OR: [
+          { id: { contains: searchQuery, mode: "insensitive" as const } },
+          { providerRef: { contains: searchQuery, mode: "insensitive" as const } },
+          { contactEmail: { contains: searchQuery, mode: "insensitive" as const } },
+          { contactPhone: { contains: searchQuery, mode: "insensitive" as const } },
+          {
+            user: {
+              OR: [
+                { name: { contains: searchQuery, mode: "insensitive" as const } },
+                { email: { contains: searchQuery, mode: "insensitive" as const } },
+              ],
+            },
+          },
+        ],
+      }
+    : {};
 
   const [orders, totalOrders] = await Promise.all([
     prisma.order.findMany({
+      where: whereClause,
       orderBy: { createdAt: "desc" },
       skip,
       take: ADMIN_PAGE_SIZE,
       select: {
         id: true,
-        totalAmount: true,
-        paymentStatus: true,
         status: true,
-        paymentProvider: true,
+        paymentStatus: true,
         paymentMethod: true,
-        providerRef: true,
+        paymentProvider: true,
         paidAt: true,
+        totalAmount: true,
         createdAt: true,
         taxId: true,
+        contactEmail: true,
+        isGuest: true,
         user: {
           select: {
             name: true,
@@ -1640,7 +1766,7 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
         },
       },
     }),
-    prisma.order.count(),
+    prisma.order.count({ where: whereClause }),
   ]);
 
   return (
@@ -1653,6 +1779,24 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
           </p>
         </div>
       </header>
+      <form className="flex flex-col gap-2 sm:flex-row sm:items-center" method="GET">
+        <Input
+          name="q"
+          defaultValue={searchQuery}
+          placeholder="Search by order ID, customer, or email"
+          className="sm:max-w-xs"
+        />
+        <div className="flex gap-2">
+          <Button type="submit" variant="secondary">
+            Search
+          </Button>
+          {searchQuery ? (
+            <Button type="button" variant="ghost" asChild>
+              <Link href="/admin/orders">Clear</Link>
+            </Button>
+          ) : null}
+        </div>
+      </form>
       <div className="overflow-hidden rounded-3xl border border-[rgb(var(--border))] bg-white shadow-sm">
         <table className="min-w-full divide-y divide-neutral-100 text-sm">
           <thead className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -1699,11 +1843,16 @@ export default async function AdminOrdersPage({ searchParams }: OrdersPageProps)
                   <td className="px-4 py-3 text-sm text-neutral-600">
                     <div className="space-y-1">
                       <p className="font-medium text-neutral-900">
-                        {order.user?.name ?? "—"}
+                        {order.user?.name ?? (order.isGuest ? "Guest checkout" : "—")}
                       </p>
                       <p className="text-xs text-neutral-500">
-                        {order.user?.email ?? "—"}
+                        {order.user?.email ?? order.contactEmail ?? "—"}
                       </p>
+                      {order.isGuest ? (
+                        <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                          Guest order
+                        </span>
+                      ) : null}
                       {order.taxId ? (
                         <p className="text-xs text-neutral-500">NIF/TIN: {order.taxId}</p>
                       ) : null}
@@ -1807,6 +1956,8 @@ export default async function AdminDashboardPage() {
           paymentMethod: true,
           taxId: true,
           createdAt: true,
+          contactEmail: true,
+          isGuest: true,
           user: { select: { name: true, email: true } },
         },
       }),
@@ -1867,8 +2018,16 @@ export default async function AdminDashboardPage() {
                     #{order.id.slice(0, 8).toUpperCase()}
                   </p>
                   <p className="text-sm text-neutral-600">
-                    {order.user?.name ?? order.user?.email ?? "Guest"}
+                    {order.user?.name ??
+                      order.user?.email ??
+                      order.contactEmail ??
+                      "Guest"}
                   </p>
+                  {order.isGuest ? (
+                    <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                      Guest order
+                    </span>
+                  ) : null}
                   {order.taxId ? (
                     <p className="text-xs text-neutral-500">NIF/TIN: {order.taxId}</p>
                   ) : null}
@@ -1966,6 +2125,84 @@ function QuickLinkCard({
 }
 # --- end of app/admin/page.tsx ---
 
+# --- app/admin/products/[id]/base/page.tsx ---
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { ProductBaseForm } from "@/components/admin/products/ProductBaseForm";
+import { prisma } from "@/lib/server/db";
+
+export const dynamic = "force-dynamic";
+
+type Params = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function AdminProductBasePage({ params }: Params) {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    redirect("/account");
+  }
+  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
+    redirect("/admin/2fa/challenge");
+  }
+
+  const { id } = await params;
+  const productId = Number.parseInt(id, 10);
+  if (!Number.isInteger(productId)) {
+    notFound();
+  }
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: {
+      id: true,
+      name: true,
+      baseEn: true,
+      basePt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!product) {
+    notFound();
+  }
+
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-neutral-900">Edit base</h1>
+          <p className="text-sm text-neutral-600">
+            Provide the product base in English and Portuguese for {product.name}.
+          </p>
+          <p className="text-xs text-neutral-500">
+            #{product.id} • Created {product.createdAt.toLocaleDateString("en-GB")} •
+            Updated{" "}
+            {product.updatedAt.toLocaleString("en-GB", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/admin/products/${product.id}`}
+            className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
+          >
+            Back to product
+          </Link>
+        </div>
+      </header>
+      <div className="rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
+        <ProductBaseForm product={product} />
+      </div>
+    </div>
+  );
+}
+# --- end of app/admin/products/[id]/base/page.tsx ---
+
 # --- app/admin/products/[id]/page.tsx ---
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -2006,7 +2243,7 @@ export default async function AdminProductEditPage({ params }: Params) {
       image: true,
       galleryImages: true,
       volumeMl: true,
-      abv: true,
+      vol: true,
       stock: true,
       isActive: true,
       descriptionEn: true,
@@ -2043,6 +2280,12 @@ export default async function AdminProductEditPage({ params }: Params) {
             className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
           >
             Back to products
+          </Link>
+          <Link
+            href={`/admin/products/${product.id}/base`}
+            className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
+          >
+            Edit base
           </Link>
           <DeleteProductButton
             productId={product.id}
@@ -2801,6 +3044,334 @@ export async function GET(request: NextRequest) {
 }
 # --- end of app/api/admin/orders/route.ts ---
 
+# --- app/api/admin/orders/status/route.ts ---
+import { NextResponse, type NextRequest } from "next/server";
+import { PaymentMethod, PaymentStatus, type Prisma } from "@prisma/client";
+import { requireAdminSession } from "@/lib/auth/guards";
+import { EmailConfigurationError } from "@/lib/email/mailer";
+import {
+  normalizeMailingAddress,
+  sendPaymentConfirmationEmails,
+} from "@/lib/email/order-notifications";
+import {
+  lookupReferenceStatus,
+  normaliseProviderReference,
+  referenceEntryToStatus,
+} from "@/lib/payments/eupago";
+import { prisma } from "@/lib/server/db";
+import { appendOrderEvent } from "@/lib/utils/order-events";
+
+const asRecord = (value: unknown) =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+
+const asString = (value: unknown) =>
+  typeof value === "string" && value.trim().length > 0 ? value : undefined;
+
+const normalizeReferenceDigits = (value: string | null | undefined) =>
+  value ? value.replace(/[^0-9]/g, "") : undefined;
+
+const toOrderWhere = (code: string) => {
+  const candidates: Prisma.OrderWhereInput[] = [];
+  const trimmed = code.trim();
+  if (!trimmed) return { id: "___never___" };
+  const normalizedId = trimmed.toLowerCase();
+  candidates.push({ id: normalizedId });
+  candidates.push({ id: { startsWith: normalizedId } });
+  const providerRef = normaliseProviderReference(trimmed);
+  if (providerRef) {
+    candidates.push({ providerRef });
+  }
+  return { OR: candidates };
+};
+
+const dispatchPaymentEmails = async (
+  order: {
+    id: string;
+    totalAmount: number;
+    paymentMethod: PaymentMethod | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    taxId: string | null;
+    shippingAddress: unknown;
+    createdAt: Date;
+    items: Array<{
+      productId: number;
+      quantity: number;
+      unitPrice: number;
+      product?: { name: string | null };
+    }>;
+    user?: { name: string | null; email: string | null } | null;
+  },
+  paidAt: Date,
+) => {
+  const address = normalizeMailingAddress(order.shippingAddress);
+  const emailItems = order.items.map((item) => ({
+    name: item.product?.name ?? `Product ${item.productId}`,
+    quantity: item.quantity,
+    unitPriceCents: item.unitPrice,
+  }));
+  const customerEmail = order.contactEmail ?? order.user?.email ?? undefined;
+  const customerName = order.user?.name || address.name || "Cliente Palmanhac";
+
+  await sendPaymentConfirmationEmails({
+    orderId: order.id,
+    orderDate: order.createdAt,
+    totalCents: order.totalAmount,
+    items: emailItems,
+    customerName,
+    customerEmail,
+    customerPhone: order.contactPhone ?? undefined,
+    shippingAddress: address,
+    taxId: order.taxId ?? undefined,
+    paymentDate: paidAt,
+    paymentMethod: order.paymentMethod,
+  });
+};
+
+export async function GET(request: NextRequest) {
+  try {
+    await requireAdminSession();
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get("code");
+    if (!code) {
+      return NextResponse.json({ error: "code is required." }, { status: 400 });
+    }
+
+    const order = await prisma.order.findFirst({
+      where: toOrderWhere(code),
+      select: {
+        id: true,
+        paymentStatus: true,
+        paymentMethod: true,
+        providerRef: true,
+        providerMetadata: true,
+        events: true,
+        totalAmount: true,
+        contactEmail: true,
+        contactPhone: true,
+        taxId: true,
+        shippingAddress: true,
+        createdAt: true,
+        items: {
+          select: {
+            productId: true,
+            quantity: true,
+            unitPrice: true,
+            product: { select: { name: true } },
+          },
+        },
+        user: {
+          select: { name: true, email: true },
+        },
+      },
+    });
+
+    if (!order) {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+
+    const providerMetadata = asRecord(order.providerMetadata);
+    let remoteStatus = null;
+
+    if (order.paymentMethod === PaymentMethod.MBWAY) {
+      const reference =
+        normalizeReferenceDigits(
+          asString(providerMetadata.reference) ??
+            asString(providerMetadata.referencia) ??
+            undefined,
+        ) ?? normalizeReferenceDigits(order.providerRef);
+      if (reference) {
+        const entry = await lookupReferenceStatus(reference);
+        remoteStatus = referenceEntryToStatus(entry);
+      }
+    }
+
+    let paidAt: Date | undefined;
+    if (remoteStatus?.paidAt) {
+      const parsed = Date.parse(remoteStatus.paidAt);
+      paidAt = Number.isNaN(parsed) ? undefined : new Date(parsed);
+    }
+
+    let updatePayload: Record<string, unknown> | null = null;
+
+    if (remoteStatus?.status === "paid" && order.paymentStatus !== PaymentStatus.PAID) {
+      const finalPaidAt = paidAt ?? new Date();
+      const updated = await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: PaymentStatus.PAID,
+          paidAt: finalPaidAt,
+          events: appendOrderEvent(order.events, {
+            type: "admin_payment_sync",
+            payload: {
+              source: "references_by_status",
+              status: remoteStatus.status,
+              paidAt: finalPaidAt.toISOString(),
+            },
+          }) as Prisma.InputJsonValue,
+        },
+        select: {
+          id: true,
+          totalAmount: true,
+          paymentMethod: true,
+          contactEmail: true,
+          contactPhone: true,
+          taxId: true,
+          shippingAddress: true,
+          createdAt: true,
+          items: {
+            select: {
+              productId: true,
+              quantity: true,
+              unitPrice: true,
+              product: { select: { name: true } },
+            },
+          },
+          user: {
+            select: { name: true, email: true },
+          },
+        },
+      });
+      try {
+        await dispatchPaymentEmails(updated, finalPaidAt);
+      } catch (error) {
+        if (error instanceof EmailConfigurationError) {
+          console.warn("[Admin] Payment confirmation email skipped:", error.message);
+        } else {
+          console.error("[Admin] Failed to send payment confirmation email:", error);
+        }
+      }
+      updatePayload = {
+        paymentStatus: PaymentStatus.PAID,
+        paidAt: finalPaidAt.toISOString(),
+      };
+    }
+
+    return NextResponse.json({
+      order: {
+        id: order.id,
+        paymentStatus: updatePayload?.paymentStatus ?? order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+        providerRef: order.providerRef,
+      },
+      eupagoStatus: remoteStatus ?? { status: "unknown" },
+      updated: updatePayload,
+    });
+  } catch (error) {
+    console.error("[Admin] Failed to refresh EuPago order status.", error);
+    return NextResponse.json(
+      { error: "Unable to refresh EuPago status." },
+      { status: 500 },
+    );
+  }
+}
+# --- end of app/api/admin/orders/status/route.ts ---
+
+# --- app/api/admin/products/[id]/base/route.ts ---
+import { NextResponse, type NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
+import { z } from "zod";
+import {
+  requireAdminSession,
+  TwoFactorRequiredError,
+  UnauthorizedError,
+} from "@/lib/auth/guards";
+import { prisma } from "@/lib/server/db";
+
+const localeContentSchema = z.object({
+  en: z.string().min(1, "English base is required"),
+  pt: z.string().min(1, "Portuguese base is required"),
+});
+
+const baseSchema = z.object({
+  base: localeContentSchema,
+});
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const handleError = (error: unknown, fallback = "Unexpected error.") => {
+  if (error instanceof UnauthorizedError) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 403 });
+  }
+  if (error instanceof TwoFactorRequiredError) {
+    return NextResponse.json(
+      { error: "Two-factor authentication is required." },
+      { status: 401 },
+    );
+  }
+  console.error(error);
+  return NextResponse.json({ error: fallback }, { status: 500 });
+};
+
+const parseId = (value: string) => {
+  const coerced = Number.parseInt(value, 10);
+  return Number.isFinite(coerced) ? coerced : null;
+};
+
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdminSession();
+    const { id } = await context.params;
+    const productId = parseId(id);
+    if (!productId) {
+      return NextResponse.json({ error: "Invalid product id." }, { status: 400 });
+    }
+
+    const body = await request.json().catch(() => null);
+    const parsed = baseSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid payload.", issues: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { details: true },
+    });
+    if (!product) {
+      return NextResponse.json({ error: "Product not found." }, { status: 404 });
+    }
+
+    const nextDetails = (() => {
+      if (!product.details || !isRecord(product.details)) {
+        return { base: parsed.data.base } as Prisma.JsonObject;
+      }
+      return {
+        ...product.details,
+        base: parsed.data.base,
+      } as Prisma.JsonObject;
+    })();
+
+    const updated = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        baseEn: parsed.data.base.en,
+        basePt: parsed.data.base.pt,
+        details: nextDetails,
+      },
+      select: {
+        id: true,
+        name: true,
+        baseEn: true,
+        basePt: true,
+      },
+    });
+
+    return NextResponse.json({ product: updated });
+  } catch (error) {
+    return handleError(error, "Failed to update base.");
+  }
+}
+# --- end of app/api/admin/products/[id]/base/route.ts ---
+
 # --- app/api/admin/products/[id]/route.ts ---
 import { NextResponse, type NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -2839,6 +3410,16 @@ const imageUrlOrPathSchema = z
     { message: "Provide an absolute URL or a path like /assets/file.png" },
   );
 
+const detailsSchema = z.object({
+  region: localeContentSchema,
+  base: localeContentSchema,
+  type: localeContentSchema,
+  bottleSize: localeContentSchema,
+  servingTemperature: localeContentSchema,
+  alcoholContent: localeContentSchema,
+  awards: localeStringArraySchema,
+});
+
 const updateSchema = z
   .object({
     name: z.string().min(2).optional(),
@@ -2852,22 +3433,13 @@ const updateSchema = z
     image: imageUrlOrPathSchema.optional(),
     galleryImages: z.array(imageUrlOrPathSchema).optional(),
     volumeMl: z.number().int().min(0).optional(),
-    abv: z.number().min(0).max(100).optional(),
+    vol: z.number().min(0).max(100).optional(),
     stock: z.number().int().min(0).optional(),
     isActive: z.boolean().optional(),
     description: localeContentSchema.optional(),
     tastingNotes: localeContentSchema.partial().optional(),
-    details: z
-      .object({
-        region: localeContentSchema,
-        base: localeContentSchema,
-        type: localeContentSchema,
-        bottleSize: localeContentSchema,
-        servingTemperature: localeContentSchema,
-        alcoholContent: localeContentSchema,
-        awards: localeStringArraySchema,
-      })
-      .optional(),
+    base: localeContentSchema.optional(),
+    details: detailsSchema.optional(),
   })
   .strict();
 
@@ -2958,7 +3530,7 @@ export async function PATCH(
         ...(updates.image ? { image: updates.image } : {}),
         ...(updates.galleryImages ? { galleryImages: updates.galleryImages } : {}),
         ...(updates.volumeMl !== undefined ? { volumeMl: updates.volumeMl } : {}),
-        ...(updates.abv !== undefined ? { abv: updates.abv } : {}),
+        ...(updates.vol !== undefined ? { vol: updates.vol } : {}),
         ...(updates.stock !== undefined ? { stock: updates.stock } : {}),
         ...(updates.isActive !== undefined ? { isActive: updates.isActive } : {}),
         ...(updates.description
@@ -2973,7 +3545,19 @@ export async function PATCH(
               tastingNotesPt: updates.tastingNotes.pt,
             }
           : {}),
-        ...(updates.details ? { details: updates.details } : {}),
+        ...(updates.base
+          ? {
+              baseEn: updates.base.en,
+              basePt: updates.base.pt,
+            }
+          : {}),
+        ...(updates.details
+          ? {
+              details: updates.base
+                ? { ...updates.details, base: updates.base }
+                : updates.details,
+            }
+          : {}),
       },
     });
 
@@ -3052,6 +3636,16 @@ const imageUrlOrPathSchema = z
     { message: "Provide an absolute URL or a path like /assets/file.png" },
   );
 
+const detailsSchema = z.object({
+  region: localeContentSchema,
+  base: localeContentSchema,
+  type: localeContentSchema,
+  bottleSize: localeContentSchema,
+  servingTemperature: localeContentSchema,
+  alcoholContent: localeContentSchema,
+  awards: localeStringArraySchema,
+});
+
 const productSchema = z.object({
   name: z.string().min(2),
   slug: z
@@ -3063,22 +3657,13 @@ const productSchema = z.object({
   image: imageUrlOrPathSchema,
   galleryImages: z.array(imageUrlOrPathSchema).optional(),
   volumeMl: z.number().int().min(0),
-  abv: z.number().min(0).max(100),
+  vol: z.number().min(0).max(100),
   stock: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
   description: localeContentSchema,
   tastingNotes: localeContentSchema.partial(),
-  details: z
-    .object({
-      region: localeContentSchema,
-      base: localeContentSchema,
-      type: localeContentSchema,
-      bottleSize: localeContentSchema,
-      servingTemperature: localeContentSchema,
-      alcoholContent: localeContentSchema,
-      awards: localeStringArraySchema,
-    })
-    .optional(),
+  base: localeContentSchema.optional(),
+  details: detailsSchema.optional(),
 });
 
 const slugify = (value: string) =>
@@ -3165,18 +3750,24 @@ export async function POST(request: NextRequest) {
         category: data.category,
         priceCents: data.priceCents,
         image: data.image,
-        galleryImages: data.galleryImages && data.galleryImages.length
-          ? data.galleryImages
-          : [data.image],
+        galleryImages:
+          data.galleryImages && data.galleryImages.length
+            ? data.galleryImages
+            : [data.image],
         volumeMl: data.volumeMl,
-        abv: data.abv,
+        vol: data.vol,
         stock: data.stock ?? 0,
         isActive: data.isActive ?? true,
         descriptionEn: data.description.en,
         descriptionPt: data.description.pt,
         tastingNotesEn: data.tastingNotes?.en,
         tastingNotesPt: data.tastingNotes?.pt,
-        details: data.details ?? undefined,
+        baseEn: data.base?.en ?? "",
+        basePt: data.base?.pt ?? "",
+        details:
+          data.details && data.base
+            ? { ...data.details, base: data.base }
+            : (data.details ?? undefined),
       },
     });
 
@@ -3411,7 +4002,7 @@ export async function GET() {
           image: true,
           galleryImages: true,
           priceCents: true,
-          abv: true,
+          vol: true,
           volumeMl: true,
           isActive: true,
         },
@@ -3588,10 +4179,7 @@ import type { Prisma } from "@prisma/client";
 import { PaymentMethod, PaymentProvider, PaymentStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { EmailConfigurationError } from "@/lib/email/mailer";
-import {
-  sendOrderCreationNotifications,
-  type BilingualInstructions,
-} from "@/lib/email/order-notifications";
+import { sendOrderPlacedEmails } from "@/lib/email/order-notifications";
 import {
   checkoutPayloadSchema,
   normalizeCurrency,
@@ -3626,83 +4214,16 @@ type EuPagoPaymentResult =
   | Awaited<ReturnType<typeof createMBWay>>
   | Awaited<ReturnType<typeof createCard>>;
 
-const formatEuroFromCents = (cents: number) => `€${(cents / 100).toFixed(2)}`;
-
-const formatEuPagoAmount = (amount: number | undefined, totalCents: number) => {
-  if (typeof amount === "number" && Number.isFinite(amount)) {
-    return `€${amount.toFixed(2)}`;
-  }
-  return formatEuroFromCents(totalCents);
-};
-
-const buildEupagoInstructions = (
-  result: EuPagoPaymentResult,
-  totalCents: number,
-): BilingualInstructions | undefined => {
-  if (result.method === "multibanco") {
-    const amount = formatEuPagoAmount(result.amount, totalCents);
-    return {
-      pt: [
-        "Como concluir o pagamento via Multibanco:",
-        `Entidade: ${result.entity}`,
-        `Referência: ${result.reference}`,
-        `Valor: ${amount}`,
-        result.expiresAt ? `Disponível até: ${result.expiresAt}` : "",
-        "Finalize o pagamento num terminal Multibanco ou no seu banco online para confirmar a encomenda.",
-      ],
-      en: [
-        "How to finish your Multibanco payment:",
-        `Entity: ${result.entity}`,
-        `Reference: ${result.reference}`,
-        `Amount: ${amount}`,
-        result.expiresAt ? `Expires on: ${result.expiresAt}` : "",
-        "Complete the payment at an ATM or via your online banking to confirm the order.",
-      ],
-    };
-  }
-
-  if (result.method === "mbway") {
-    return {
-      pt: [
-        "Abra a app MB WAY e confirme o pedido que acabou de receber.",
-        `ID da transação: ${result.transactionId}`,
-        result.statusUrl ? `Estado em tempo real: ${result.statusUrl}` : "",
-      ],
-      en: [
-        "Open your MB WAY app and approve the request we just sent.",
-        `Transaction ID: ${result.transactionId}`,
-        result.statusUrl ? `Live status: ${result.statusUrl}` : "",
-      ],
-    };
-  }
-
-  if (result.method === "card") {
-    return {
-      pt: [
-        "Conclua o pagamento com cartão através da página segura que abriu no browser.",
-        "Caso a janela tenha sido fechada, utilize o link mostrado no checkout para voltar a abri-la.",
-      ],
-      en: [
-        "Finish the secure card payment in the page that just opened in your browser.",
-        "If you closed the window, reopen the link provided on the checkout page to continue.",
-      ],
-    };
-  }
-
-  return undefined;
-};
-
 export async function POST(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const userId = session?.user?.id ?? null;
+  const isGuestCheckout = !userId;
 
   const body = await request.json().catch(() => null);
   const parsed = checkoutPayloadSchema.safeParse(body);
   if (!parsed.success) {
     await logCheckoutEvent("warn", "checkout_invalid_payload", {
-      userId: session.user.id,
+      userId,
       issues: parsed.error.flatten(),
     });
     return NextResponse.json(
@@ -3746,7 +4267,7 @@ export async function POST(request: NextRequest) {
     description: orderDescription,
     customer: {
       email: payload.contact.email,
-      name: contactName ?? payload.shipping.name,
+      name: contactName ?? payload.shipping.name ?? payload.contact.email,
       phone: payload.contact.phone,
     },
     shipping: payload.shipping,
@@ -3754,12 +4275,13 @@ export async function POST(request: NextRequest) {
     locale: payload.locale,
     metadata: {
       notes: payload.notes,
-      userId: session.user.id,
+      ...(userId ? { userId } : {}),
+      guest: isGuestCheckout,
     },
   };
 
   await logCheckoutEvent("info", "checkout_request_received", {
-    userId: session.user.id,
+    userId,
     orderId,
     method: payload.method,
     totals,
@@ -3897,7 +4419,8 @@ export async function POST(request: NextRequest) {
       const createdOrder = await tx.order.create({
         data: {
           id: orderId,
-          userId: session.user.id,
+          userId,
+          isGuest: isGuestCheckout,
           totalAmount: totals.totalCents,
           paymentStatus: PaymentStatus.PENDING,
           notes: payload.notes,
@@ -3924,6 +4447,7 @@ export async function POST(request: NextRequest) {
               ? {
                   transactionId: paymentResult.transactionId,
                   statusUrl: paymentResult.statusUrl,
+                  reference: paymentResult.reference,
                 }
               : {}),
             ...(paymentResult.method === "card"
@@ -3982,32 +4506,24 @@ export async function POST(request: NextRequest) {
   try {
     const nameMap = new Map(products.map((product) => [product.id, product.name]));
     const customerName =
-      payload.shipping.name || payload.contact.name || session.user.name || "Customer";
+      payload.shipping.name || payload.contact.name || session?.user?.name || "Customer";
     const itemSummaries = payload.items.map((item) => ({
       name: nameMap.get(item.productId) ?? `Product ${item.productId}`,
       quantity: item.quantity,
+      unitPriceCents: priceMap.get(item.productId) ?? 0,
     }));
-    const paymentSummary =
-      paymentResult.method === "multibanco"
-        ? "MULTIBANCO (EuPago)"
-        : paymentResult.method === "mbway"
-          ? "MB WAY (EuPago)"
-          : "CARD (EuPago)";
 
-    await sendOrderCreationNotifications({
+    await sendOrderPlacedEmails({
       orderId: order.id,
+      orderDate: order.createdAt,
       totalCents: totals.totalCents,
+      shippingCostCents: totals.deliveryCents,
       items: itemSummaries,
       customerName,
       customerEmail: payload.contact.email,
       customerPhone: payload.contact.phone,
-      shippingCity: payload.shipping.city,
-      paymentSummary,
-      nif: payload.taxId,
-      notes: payload.notes,
-      methodInstructions: buildEupagoInstructions(paymentResult, totals.totalCents),
-      adminSubject: `New order ${order.id}`,
-      customerSubject: `We received your order ${order.id}`,
+      shippingAddress: payload.shipping,
+      taxId: payload.taxId,
     });
   } catch (error) {
     if (error instanceof EmailConfigurationError) {
@@ -4040,6 +4556,7 @@ export async function POST(request: NextRequest) {
       method: "mbway" as const,
       transactionId: paymentResult.transactionId,
       statusUrl: paymentResult.statusUrl,
+      reference: paymentResult.reference ?? undefined,
     });
   }
 
@@ -4054,13 +4571,27 @@ export async function POST(request: NextRequest) {
 
 # --- app/api/payments/eupago/status/route.ts ---
 import { NextResponse, type NextRequest } from "next/server";
-import { PaymentMethod, PaymentProvider, PaymentStatus } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentProvider,
+  PaymentStatus,
+} from "@prisma/client";
 import { auth } from "@/auth";
+import { EmailConfigurationError } from "@/lib/email/mailer";
+import {
+  normalizeMailingAddress,
+  sendPaymentConfirmationEmails,
+} from "@/lib/email/order-notifications";
 import {
   EuPagoAPIError,
   EuPagoConfigurationError,
   fetchMBWayStatus,
   fetchMultibancoInfo,
+  lookupReferenceStatus,
+  referenceEntryToStatus,
+  type EuPagoStatusResult,
 } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
@@ -4085,17 +4616,115 @@ const asRecord = (value: unknown) =>
 const asString = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim().length > 0 ? value : undefined;
 
+const dispatchPaymentEmails = async (
+  order: {
+    id: string;
+    totalAmount: number;
+    paymentMethod: PaymentMethod | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    taxId: string | null;
+    shippingAddress: unknown;
+    createdAt: Date;
+    items: Array<{
+      productId: number;
+      quantity: number;
+      unitPrice: number;
+      product?: { name: string | null };
+    }>;
+    user?: { name: string | null; email: string | null } | null;
+  },
+  paidAt: Date,
+) => {
+  const address = normalizeMailingAddress(order.shippingAddress);
+  const emailItems = order.items.map((item) => ({
+    name: item.product?.name ?? `Product ${item.productId}`,
+    quantity: item.quantity,
+    unitPriceCents: item.unitPrice,
+  }));
+  const customerEmail = order.contactEmail ?? order.user?.email ?? undefined;
+  const customerName = order.user?.name || address.name || "Cliente Palmanhac";
+
+  await sendPaymentConfirmationEmails({
+    orderId: order.id,
+    orderDate: order.createdAt,
+    totalCents: order.totalAmount,
+    items: emailItems,
+    customerName,
+    customerEmail,
+    customerPhone: order.contactPhone ?? undefined,
+    shippingAddress: address,
+    taxId: order.taxId ?? undefined,
+    paymentDate: paidAt,
+    paymentMethod: order.paymentMethod,
+  });
+};
+
+const markOrderStatusFromPayment = async (
+  order: {
+    id: string;
+    paymentStatus: PaymentStatus;
+    status: OrderStatus;
+  },
+  status: EuPagoStatusResult,
+) => {
+  if (status.status === "paid" && order.paymentStatus !== PaymentStatus.PAID) {
+    const paidAt =
+      status.paidAt && !Number.isNaN(Date.parse(status.paidAt))
+        ? new Date(status.paidAt)
+        : new Date();
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentStatus: PaymentStatus.PAID,
+        status: OrderStatus.PROCESSING,
+        paidAt,
+      },
+    });
+    await logStatusEvent("info", "checkout_status_marked_paid", {
+      orderId: order.id,
+      paidAt: paidAt.toISOString(),
+    });
+    return { changedToPaid: true, paidAt };
+  }
+
+  if (
+    (status.status === "failed" ||
+      status.status === "cancelled" ||
+      status.status === "expired") &&
+    order.paymentStatus === PaymentStatus.PENDING
+  ) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentStatus: PaymentStatus.FAILED,
+        status: OrderStatus.CANCELLED,
+      },
+    });
+    await logStatusEvent("info", "checkout_status_marked_failed", {
+      orderId: order.id,
+      paymentStatus: status.status,
+    });
+    return { changedToPaid: false };
+  }
+
+  return { changedToPaid: false };
+};
+
 export async function GET(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const userId = session?.user?.id ?? null;
 
   const { searchParams } = new URL(request.url);
   const transactionId = searchParams.get("transactionId");
+  const orderIdParam = searchParams.get("orderId") ?? undefined;
+  if (!userId && !orderIdParam) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   if (!transactionId) {
     await logStatusEvent("warn", "checkout_status_missing_transaction", {
-      userId: session.user.id,
+      userId,
+      orderId: orderIdParam,
     });
     return NextResponse.json({ error: "transactionId is required." }, { status: 400 });
   }
@@ -4112,34 +4741,54 @@ export async function GET(request: NextRequest) {
   }
   const candidateRefs = Array.from(candidateSet);
 
+  const whereClause = {
+    paymentProvider: PaymentProvider.EUPAGO,
+    providerRef: { in: candidateRefs },
+    ...(userId ? { userId } : orderIdParam ? { id: orderIdParam } : {}),
+  } satisfies Prisma.OrderWhereInput;
+
   const order = await prisma.order.findFirst({
-    where: {
-      userId: session.user.id,
-      paymentProvider: PaymentProvider.EUPAGO,
-      providerRef: { in: candidateRefs },
-    },
+    where: whereClause,
     select: {
       id: true,
+      status: true,
       paymentMethod: true,
       paymentStatus: true,
       providerMetadata: true,
       providerRef: true,
       paidAt: true,
       totalAmount: true,
+      contactEmail: true,
+      contactPhone: true,
+      taxId: true,
+      shippingAddress: true,
+      createdAt: true,
+      items: {
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          product: { select: { name: true } },
+        },
+      },
+      user: {
+        select: { name: true, email: true },
+      },
     },
   });
 
   if (!order) {
     await logStatusEvent("warn", "checkout_status_order_not_found", {
-      userId: session.user.id,
+      userId,
       transactionId,
       candidateRefs,
+      orderId: orderIdParam,
     });
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
   await logStatusEvent("info", "checkout_status_request", {
-    userId: session.user.id,
+    userId,
     orderId: order.id,
     providerRef: order.providerRef,
     paymentMethod: order.paymentMethod,
@@ -4170,7 +4819,98 @@ export async function GET(request: NextRequest) {
     if (order.paymentMethod === PaymentMethod.MBWAY) {
       const statusUrl =
         asString(providerMetadata.statusUrl) ?? asString(providerMetadata.status_url);
-      if (!statusUrl) {
+      const metadataReference =
+        normalizeReferenceDigits(
+          asString(providerMetadata.reference) ??
+            asString(providerMetadata.referencia) ??
+            undefined,
+        ) ?? normalizeReferenceDigits(order.providerRef);
+
+      const fetchReferenceStatus = async () => {
+        if (!metadataReference) return null;
+        const entry = await lookupReferenceStatus(metadataReference);
+        const normalizedStatus = referenceEntryToStatus(entry);
+        if (normalizedStatus) {
+          await logStatusEvent("info", "checkout_status_reference_match", {
+            orderId: order.id,
+            providerRef: order.providerRef,
+            reference: metadataReference,
+            upstreamStatus: entry?.status,
+          });
+        }
+        return normalizedStatus;
+      };
+
+      const handleStatusResult = async (status: EuPagoStatusResult | null) => {
+        if (!status) {
+          return NextResponse.json({
+            status: {
+              status: "pending" as const,
+              error: "Unable to retrieve MB WAY status at this time.",
+              raw: providerMetadata,
+            },
+          });
+        }
+        await logStatusEvent("info", "checkout_status_polled", {
+          orderId: order.id,
+          providerRef: order.providerRef,
+          method: "mbway",
+          status,
+        });
+        const updateResult = await markOrderStatusFromPayment(order, status);
+        if (updateResult.changedToPaid) {
+          try {
+            await dispatchPaymentEmails(order, updateResult.paidAt ?? new Date());
+          } catch (error) {
+            if (error instanceof EmailConfigurationError) {
+              await logStatusEvent("warn", "checkout_status_email_skipped", {
+                orderId: order.id,
+                reason: error.message,
+              });
+            } else {
+              await logStatusEvent("error", "checkout_status_email_failed", {
+                orderId: order.id,
+                error: error instanceof Error ? error.message : "Unknown email error",
+              });
+            }
+          }
+        }
+        return NextResponse.json({ status });
+      };
+
+      if (statusUrl) {
+        try {
+          const status = await fetchMBWayStatus(statusUrl);
+          return handleStatusResult(status);
+        } catch (error) {
+          await logStatusEvent("warn", "checkout_status_mbway_statusurl_failed", {
+            orderId: order.id,
+            providerRef: order.providerRef,
+            method: "mbway",
+            error: error instanceof Error ? error.message : "Unknown status error",
+          });
+          const fallbackStatus = await fetchReferenceStatus().catch(
+            async (referenceError) => {
+              await logStatusEvent("error", "checkout_status_reference_error", {
+                orderId: order.id,
+                providerRef: order.providerRef,
+                reference: metadataReference,
+                error:
+                  referenceError instanceof Error
+                    ? referenceError.message
+                    : "Unknown reference error",
+              });
+              return null;
+            },
+          );
+          if (fallbackStatus) {
+            return handleStatusResult(fallbackStatus);
+          }
+          throw error;
+        }
+      }
+
+      if (!metadataReference) {
         await logStatusEvent("warn", "checkout_status_missing_status_url", {
           orderId: order.id,
           providerRef: order.providerRef,
@@ -4179,19 +4919,27 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           status: {
             status: "pending" as const,
-            error: "MB WAY status URL unavailable. Await webhook confirmation.",
+            error: "MB WAY status unavailable. Await webhook confirmation.",
             raw: providerMetadata,
           },
         });
       }
-      const status = await fetchMBWayStatus(statusUrl);
-      await logStatusEvent("info", "checkout_status_polled", {
-        orderId: order.id,
-        providerRef: order.providerRef,
-        method: "mbway",
-        status,
-      });
-      return NextResponse.json({ status });
+
+      const referenceStatus = await fetchReferenceStatus().catch(
+        async (referenceError) => {
+          await logStatusEvent("error", "checkout_status_reference_error", {
+            orderId: order.id,
+            providerRef: order.providerRef,
+            reference: metadataReference,
+            error:
+              referenceError instanceof Error
+                ? referenceError.message
+                : "Unknown reference error",
+          });
+          return null;
+        },
+      );
+      return handleStatusResult(referenceStatus);
     }
 
     if (order.paymentMethod === PaymentMethod.MULTIBANCO) {
@@ -4250,6 +4998,24 @@ export async function GET(request: NextRequest) {
         method: "multibanco",
         status,
       });
+      const updateResult = await markOrderStatusFromPayment(order, status);
+      if (updateResult.changedToPaid) {
+        try {
+          await dispatchPaymentEmails(order, updateResult.paidAt ?? new Date());
+        } catch (error) {
+          if (error instanceof EmailConfigurationError) {
+            await logStatusEvent("warn", "checkout_status_email_skipped", {
+              orderId: order.id,
+              reason: error.message,
+            });
+          } else {
+            await logStatusEvent("error", "checkout_status_email_failed", {
+              orderId: order.id,
+              error: error instanceof Error ? error.message : "Unknown email error",
+            });
+          }
+        }
+      }
       return NextResponse.json({ status });
     }
 
@@ -4294,12 +5060,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { PaymentStatus } from "@prisma/client";
+import { EmailConfigurationError } from "@/lib/email/mailer";
 import {
-  EmailConfigurationError,
-  formatEmailBlock,
-  sendAdminEmail,
-  sendEmail,
-} from "@/lib/email/mailer";
+  normalizeMailingAddress,
+  sendPaymentConfirmationEmails,
+} from "@/lib/email/order-notifications";
 import { normaliseProviderReference } from "@/lib/payments/eupago";
 import { prisma } from "@/lib/server/db";
 import { appendOrderEvent } from "@/lib/utils/order-events";
@@ -4334,13 +5099,31 @@ const getSignature = (request: NextRequest) => {
   return url.searchParams.get("signature") ?? undefined;
 };
 
-const signaturesMatch = (incoming: string, expected: string) => {
-  const incomingBuffer = Buffer.from(incoming, "hex");
-  const expectedBuffer = Buffer.from(expected, "hex");
-  if (incomingBuffer.length !== expectedBuffer.length) {
+const decodeSignature = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const buffer = Buffer.from(trimmed, "base64");
+    if (buffer.length) return buffer;
+  } catch {
+    // fall through to hex decoding
+  }
+  try {
+    const buffer = Buffer.from(trimmed, "hex");
+    if (buffer.length) return buffer;
+  } catch {
+    // ignore
+  }
+  return null;
+};
+
+const signaturesMatch = (incoming: string, expected: Buffer) => {
+  const incomingBuffer = decodeSignature(incoming);
+  if (!incomingBuffer) return false;
+  if (incomingBuffer.length !== expected.length) {
     return false;
   }
-  return timingSafeEqual(incomingBuffer, expectedBuffer);
+  return timingSafeEqual(incomingBuffer, expected);
 };
 
 const deriveStatus = (payload: Record<string, unknown>) => {
@@ -4369,7 +5152,8 @@ const extractPaidAt = (payload: Record<string, unknown>) => {
   const paidAtCandidate =
     (payload.paid_at as string | undefined) ??
     (payload.payment_date as string | undefined) ??
-    (payload.processed_at as string | undefined);
+    (payload.processed_at as string | undefined) ??
+    (payload.date as string | undefined);
   if (!paidAtCandidate) {
     return undefined;
   }
@@ -4418,10 +5202,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing signature." }, { status: 400 });
   }
 
-  const expectedSignature = createHmac("sha256", secret).update(rawBody).digest("hex");
+  const expectedSignature = createHmac("sha256", secret).update(rawBody).digest();
   if (!signaturesMatch(signature, expectedSignature)) {
     await logWebhookEvent("warn", "eupago_webhook_invalid_signature", {
-      signature: `${signature.slice(0, 8)}...`,
+      signature: signature.slice(0, 8),
     });
     return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
   }
@@ -4442,200 +5226,242 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
   }
 
-  const providerRef = extractProviderRef(payload);
-  if (!providerRef) {
-    console.error("[EuPago] Webhook missing provider reference.");
-    await logWebhookEvent("error", "eupago_webhook_missing_provider_ref", {
-      payload,
-    });
-    return NextResponse.json({ error: "Missing provider reference." }, { status: 400 });
-  }
+  const transactions = Array.isArray(payload.transactions)
+    ? payload.transactions
+    : payload.transactions
+      ? [payload.transactions]
+      : [payload];
 
-  const status = deriveStatus(payload);
-  await logWebhookEvent("info", "eupago_webhook_payload_parsed", {
-    providerRef,
-    status,
-    payload,
-  });
+  for (const transaction of transactions) {
+    const transactionPayload =
+      transaction && typeof transaction === "object"
+        ? (transaction as Record<string, unknown>)
+        : {};
+    const providerRef = extractProviderRef(transactionPayload);
+    const identifier =
+      typeof transactionPayload.identifier === "string"
+        ? transactionPayload.identifier.trim().toLowerCase()
+        : undefined;
+    if (!providerRef && !identifier) {
+      await logWebhookEvent("warn", "eupago_webhook_missing_provider_ref", {
+        payload: transactionPayload,
+      });
+      continue;
+    }
 
-  const order = await prisma.order.findFirst({
-    where: { providerRef },
-    select: {
-      id: true,
-      paymentStatus: true,
-      paidAt: true,
-      events: true,
-      totalAmount: true,
-      paymentMethod: true,
-      contactEmail: true,
-      user: {
-        select: { name: true, email: true },
-      },
-    },
-  });
-
-  if (!order) {
-    console.warn("[EuPago] Order not found for providerRef.");
-    await logWebhookEvent("warn", "eupago_webhook_order_not_found", {
+    const status = deriveStatus(transactionPayload);
+    await logWebhookEvent("info", "eupago_webhook_payload_parsed", {
       providerRef,
-      payload,
+      identifier,
+      status,
+      payload: transactionPayload,
     });
-    return NextResponse.json({ success: true });
-  }
 
-  const baseEvents = appendOrderEvent(order.events, {
-    type: "eupago_webhook_received",
-    payload: { status, ...payload },
-  });
+    const whereClause: Prisma.OrderWhereInput =
+      providerRef && identifier
+        ? {
+            OR: [{ providerRef }, { id: identifier }],
+          }
+        : providerRef
+          ? { providerRef }
+          : { id: identifier! };
 
-  if (order.paymentStatus === PaymentStatus.PAID) {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { events: baseEvents as Prisma.InputJsonValue },
-    });
-    await logWebhookEvent("info", "eupago_webhook_already_paid", {
-      orderId: order.id,
-      providerRef,
-    });
-    return NextResponse.json({ success: true });
-  }
-
-  const paidAt = extractPaidAt(payload) ?? new Date();
-
-  if (status === "paid") {
-    const updatedOrder = (await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        paymentStatus: PaymentStatus.PAID,
-        paidAt,
-        events: appendOrderEvent(baseEvents, {
-          type: "payment_captured",
-          payload: {
-            providerRef,
-            paidAt: paidAt.toISOString(),
+    const order = await prisma.order.findFirst({
+      where: whereClause,
+      select: {
+        id: true,
+        paymentStatus: true,
+        paidAt: true,
+        events: true,
+        totalAmount: true,
+        paymentMethod: true,
+        contactEmail: true,
+        contactPhone: true,
+        taxId: true,
+        shippingAddress: true,
+        createdAt: true,
+        items: {
+          select: {
+            productId: true,
+            quantity: true,
+            unitPrice: true,
+            product: { select: { name: true } },
           },
-        }) as Prisma.InputJsonValue,
-      },
-      include: {
+        },
         user: {
           select: { name: true, email: true },
         },
       },
-    })) as Prisma.OrderGetPayload<{
-      include: { user: { select: { name: true; email: true } } };
-    }>;
-    await logWebhookEvent("info", "eupago_webhook_payment_captured", {
-      orderId: updatedOrder.id,
-      providerRef,
-      paidAt: paidAt.toISOString(),
     });
 
-    try {
-      await sendAdminEmail({
-        subject: `Payment confirmed ${updatedOrder.id}`,
-        text: formatEmailBlock([
-          `Order ID: ${updatedOrder.id}`,
-          `Status: ${updatedOrder.paymentStatus}`,
-          `Method: ${updatedOrder.paymentMethod ?? "—"}`,
-          `Total: €${(updatedOrder.totalAmount / 100).toFixed(2)}`,
-          updatedOrder.paidAt
-            ? `Paid at: ${updatedOrder.paidAt.toISOString()}`
-            : "Paid at: not provided",
-          `Customer: ${updatedOrder.user?.name ?? "Customer"}`,
-          `Email: ${updatedOrder.contactEmail ?? updatedOrder.user?.email ?? "—"}`,
-        ]),
+    if (!order) {
+      console.warn("[EuPago] Order not found for webhook payload.");
+      await logWebhookEvent("warn", "eupago_webhook_order_not_found", {
+        providerRef,
+        identifier,
+        payload: transactionPayload,
       });
-
-      const customerEmail =
-        updatedOrder.contactEmail ?? updatedOrder.user?.email ?? undefined;
-      if (customerEmail) {
-        await sendEmail({
-          to: customerEmail,
-          subject: `Payment confirmed for order ${updatedOrder.id}`,
-          text: formatEmailBlock([
-            `Olá ${updatedOrder.user?.name ?? "cliente"},`,
-            "",
-            "Recebemos o pagamento da sua encomenda Palmanhac e estamos a preparar o envio.",
-            `Total: €${(updatedOrder.totalAmount / 100).toFixed(2)}`,
-            updatedOrder.paidAt
-              ? `Confirmado em: ${updatedOrder.paidAt.toLocaleString("en-GB", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}`
-              : "",
-            "",
-            "Pode acompanhar o estado da encomenda na área de Encomendas.",
-          ]),
-        });
-      }
-    } catch (error) {
-      if (error instanceof EmailConfigurationError) {
-        console.warn("[Email] Payment confirmation notification skipped:", error.message);
-        await logWebhookEvent("warn", "eupago_webhook_email_skipped", {
-          orderId: order.id,
-          providerRef,
-          error: error.message,
-        });
-      } else {
-        console.error("[Email] Failed to send payment confirmation email:", error);
-        await logWebhookEvent("error", "eupago_webhook_email_failed", {
-          orderId: order.id,
-          providerRef,
-          error: error instanceof Error ? error.message : "Unknown email error",
-        });
-      }
+      continue;
     }
 
-    return NextResponse.json({ success: true });
-  }
+    const baseEvents = appendOrderEvent(order.events, {
+      type: "eupago_webhook_received",
+      payload: { status, ...transactionPayload },
+    });
 
-  if (status === "failed") {
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { events: baseEvents as Prisma.InputJsonValue },
+      });
+      await logWebhookEvent("info", "eupago_webhook_already_paid", {
+        orderId: order.id,
+        providerRef,
+      });
+      continue;
+    }
+
+    const paidAt = extractPaidAt(transactionPayload) ?? new Date();
+
+    if (status === "paid") {
+      const updatedOrder = await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: PaymentStatus.PAID,
+          paidAt,
+          events: appendOrderEvent(baseEvents, {
+            type: "payment_captured",
+            payload: {
+              providerRef,
+              paidAt: paidAt.toISOString(),
+            },
+          }) as Prisma.InputJsonValue,
+        },
+        select: {
+          id: true,
+          totalAmount: true,
+          paymentMethod: true,
+          contactEmail: true,
+          contactPhone: true,
+          taxId: true,
+          shippingAddress: true,
+          createdAt: true,
+          items: {
+            select: {
+              productId: true,
+              quantity: true,
+              unitPrice: true,
+              product: { select: { name: true } },
+            },
+          },
+          user: {
+            select: { name: true, email: true },
+          },
+        },
+      });
+      await logWebhookEvent("info", "eupago_webhook_payment_captured", {
+        orderId: updatedOrder.id,
+        providerRef,
+        paidAt: paidAt.toISOString(),
+      });
+
+      try {
+        const normalizedAddress = normalizeMailingAddress(updatedOrder.shippingAddress);
+        const emailItems = updatedOrder.items.map((item) => ({
+          name: item.product?.name ?? `Product ${item.productId}`,
+          quantity: item.quantity,
+          unitPriceCents: item.unitPrice,
+        }));
+        const customerEmail =
+          updatedOrder.contactEmail ?? updatedOrder.user?.email ?? undefined;
+        const customerName =
+          updatedOrder.user?.name || normalizedAddress.name || "Cliente Palmanhac";
+
+        await sendPaymentConfirmationEmails({
+          orderId: updatedOrder.id,
+          orderDate: updatedOrder.createdAt,
+          totalCents: updatedOrder.totalAmount,
+          shippingCostCents: undefined,
+          items: emailItems,
+          customerName,
+          customerEmail,
+          customerPhone: updatedOrder.contactPhone ?? undefined,
+          shippingAddress: normalizedAddress,
+          taxId: updatedOrder.taxId ?? undefined,
+          paymentDate: paidAt,
+          paymentMethod: updatedOrder.paymentMethod,
+        });
+      } catch (error) {
+        if (error instanceof EmailConfigurationError) {
+          console.warn(
+            "[Email] Payment confirmation notification skipped:",
+            error.message,
+          );
+          await logWebhookEvent("warn", "eupago_webhook_email_skipped", {
+            orderId: order.id,
+            providerRef,
+            error: error.message,
+          });
+        } else {
+          console.error("[Email] Failed to send payment confirmation email:", error);
+          await logWebhookEvent("error", "eupago_webhook_email_failed", {
+            orderId: order.id,
+            providerRef,
+            error: error instanceof Error ? error.message : "Unknown email error",
+          });
+        }
+      }
+      continue;
+    }
+
+    if (status === "failed") {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: PaymentStatus.FAILED,
+          events: appendOrderEvent(baseEvents, {
+            type: "payment_failed",
+            payload: { providerRef },
+          }) as Prisma.InputJsonValue,
+        },
+      });
+      await logWebhookEvent("warn", "eupago_webhook_payment_failed", {
+        orderId: order.id,
+        providerRef,
+      });
+      continue;
+    }
+
+    if (status === "cancelled" || status === "expired") {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus:
+            status === "cancelled" ? PaymentStatus.FAILED : PaymentStatus.UNPAID,
+          events: appendOrderEvent(baseEvents, {
+            type: `payment_${status}`,
+            payload: { providerRef },
+          }) as Prisma.InputJsonValue,
+        },
+      });
+      await logWebhookEvent("info", "eupago_webhook_payment_status_update", {
+        orderId: order.id,
+        providerRef,
+        status,
+      });
+      continue;
+    }
+
     await prisma.order.update({
       where: { id: order.id },
-      data: {
-        paymentStatus: PaymentStatus.FAILED,
-        events: appendOrderEvent(baseEvents, {
-          type: "payment_failed",
-          payload: { providerRef },
-        }) as Prisma.InputJsonValue,
-      },
+      data: { events: baseEvents as Prisma.InputJsonValue },
     });
-    await logWebhookEvent("warn", "eupago_webhook_payment_failed", {
-      orderId: order.id,
-      providerRef,
-    });
-    return NextResponse.json({ success: true });
-  }
-
-  if (status === "cancelled" || status === "expired") {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        paymentStatus:
-          status === "cancelled" ? PaymentStatus.FAILED : PaymentStatus.UNPAID,
-        events: appendOrderEvent(baseEvents, {
-          type: `payment_${status}`,
-          payload: { providerRef },
-        }) as Prisma.InputJsonValue,
-      },
-    });
-    await logWebhookEvent("info", "eupago_webhook_payment_status_update", {
+    await logWebhookEvent("info", "eupago_webhook_event_recorded", {
       orderId: order.id,
       providerRef,
       status,
     });
-    return NextResponse.json({ success: true });
   }
-
-  await prisma.order.update({
-    where: { id: order.id },
-    data: { events: baseEvents as Prisma.InputJsonValue },
-  });
-  await logWebhookEvent("info", "eupago_webhook_event_recorded", {
-    orderId: order.id,
-    providerRef,
-    status,
-  });
 
   return NextResponse.json({ success: true });
 }
@@ -4643,16 +5469,20 @@ export async function POST(request: NextRequest) {
 
 # --- app/api/payments/stripe/confirm/route.ts ---
 import { NextRequest, NextResponse } from "next/server";
-import { OrderStatus, PaymentProvider, PaymentStatus } from "@prisma/client";
+import {
+  OrderStatus,
+  PaymentMethod,
+  PaymentProvider,
+  PaymentStatus,
+} from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import type Stripe from "stripe";
 import { auth } from "@/auth";
+import { EmailConfigurationError } from "@/lib/email/mailer";
 import {
-  EmailConfigurationError,
-  formatEmailBlock,
-  sendAdminEmail,
-  sendEmail,
-} from "@/lib/email/mailer";
+  normalizeMailingAddress,
+  sendPaymentConfirmationEmails,
+} from "@/lib/email/order-notifications";
 import { getStripeClient } from "@/lib/payments/stripe";
 import { prisma } from "@/lib/server/db";
 import { appendOrderEvent } from "@/lib/utils/order-events";
@@ -4675,9 +5505,7 @@ const logStripeConfirmEvent = (
 
 export async function POST(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const userId = session?.user?.id ?? null;
 
   const payload = (await request.json().catch(() => null)) as ConfirmPayload | null;
   if (!payload?.orderId || !payload?.paymentIntentId) {
@@ -4689,6 +5517,7 @@ export async function POST(request: NextRequest) {
     select: {
       id: true,
       userId: true,
+      isGuest: true,
       paymentProvider: true,
       paymentStatus: true,
       providerRef: true,
@@ -4696,6 +5525,16 @@ export async function POST(request: NextRequest) {
       totalAmount: true,
       contactEmail: true,
       contactPhone: true,
+      taxId: true,
+      createdAt: true,
+      items: {
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          product: { select: { name: true } },
+        },
+      },
       shippingAddress: true,
       user: {
         select: {
@@ -4706,7 +5545,7 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  if (!order || order.userId !== session.user.id) {
+  if (!order || (order.userId && order.userId !== userId)) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
@@ -4786,6 +5625,17 @@ export async function POST(request: NextRequest) {
       totalAmount: true,
       shippingAddress: true,
       contactEmail: true,
+      contactPhone: true,
+      taxId: true,
+      createdAt: true,
+      items: {
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          product: { select: { name: true } },
+        },
+      },
     },
   });
 
@@ -4796,39 +5646,37 @@ export async function POST(request: NextRequest) {
   });
 
   try {
-    await sendAdminEmail({
-      subject: `Stripe order ${updated.id} paid`,
-      text: formatEmailBlock([
-        `Order ID: ${updated.id}`,
-        `Total: €${(updated.totalAmount / 100).toFixed(2)}`,
-        `Status: ${paymentIntent.status}`,
-        updated.shippingAddress && typeof updated.shippingAddress === "object"
-          ? `Ship to: ${(updated.shippingAddress as Record<string, string>).name ?? ""}`
-          : "",
-      ]),
-    });
-
+    const normalizedAddress = normalizeMailingAddress(updated.shippingAddress);
+    const emailItems = updated.items.map((item) => ({
+      name: item.product?.name ?? `Product ${item.productId}`,
+      quantity: item.quantity,
+      unitPriceCents: item.unitPrice,
+    }));
     const customerEmail =
       updated.contactEmail ??
       order.contactEmail ??
       order.user?.email ??
-      session.user.email ??
-      null;
-    if (customerEmail) {
-      await sendEmail({
-        to: customerEmail,
-        subject: `Payment confirmed for order ${updated.id}`,
-        text: formatEmailBlock([
-          "Good news!",
-          "",
-          `Your Palmanhac order ${updated.id} was paid successfully.`,
-          "Our team is preparing it for shipping and you can monitor the fulfilment progress from the Orders page.",
-          "",
-          `Total: €${(updated.totalAmount / 100).toFixed(2)}`,
-          `Status: ${paymentIntent.status}`,
-        ]),
-      });
-    }
+      session?.user?.email ??
+      undefined;
+    const customerName =
+      order.user?.name ||
+      normalizedAddress.name ||
+      session?.user?.name ||
+      "Cliente Palmanhac";
+
+    await sendPaymentConfirmationEmails({
+      orderId: updated.id,
+      orderDate: order.createdAt,
+      totalCents: updated.totalAmount,
+      items: emailItems,
+      customerName,
+      customerEmail,
+      customerPhone: updated.contactPhone ?? order.contactPhone ?? undefined,
+      shippingAddress: normalizedAddress,
+      taxId: order.taxId ?? undefined,
+      paymentDate: paidAt,
+      paymentMethod: PaymentMethod.CARD,
+    });
   } catch (error) {
     if (error instanceof EmailConfigurationError) {
       console.warn("[Email] Payment confirmation notification skipped:", error.message);
@@ -4854,10 +5702,7 @@ import type { Prisma } from "@prisma/client";
 import type Stripe from "stripe";
 import { auth } from "@/auth";
 import { EmailConfigurationError } from "@/lib/email/mailer";
-import {
-  sendOrderCreationNotifications,
-  type BilingualInstructions,
-} from "@/lib/email/order-notifications";
+import { sendOrderPlacedEmails } from "@/lib/email/order-notifications";
 import {
   checkoutPayloadSchema,
   normalizeCurrency,
@@ -4885,30 +5730,16 @@ const assertCardMethod = (payload: CheckoutPayload) => {
   }
 };
 
-const stripeCardInstructions: BilingualInstructions = {
-  pt: [
-    "Estamos a processar o pagamento com cartão através da Stripe.",
-    "Se lhe for pedido um passo adicional (3DSecure), conclua-o na janela de pagamento.",
-    "Enviaremos uma atualização assim que o estado do pagamento for confirmado.",
-  ],
-  en: [
-    "We are securely processing your card payment with Stripe.",
-    "If any additional verification is required, follow the prompts in the card form.",
-    "We will email you again as soon as the payment status updates.",
-  ],
-};
-
 export async function POST(request: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const userId = session?.user?.id ?? null;
+  const isGuestCheckout = !userId;
 
   const body = await request.json().catch(() => null);
   const parsed = checkoutPayloadSchema.safeParse(body);
   if (!parsed.success) {
     await logStripeCheckoutEvent("warn", "stripe_checkout_invalid_payload", {
-      userId: session.user.id,
+      userId,
       issues: parsed.error.flatten(),
     });
     return NextResponse.json(
@@ -4955,7 +5786,7 @@ export async function POST(request: NextRequest) {
   const stripe = getStripeClient();
 
   await logStripeCheckoutEvent("info", "stripe_checkout_payment_intent_creating", {
-    userId: session.user.id,
+    userId,
     orderId,
     totalCents: totals.totalCents,
     currency,
@@ -4971,7 +5802,8 @@ export async function POST(request: NextRequest) {
       receipt_email: payload.contact.email,
       metadata: {
         orderId,
-        userId: session.user.id,
+        ...(userId ? { userId } : {}),
+        guest: isGuestCheckout ? "true" : "false",
         locale: payload.locale ?? "",
       },
       shipping: {
@@ -5021,7 +5853,8 @@ export async function POST(request: NextRequest) {
       const createdOrder = await tx.order.create({
         data: {
           id: orderId,
-          userId: session.user.id,
+          userId,
+          isGuest: isGuestCheckout,
           totalAmount: totals.totalCents,
           paymentStatus: isPaid ? PaymentStatus.PAID : PaymentStatus.PENDING,
           status: isPaid ? OrderStatus.PROCESSING : OrderStatus.PENDING,
@@ -5084,26 +5917,24 @@ export async function POST(request: NextRequest) {
   try {
     const nameMap = new Map(products.map((product) => [product.id, product.name]));
     const customerName =
-      payload.shipping.name || payload.contact.name || session.user.name || "Customer";
+      payload.shipping.name || payload.contact.name || session?.user?.name || "Customer";
     const itemSummaries = payload.items.map((item) => ({
       name: nameMap.get(item.productId) ?? `Product ${item.productId}`,
       quantity: item.quantity,
+      unitPriceCents: priceMap.get(item.productId) ?? 0,
     }));
 
-    await sendOrderCreationNotifications({
+    await sendOrderPlacedEmails({
       orderId: order.id,
+      orderDate: order.createdAt,
       totalCents: totals.totalCents,
+      shippingCostCents: totals.deliveryCents,
       items: itemSummaries,
       customerName,
       customerEmail: payload.contact.email,
       customerPhone: payload.contact.phone,
-      shippingCity: payload.shipping.city,
-      paymentSummary: "CARD (Stripe)",
-      nif: payload.taxId,
-      notes: payload.notes,
-      methodInstructions: stripeCardInstructions,
-      adminSubject: `New Stripe order ${order.id}`,
-      customerSubject: `We received your order ${order.id}`,
+      shippingAddress: payload.shipping,
+      taxId: payload.taxId,
     });
   } catch (error) {
     if (error instanceof EmailConfigurationError) {
@@ -5153,7 +5984,7 @@ export async function GET(
       priceCents: product.priceCents,
       category: product.category,
       volumeMl: product.volumeMl,
-      abv: product.abv,
+      vol: product.vol,
       name: product.name,
       description: product.description[locale] ?? product.description[defaultLocale],
       descriptionEn: product.description.en,
@@ -5266,7 +6097,9 @@ export default function RootRedirect() {
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import type { ComponentProps } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5298,6 +6131,11 @@ export function AccountAuthPanel({
     email: "",
     password: "",
     confirmPassword: "",
+  });
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    register: false,
+    confirm: false,
+    login: false,
   });
 
   const toggleMode = () => setMode((value) => (value === "login" ? "register" : "login"));
@@ -5385,6 +6223,31 @@ export function AccountAuthPanel({
     void signIn("google", { callbackUrl: redirectUrl });
   };
 
+  const togglePasswordVisibility = (field: "register" | "confirm" | "login") => {
+    setPasswordVisibility((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  const renderPasswordInput = (
+    props: ComponentProps<typeof Input> & { field: "register" | "confirm" | "login" },
+  ) => {
+    const { field, ...inputProps } = props;
+    const isVisible = passwordVisibility[field];
+    return (
+      <div className="relative">
+        <Input {...inputProps} type={isVisible ? "text" : "password"} className="pr-11" />
+        <button
+          type="button"
+          className="absolute inset-y-0 right-3 flex items-center text-neutral-500 hover:text-neutral-900"
+          onClick={() => togglePasswordVisibility(field)}
+          aria-pressed={isVisible}
+        >
+          {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          <span className="sr-only">{isVisible ? "Hide password" : "Show password"}</span>
+        </button>
+      </div>
+    );
+  };
+
   return (
     <section className="mx-auto max-w-xl space-y-8 rounded-3xl border border-[rgb(var(--border))] bg-white p-8 shadow-sm">
       <header className="space-y-2 text-center">
@@ -5422,29 +6285,29 @@ export function AccountAuthPanel({
             </div>
             <div>
               <Label htmlFor="account-password">{dictionary.account.password}</Label>
-              <Input
-                id="account-password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={form.password}
-                onChange={updateField("password")}
-              />
+              {renderPasswordInput({
+                id: "account-password",
+                name: "password",
+                autoComplete: "new-password",
+                required: true,
+                value: form.password,
+                onChange: updateField("password"),
+                field: "register",
+              })}
             </div>
             <div>
               <Label htmlFor="account-confirm">
                 {dictionary.account.confirmPassword}
               </Label>
-              <Input
-                id="account-confirm"
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                value={form.confirmPassword}
-                onChange={updateField("confirmPassword")}
-              />
+              {renderPasswordInput({
+                id: "account-confirm",
+                name: "confirmPassword",
+                autoComplete: "new-password",
+                required: true,
+                value: form.confirmPassword,
+                onChange: updateField("confirmPassword"),
+                field: "confirm",
+              })}
             </div>
             <p className="text-xs text-neutral-500">{dictionary.account.passwordHint}</p>
           </div>
@@ -5464,15 +6327,15 @@ export function AccountAuthPanel({
             </div>
             <div>
               <Label htmlFor="account-password">{dictionary.account.password}</Label>
-              <Input
-                id="account-password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={form.password}
-                onChange={updateField("password")}
-              />
+              {renderPasswordInput({
+                id: "account-password",
+                name: "password",
+                autoComplete: "current-password",
+                required: true,
+                value: form.password,
+                onChange: updateField("password"),
+                field: "login",
+              })}
             </div>
           </>
         )}
@@ -6171,9 +7034,13 @@ export function DeleteOrderButton({ orderId, orderLabel }: DeleteOrderButtonProp
   const handleDelete = () => {
     startTransition(async () => {
       try {
-        const response = await fetch(`/api/admin/orders/${orderId}`, { method: "DELETE" });
+        const response = await fetch(`/api/admin/orders/${orderId}`, {
+          method: "DELETE",
+        });
         if (!response.ok) {
-          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           throw new Error(payload?.error ?? "Unable to delete order.");
         }
         toast({ title: "Order deleted", variant: "success" });
@@ -6470,6 +7337,105 @@ export function DeleteProductButton({
 }
 # --- end of components/admin/products/DeleteProductButton.tsx ---
 
+# --- components/admin/products/ProductBaseForm.tsx ---
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils/format";
+
+export function ProductBaseForm({
+  product,
+}: {
+  product: { id: number; name: string; baseEn: string; basePt: string };
+}) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+  const [form, setForm] = useState({
+    en: product.baseEn ?? "",
+    pt: product.basePt ?? "",
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const handleChange = (locale: "en" | "pt", value: string) => {
+    setForm((prev) => ({ ...prev, [locale]: value }));
+  };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    startTransition(async () => {
+      const en = form.en.trim();
+      const pt = form.pt.trim();
+      if (!en || !pt) {
+        setError("Please provide the base in both English and Portuguese.");
+        return;
+      }
+      try {
+        const response = await fetch(`/api/admin/products/${product.id}/base`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ base: { en, pt } }),
+        });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new Error(payload?.error || "Failed to update product base.");
+        }
+        toast({ title: "Base updated", description: product.name, variant: "success" });
+        router.refresh();
+      } catch (err) {
+        console.error("[ProductBaseForm] Failed to update base", err);
+        setError(err instanceof Error ? err.message : "Unable to update base.");
+      }
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="base-en" className="text-sm font-semibold text-neutral-800">
+            Base (EN)
+          </Label>
+          <Input
+            id="base-en"
+            value={form.en}
+            onChange={(event) => handleChange("en", event.target.value)}
+            className={cn(!form.en.trim() && error && "ring-1 ring-red-500")}
+            placeholder="e.g. Fresh oranges"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="base-pt" className="text-sm font-semibold text-neutral-800">
+            Base (PT)
+          </Label>
+          <Input
+            id="base-pt"
+            value={form.pt}
+            onChange={(event) => handleChange("pt", event.target.value)}
+            className={cn(!form.pt.trim() && error && "ring-1 ring-red-500")}
+            placeholder="ex.: Laranjas frescas"
+          />
+        </div>
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      </div>
+      <div className="flex justify-end">
+        <Button type="submit" disabled={isPending}>
+          Save base
+        </Button>
+      </div>
+    </form>
+  );
+}
+# --- end of components/admin/products/ProductBaseForm.tsx ---
+
 # --- components/admin/products/ProductForm.tsx ---
 "use client";
 
@@ -6505,6 +7471,13 @@ const imageUrlOrPath = z
     { message: "Enter a valid image URL or a path like /assets/file.png" },
   );
 
+const CATEGORY_OPTIONS = ["licor", "aguardente", "bebida-espirituosa"] as const;
+const CATEGORY_LABELS: Record<(typeof CATEGORY_OPTIONS)[number], string> = {
+  licor: "Licor",
+  aguardente: "Aguardente",
+  "bebida-espirituosa": "Bebida Espirituosa",
+};
+
 const productFormSchema = z.object({
   name: z.string().min(2, "Name is required"),
   slug: z
@@ -6513,7 +7486,12 @@ const productFormSchema = z.object({
     .regex(slugPattern, "Slug must use lowercase letters, numbers or hyphens.")
     .optional()
     .or(z.literal("")),
-  category: z.string().min(2, "Category is required"),
+  category: z
+    .string()
+    .refine(
+      (value) => CATEGORY_OPTIONS.includes(value as (typeof CATEGORY_OPTIONS)[number]),
+      "Select a category",
+    ),
   price: z
     .string()
     .min(1, "Price is required")
@@ -6531,13 +7509,13 @@ const productFormSchema = z.object({
     },
     { message: "Enter a valid volume in ml" },
   ),
-  abv: z.string().refine(
+  vol: z.string().refine(
     (value) => {
       if (!value.trim()) return true;
       const parsed = Number.parseFloat(value.replace(",", "."));
       return Number.isFinite(parsed) && parsed >= 0;
     },
-    { message: "Enter a valid ABV" },
+    { message: "Enter a valid VOL" },
   ),
   stock: z.string().refine(
     (value) => {
@@ -6565,7 +7543,7 @@ type ProductFormProps = {
     image: string;
     galleryImages: string[];
     volumeMl: number;
-    abv: number;
+    vol: number;
     stock: number;
     isActive: boolean;
     descriptionEn: string;
@@ -6589,7 +7567,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     image: product?.image ?? "",
     galleryImages: product?.galleryImages?.join(", ") ?? "",
     volumeMl: product?.volumeMl?.toString() ?? "",
-    abv: product?.abv?.toString() ?? "",
+    vol: product?.vol?.toString() ?? "",
     stock: product?.stock?.toString() ?? "",
     descriptionEn: product?.descriptionEn ?? "",
     descriptionPt: product?.descriptionPt ?? "",
@@ -6676,7 +7654,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           image: parsed.data.image,
           galleryImages: galleryImagesRaw.length ? galleryImagesRaw : [parsed.data.image],
           volumeMl: Number.parseInt(parsed.data.volumeMl || "0", 10) || 0,
-          abv: Number.parseFloat(parsed.data.abv || "0") || 0,
+          vol: Number.parseFloat(parsed.data.vol || "0") || 0,
           stock: Number.parseInt(parsed.data.stock || "0", 10) || 0,
           isActive: parsed.data.isActive,
           description: {
@@ -6795,12 +7773,24 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         </Field>
 
         <Field label="Category" error={errors.category}>
-          <Input
-            className={cn(errors.category && "ring-1 ring-red-500")}
+          <select
+            className={cn(
+              "w-full appearance-none rounded-xl border border-[rgb(var(--border))] bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-sm transition focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10",
+              errors.category && "ring-1 ring-red-500",
+            )}
             required
             value={form.category}
             onChange={(e) => handleChange("category", e.target.value)}
-          />
+          >
+            <option value="" disabled hidden>
+              Select a category
+            </option>
+            {CATEGORY_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {CATEGORY_LABELS[option]}
+              </option>
+            ))}
+          </select>
         </Field>
 
         <Field label="Price (€)" error={errors.price}>
@@ -6860,14 +7850,14 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           />
         </Field>
 
-        <Field label="ABV (%)" error={errors.abv}>
+        <Field label="VOL (%)" error={errors.vol}>
           <Input
-            className={cn(errors.abv && "ring-1 ring-red-500")}
+            className={cn(errors.vol && "ring-1 ring-red-500")}
             type="number"
             min="0"
             step="0.1"
-            value={form.abv}
-            onChange={(e) => handleChange("abv", e.target.value)}
+            value={form.vol}
+            onChange={(e) => handleChange("vol", e.target.value)}
           />
         </Field>
 
@@ -6954,17 +7944,12 @@ import { QuantitySelector } from "@/components/product/QuantitySelector";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import type { Locale } from "@/config/site";
-import {
-  ANON_CART_EXPIRES_KEY,
-  ANON_CART_FLAG_KEY,
-  ANON_CART_PAYLOAD_KEY,
-  useAnonCartImport,
-} from "@/lib/hooks/useAnonCartImport";
+import { useAnonCartImport } from "@/lib/hooks/useAnonCartImport";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useCartStore } from "@/lib/store/cart";
 import { useFavoritesStore } from "@/lib/store/favorites";
 import { calculateCartTotals } from "@/lib/utils/cart-totals";
-import { formatCurrency, formatEuroAmount } from "@/lib/utils/currency";
+import { formatCurrency } from "@/lib/utils/currency";
 import { withLocale } from "@/lib/utils/locale";
 import type { ProductListItem } from "@/types/product";
 
@@ -7015,7 +8000,7 @@ export function CartView({
     lastIdentityRef.current = currentIdentity;
   }, [session?.user?.id, status]);
 
-  const { itemsSubtotalCents, discountCents, deliveryCents, totalCents, vatAmount } =
+  const { itemsSubtotalCents, discountCents, deliveryCents, totalCents, vatCents } =
     useMemo(() => calculateCartTotals(items, products), [items, products]);
 
   useEffect(() => {
@@ -7060,34 +8045,6 @@ export function CartView({
   };
 
   const handleCheckout = () => {
-    if (status !== "authenticated") {
-      if (typeof window !== "undefined" && items.length) {
-        try {
-          const payload = items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-          }));
-
-          window.sessionStorage.setItem(ANON_CART_FLAG_KEY, "1");
-          window.sessionStorage.setItem(ANON_CART_PAYLOAD_KEY, JSON.stringify(payload));
-          window.sessionStorage.setItem(
-            ANON_CART_EXPIRES_KEY,
-            String(Date.now() + 5 * 60 * 1000),
-          );
-        } catch (error) {
-          console.error("Failed to persist anonymous cart snapshot", error);
-        }
-      }
-
-      router.push(
-        withLocale(
-          locale,
-          `/account?callbackUrl=${encodeURIComponent(withLocale(locale, "/checkout"))}`,
-        ),
-      );
-      return;
-    }
-
     router.push(withLocale(locale, "/checkout"));
   };
 
@@ -7199,9 +8156,10 @@ export function CartView({
             <span>{dictionary.cart.total}</span>
             <span>{formatCurrency(locale, totalCents)}</span>
           </div>
-          <p className="text-xs text-neutral-500">
-            {dictionary.cart.vatIncluded} {formatEuroAmount(locale, vatAmount)}
-          </p>
+          <div className="flex items-center justify-between text-xs text-neutral-500">
+            <span>{dictionary.cart.vatIncluded}</span>
+            <span>{formatCurrency(locale, vatCents)}</span>
+          </div>
         </div>
         <Button size="lg" className="w-full" onClick={handleCheckout}>
           {dictionary.cart.checkout}
@@ -7228,6 +8186,67 @@ export function CartView({
 }
 # --- end of components/cart/CartView.tsx ---
 
+# --- components/checkout/CheckoutThankYou.tsx ---
+"use client";
+
+import Link from "next/link";
+import { formatNoticeWithEmail, WarningNotice } from "@/components/common/WarningNotice";
+import { Button } from "@/components/ui/button";
+import { siteConfig, type Locale } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { withLocale } from "@/lib/utils/locale";
+
+type CheckoutThankYouProps = {
+  dictionary: Dictionary;
+  locale: Locale;
+  orderId?: string;
+};
+
+export function CheckoutThankYou({ dictionary, locale, orderId }: CheckoutThankYouProps) {
+  const checkoutCopy = dictionary.checkout;
+  const friendlyOrderCode = orderId ? `#${orderId.slice(0, 8).toUpperCase()}` : null;
+  const ordersHref = withLocale(locale, "/orders");
+  const highlightHref = orderId
+    ? withLocale(locale, `/orders?orderId=${encodeURIComponent(orderId)}`)
+    : ordersHref;
+  const supportEmail = siteConfig.contact.email;
+
+  return (
+    <section className="mx-auto max-w-2xl space-y-6 rounded-3xl border border-[rgb(var(--border))] bg-white p-8 text-center shadow-sm">
+      <header className="space-y-2">
+        <p className="text-sm text-neutral-500">{checkoutCopy.thankYouSubheading}</p>
+        <h1 className="text-3xl font-semibold text-neutral-900">
+          {checkoutCopy.thankYouHeading}
+        </h1>
+        {friendlyOrderCode ? (
+          <p className="text-sm text-neutral-600">
+            {checkoutCopy.thankYouOrderLabel}:{" "}
+            <span className="font-semibold text-neutral-900">{friendlyOrderCode}</span>
+          </p>
+        ) : null}
+      </header>
+      <WarningNotice
+        variant="orange"
+        title={checkoutCopy.confirmationNoticeTitle}
+        message={formatNoticeWithEmail(
+          checkoutCopy.confirmationNotice,
+          supportEmail,
+          "font-semibold underline text-orange-900 underline-offset-2",
+        )}
+      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <Button asChild variant="outline">
+          <Link href={ordersHref}>{checkoutCopy.thankYouOrdersCta}</Link>
+        </Button>
+        <Button asChild>
+          <Link href={highlightHref}>{checkoutCopy.thankYouTrackCta}</Link>
+        </Button>
+      </div>
+    </section>
+  );
+}
+# --- end of components/checkout/CheckoutThankYou.tsx ---
+
 # --- components/checkout/CheckoutView.tsx ---
 "use client";
 
@@ -7237,6 +8256,7 @@ import { useRouter } from "next/navigation";
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { useSession } from "next-auth/react";
+import { formatNoticeWithEmail, WarningNotice } from "@/components/common/WarningNotice";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7248,7 +8268,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { Locale } from "@/config/site";
+import { siteConfig, type Locale } from "@/config/site";
 import { useAnonCartImport } from "@/lib/hooks/useAnonCartImport";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useCartStore } from "@/lib/store/cart";
@@ -7275,6 +8295,8 @@ const formatDateTime = (locale: Locale, value?: string) => {
 };
 
 const DEFAULT_COUNTRY = "Portugal";
+
+const supportEmail = siteConfig.contact.email;
 
 type PaymentMethodOption = "multibanco" | "mbway" | "card";
 
@@ -7432,17 +8454,6 @@ function CheckoutForm({
       setBilling({ ...shipping });
     }
   }, [billingSameAsShipping, shipping]);
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace(
-        withLocale(
-          locale,
-          `/account?callbackUrl=${encodeURIComponent(withLocale(locale, "/checkout"))}`,
-        ),
-      );
-    }
-  }, [status, locale, router]);
 
   useEffect(() => {
     if (!items.length) {
@@ -7720,7 +8731,13 @@ function CheckoutForm({
         cardElement.clear();
         setIsCardComplete(false);
         clearCartOnce();
-        setTimeout(() => router.push(withLocale(locale, "/orders")), 1800);
+        const thankYouUrl = withLocale(
+          locale,
+          result.orderId
+            ? `/checkout/thank-you?orderId=${encodeURIComponent(result.orderId)}`
+            : "/orders",
+        );
+        setTimeout(() => router.push(thankYouUrl), 1800);
         return;
       }
 
@@ -7813,12 +8830,14 @@ function CheckoutForm({
       }
 
       if (result.method === "mbway") {
-        const pendingUrl = withLocale(
-          locale,
-          `/checkout/pending?orderId=${encodeURIComponent(
-            result.orderId,
-          )}&transactionId=${encodeURIComponent(result.transactionId ?? "")}`,
-        );
+        const params = new URLSearchParams({
+          orderId: result.orderId,
+          transactionId: result.transactionId ?? "",
+        });
+        if (result.statusUrl) {
+          params.set("statusUrl", result.statusUrl);
+        }
+        const pendingUrl = withLocale(locale, `/checkout/pending?${params.toString()}`);
         router.push(pendingUrl);
         return;
       }
@@ -8028,6 +9047,32 @@ function CheckoutForm({
       ) : (
         <form className="grid gap-10 lg:grid-cols-[2fr_1fr]" onSubmit={handleSubmit}>
           <div className="space-y-6">
+            <div className="space-y-3">
+              <WarningNotice
+                title={dictionary.checkout.shippingNoticeTitle}
+                message={
+                  <div className="space-y-1">
+                    <p>{dictionary.banner.shippingIntro}</p>
+                    <p>
+                      {formatNoticeWithEmail(
+                        dictionary.banner.shippingContact,
+                        supportEmail,
+                        "font-semibold underline text-amber-900 underline-offset-2",
+                      )}
+                    </p>
+                  </div>
+                }
+              />
+              <WarningNotice
+                variant="orange"
+                title={dictionary.checkout.multibancoNoticeTitle}
+                message={formatNoticeWithEmail(
+                  dictionary.checkout.multibancoNotice,
+                  supportEmail,
+                  "font-semibold underline text-orange-900 underline-offset-2",
+                )}
+              />
+            </div>
             <Card>
               <CardHeader>
                 <CardTitle>{dictionary.checkout.contactInformation}</CardTitle>
@@ -8396,9 +9441,10 @@ function CheckoutForm({
                   <span>{dictionary.checkout.total}</span>
                   <span>{formatCurrency(locale, totals.totalCents)}</span>
                 </div>
-                <p className="text-xs text-neutral-500">
-                  {dictionary.checkout.vatIncluded}
-                </p>
+                <div className="flex justify-between text-xs text-neutral-500">
+                  <span>{dictionary.checkout.vatIncluded}</span>
+                  <span>{formatCurrency(locale, totals.vatCents)}</span>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -8415,8 +9461,9 @@ function CheckoutForm({
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatNoticeWithEmail, WarningNotice } from "@/components/common/WarningNotice";
 import { Button } from "@/components/ui/button";
-import type { Locale } from "@/config/site";
+import { siteConfig, type Locale } from "@/config/site";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { useCartStore } from "@/lib/store/cart";
 import { withLocale } from "@/lib/utils/locale";
@@ -8426,6 +9473,7 @@ type MbwayPendingViewProps = {
   locale: Locale;
   orderId: string;
   transactionId?: string;
+  statusUrl?: string;
 };
 
 type StatusState = "pending" | "paid" | "failed";
@@ -8435,14 +9483,27 @@ export function MbwayPendingView({
   locale,
   orderId,
   transactionId,
+  statusUrl,
 }: MbwayPendingViewProps) {
   const router = useRouter();
   const clearCart = useCartStore((state) => state.clear);
+  const supportEmail = siteConfig.contact.email;
+  const friendlyOrderCode = `#${orderId.slice(0, 8).toUpperCase()}`;
   const [statusState, setStatusState] = useState<StatusState>("pending");
   const [statusMessage, setStatusMessage] = useState(
     dictionary.checkout.pendingStatusAwaiting,
   );
   const [isChecking, setIsChecking] = useState(false);
+  const [showSupportMessage, setShowSupportMessage] = useState(false);
+  const thankYouHref = withLocale(
+    locale,
+    orderId ? `/checkout/thank-you?orderId=${encodeURIComponent(orderId)}` : "/orders",
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowSupportMessage(true), 60000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!transactionId) return;
@@ -8451,10 +9512,12 @@ export function MbwayPendingView({
     const poll = async () => {
       setIsChecking(true);
       try {
-        const response = await fetch(
-          `/api/payments/eupago/status?transactionId=${encodeURIComponent(transactionId)}`,
-          { cache: "no-store" },
-        );
+        const url = new URL("/api/payments/eupago/status", window.location.origin);
+        url.searchParams.set("transactionId", transactionId);
+        if (orderId) {
+          url.searchParams.set("orderId", orderId);
+        }
+        const response = await fetch(url.toString(), { cache: "no-store" });
         const payload = (await response.json().catch(() => ({}))) as {
           status?: { status?: string; error?: string };
         };
@@ -8464,6 +9527,7 @@ export function MbwayPendingView({
         if (!response.ok) {
           setStatusState("pending");
           setStatusMessage(dictionary.checkout.pendingStatusAwaiting);
+          setShowSupportMessage(true);
           return;
         }
 
@@ -8473,7 +9537,7 @@ export function MbwayPendingView({
           setStatusMessage(dictionary.checkout.pendingStatusPaid);
           clearCart();
           setTimeout(() => {
-            router.push(withLocale(locale, "/orders"));
+            router.push(thankYouHref);
           }, 1500);
           return;
         }
@@ -8483,19 +9547,26 @@ export function MbwayPendingView({
           setStatusMessage(
             payload.status?.error ?? dictionary.checkout.pendingStatusFailed,
           );
+          setShowSupportMessage(true);
           return;
         }
 
+        const pendingError = payload.status?.error ?? "";
+        const shouldShowError =
+          pendingError &&
+          !pendingError.toLowerCase().includes("status url unavailable") &&
+          !pendingError.toLowerCase().includes("await webhook");
         setStatusState("pending");
         setStatusMessage(
-          payload.status?.error
-            ? `${dictionary.checkout.pendingStatusAwaiting} (${payload.status.error})`
+          shouldShowError
+            ? `${dictionary.checkout.pendingStatusAwaiting} (${pendingError})`
             : dictionary.checkout.pendingStatusAwaiting,
         );
       } catch {
         if (!cancelled) {
           setStatusState("pending");
           setStatusMessage(dictionary.checkout.pendingStatusAwaiting);
+          setShowSupportMessage(true);
         }
       } finally {
         if (!cancelled) setIsChecking(false);
@@ -8510,12 +9581,13 @@ export function MbwayPendingView({
     };
   }, [
     transactionId,
+    orderId,
     dictionary.checkout.pendingStatusAwaiting,
     dictionary.checkout.pendingStatusFailed,
     dictionary.checkout.pendingStatusPaid,
     clearCart,
-    locale,
     router,
+    thankYouHref,
   ]);
 
   return (
@@ -8548,6 +9620,35 @@ export function MbwayPendingView({
       {statusState !== "paid" ? (
         <p className="text-sm text-neutral-500">{dictionary.checkout.pendingHint}</p>
       ) : null}
+      {statusUrl ? (
+        <p className="text-sm text-neutral-600">
+          <a
+            href={statusUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-neutral-900 underline-offset-4 hover:underline"
+          >
+            {dictionary.checkout.mbwayStatusLink}
+          </a>
+        </p>
+      ) : null}
+      {showSupportMessage && statusState !== "paid" ? (
+        <p className="text-sm text-neutral-600">
+          {dictionary.checkout.pendingSupportMessage.replace(
+            "{orderId}",
+            friendlyOrderCode,
+          )}
+        </p>
+      ) : null}
+      <WarningNotice
+        variant="orange"
+        title={dictionary.checkout.confirmationNoticeTitle}
+        message={formatNoticeWithEmail(
+          dictionary.checkout.confirmationNotice,
+          supportEmail,
+          "font-semibold underline text-orange-900 underline-offset-2",
+        )}
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
         <Button
           type="button"
@@ -8848,6 +9949,94 @@ export function SearchBar({ placeholder }: { placeholder: string }) {
   );
 }
 # --- end of components/common/SearchBar.tsx ---
+
+# --- components/common/WarningNotice.tsx ---
+import { Fragment, type ReactNode } from "react";
+import { AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils/format";
+
+type WarningVariant = "amber" | "orange";
+
+const variantStyles: Record<
+  WarningVariant,
+  { container: string; icon: string; text: string }
+> = {
+  amber: {
+    container: "border-amber-200 bg-amber-50 text-amber-900",
+    icon: "text-amber-600",
+    text: "text-amber-900",
+  },
+  orange: {
+    container: "border-orange-200 bg-orange-50 text-orange-900",
+    icon: "text-orange-600",
+    text: "text-orange-900",
+  },
+};
+
+export type WarningNoticeProps = {
+  title: ReactNode;
+  message?: ReactNode;
+  children?: ReactNode;
+  variant?: WarningVariant;
+  className?: string;
+};
+
+export function WarningNotice({
+  title,
+  message,
+  children,
+  variant = "amber",
+  className,
+}: WarningNoticeProps) {
+  const styles = variantStyles[variant];
+  const content = message ?? children;
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-4 text-sm",
+        styles.container,
+        styles.text,
+        className,
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <AlertTriangle className={cn("mt-0.5 h-4 w-4", styles.icon)} />
+        <div className="space-y-1">
+          <p className="font-semibold">{title}</p>
+          {typeof content === "string" ? <p>{content}</p> : content}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export const formatNoticeWithEmail = (
+  message: string,
+  email: string,
+  linkClassName = "font-semibold underline underline-offset-2",
+): ReactNode => {
+  if (!email || !message.includes(email)) {
+    return message;
+  }
+
+  const parts = message.split(email);
+  return (
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={`${email}-${index}`}>
+          {part}
+          {index < parts.length - 1 ? (
+            <a href={`mailto:${email}`} className={linkClassName}>
+              {email}
+            </a>
+          ) : null}
+        </Fragment>
+      ))}
+    </>
+  );
+};
+# --- end of components/common/WarningNotice.tsx ---
 
 # --- components/favorites/FavoritesView.tsx ---
 "use client";
@@ -9663,6 +10852,7 @@ export function Footer({
 
 # --- components/layout/Header.tsx ---
 import { Suspense } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { User } from "lucide-react";
 import { IconButton } from "@/components/common/IconButton";
@@ -9685,21 +10875,44 @@ export function Header({
   dictionary: Dictionary;
   locale: Locale;
 }) {
+  const aboutFirstMain = (() => {
+    const about = nav.main.find((item) => item.href === "/about");
+    if (!about) {
+      return nav.main;
+    }
+    const rest = nav.main.filter((item) => item.href !== "/about");
+    return [about, ...rest];
+  })();
+
+  const reorderedNav: NavConfig = {
+    ...nav,
+    main: aboutFirstMain,
+  };
+
   return (
     <header className="relative z-40 border-b border-white/80 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur">
       <div className="container flex items-center gap-4 py-4">
         <div className="flex items-center gap-3 lg:gap-6">
           <div className="lg:hidden">
-            <MobileMenu nav={nav} dictionary={dictionary} locale={locale} />
+            <MobileMenu nav={reorderedNav} dictionary={dictionary} locale={locale} />
           </div>
           <Link
             href={withLocale(locale, "/")}
-            className="text-lg font-semibold tracking-tight text-neutral-900"
+            className="flex items-center gap-2 text-lg font-semibold tracking-tight text-neutral-900"
+            aria-label="Palmanhac home"
           >
-            Palmanhac
+            <Image
+              src="/assets/logo/palmanhac-logo.png"
+              alt="Palmanhac logo"
+              width={40}
+              height={40}
+              className="h-10 w-10 rounded-full object-cover"
+              priority
+            />
+            <span className="hidden text-base font-semibold sm:inline">Palmanhac</span>
           </Link>
         </div>
-        <DesktopNav items={nav.main} locale={locale} />
+        <DesktopNav items={aboutFirstMain} locale={locale} />
         <div className="ml-auto hidden lg:flex lg:flex-1 lg:justify-center">
           <Suspense
             fallback={
@@ -9907,14 +11120,63 @@ export function Providers({ children }: { children: ReactNode }) {
 # --- end of components/layout/Providers.tsx ---
 
 # --- components/layout/TopBanner.tsx ---
+"use client";
+
+import { Fragment, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
+import { siteConfig } from "@/config/site";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
-export function TopBanner({ banner }: { banner: Dictionary["banner"] }) {
+const emailAddress = siteConfig.contact.email;
+
+const renderMessageWithEmail = (message: string, linkClassName: string): ReactNode => {
+  if (!message.includes(emailAddress)) {
+    return message;
+  }
+  const parts = message.split(emailAddress);
   return (
-    <div className="bg-[#123A26] py-2 text-sm text-[rgb(var(--primary-foreground))]">
-      <div className="container flex items-center justify-center font-medium tracking-wide">
-        {banner.freeShipping}
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={`${part}-${index}`}>
+          {part}
+          {index < parts.length - 1 ? (
+            <a href={`mailto:${emailAddress}`} className={linkClassName} rel="noreferrer">
+              {emailAddress}
+            </a>
+          ) : null}
+        </Fragment>
+      ))}
+    </>
+  );
+};
+
+export function TopBanner({ banner }: { banner: Dictionary["banner"] }) {
+  const [visible, setVisible] = useState(true);
+
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <div className="relative bg-[#123A26] py-3 text-xs text-[rgb(var(--primary-foreground))] sm:text-sm">
+      <div className="container relative flex flex-col gap-1 text-center font-medium tracking-wide pr-10 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-2 sm:pr-0">
+        <span className="font-semibold">{banner.freeShipping}</span>
+        <span>{banner.shippingIntro}</span>
+        <span className="text-[0.8rem] sm:text-inherit">
+          {renderMessageWithEmail(
+            banner.shippingContact,
+            "font-semibold underline decoration-white/70 underline-offset-4 hover:decoration-white",
+          )}
+        </span>
       </div>
+      <button
+        type="button"
+        onClick={() => setVisible(false)}
+        aria-label={banner.dismissLabel}
+        className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full bg-white/10 p-1 text-xs text-white/80 transition hover:bg-white/20 hover:text-white"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }
@@ -9980,11 +11242,19 @@ export function FeaturedCarousel({
       </div>
       <div
         ref={scrollerRef}
-        className="flex gap-6 overflow-x-auto pb-4 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-6 overflow-x-auto pb-6 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {products.map((product) => (
-          <div key={product.id} className="w-[82%] min-w-[260px] max-w-xs sm:w-[320px]">
-            <ProductCard product={product} dictionary={dictionary} locale={locale} />
+          <div
+            key={product.id}
+            className="w-[88%] min-w-[300px] max-w-sm sm:w-[360px] xl:w-[380px]"
+          >
+            <ProductCard
+              product={product}
+              dictionary={dictionary}
+              locale={locale}
+              variant="featured"
+            />
           </div>
         ))}
       </div>
@@ -10018,14 +11288,29 @@ export type ProductCardProps = {
   product: ProductListItem;
   dictionary: Dictionary;
   locale: Locale;
+  variant?: "default" | "featured";
 };
 
-export function ProductCard({ product, dictionary, locale }: ProductCardProps) {
+export function ProductCard({
+  product,
+  dictionary,
+  locale,
+  variant = "default",
+}: ProductCardProps) {
   const addToCart = useCartStore((state) => state.addItem);
   const toggleFavorite = useFavoritesStore((state) => state.toggle);
   const isFavorite = useFavoritesStore((state) => state.has(product.id));
   const { toast } = useToast();
   const { status } = useSession();
+  const isFeatured = variant === "featured";
+  const imageWrapperClass = cn(
+    "relative bg-neutral-50 transition duration-500 group-hover:bg-neutral-100",
+    isFeatured ? "h-64 sm:h-72 px-10 pb-10 pt-10" : "h-56 sm:h-60 px-6 pb-6 pt-10",
+  );
+  const imageClass = cn(
+    "object-contain transition duration-500",
+    isFeatured ? "scale-95 sm:scale-100" : "scale-90 sm:scale-95",
+  );
 
   const handleAddToCart = () => {
     addToCart(product.id, 1);
@@ -10068,12 +11353,12 @@ export function ProductCard({ product, dictionary, locale }: ProductCardProps) {
         href={withLocale(locale, `/product/${product.slug}`)}
         className="relative block overflow-hidden"
       >
-        <div className="relative h-56 sm:h-60 bg-neutral-50 px-6 pb-6 pt-10 transition duration-500 group-hover:bg-neutral-100">
+        <div className={imageWrapperClass}>
           <Image
             src={product.image}
             alt={product.name}
             fill
-            className="object-contain scale-90 sm:scale-95 transition duration-500"
+            className={imageClass}
             sizes="(min-width: 640px) 15rem, 14rem"
             priority={false}
           />
@@ -10101,7 +11386,7 @@ export function ProductCard({ product, dictionary, locale }: ProductCardProps) {
           <p className="line-clamp-2 text-sm text-neutral-500">{product.description}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
             <span>{dictionary.product.details.alcoholContent}</span>
-            <span className="font-semibold text-neutral-900">{product.abv}%</span>
+            <span className="font-semibold text-neutral-900">{product.vol}%</span>
             <span className="text-neutral-300">•</span>
             <span>{dictionary.product.details.bottleSize}</span>
             <span className="font-semibold text-neutral-900">{product.volumeMl} ml</span>
@@ -10162,7 +11447,7 @@ export interface ProductDetailData {
   priceCents: number;
   category: string;
   volumeMl: number;
-  abv: number;
+  vol: number;
   region: string;
   base: string;
   type: string;
@@ -10215,7 +11500,7 @@ export function ProductDetailView({
     {
       key: "alcohol",
       label: dictionary.product.details.alcoholContent,
-      value: product.alcoholContent || `${product.abv}%`,
+      value: product.alcoholContent || `${product.vol}%`,
     },
     {
       key: "bottle",
@@ -10254,7 +11539,7 @@ export function ProductDetailView({
             <div className="flex items-center gap-3 text-sm text-neutral-500">
               <span>{product.volumeMl} ml</span>
               <span>•</span>
-              <span>{product.abv}% ABV</span>
+              <span>{product.vol}% VOL</span>
             </div>
           </div>
           <div className="flex items-center gap-6">
@@ -10490,6 +11775,130 @@ export function ProductGrid({
 }
 # --- end of components/product/ProductGrid.tsx ---
 
+# --- components/product/ProductListingSection.tsx ---
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Locale } from "@/config/site";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import type { ProductListItem } from "@/types/product";
+import { ProductCard } from "./ProductCard";
+import { ProductSortControl } from "./ProductSortControl";
+
+const resolveSort = (
+  value: string | null,
+  fallback: "price-asc" | "price-desc",
+): "price-asc" | "price-desc" => {
+  if (value === "price-desc") {
+    return "price-desc";
+  }
+  if (value === "price-asc") {
+    return "price-asc";
+  }
+  return fallback;
+};
+
+const getSortFromLocation = (fallback: "price-asc" | "price-desc") => {
+  if (typeof window === "undefined") return fallback;
+  const params = new URLSearchParams(window.location.search);
+  const sortParam = params.get("sort");
+  return resolveSort(sortParam, fallback);
+};
+
+type ProductListingSectionProps = {
+  products: ProductListItem[];
+  dictionary: Dictionary;
+  locale: Locale;
+  initialSort: "price-asc" | "price-desc";
+};
+
+export function ProductListingSection({
+  products,
+  dictionary,
+  locale,
+  initialSort,
+}: ProductListingSectionProps) {
+  const [sortOrder, setSortOrder] = useState<"price-asc" | "price-desc">(initialSort);
+
+  useEffect(() => {
+    setSortOrder(getSortFromLocation(initialSort));
+  }, [initialSort]);
+
+  const sortedProducts = useMemo(() => {
+    return [...products].sort((a, b) =>
+      sortOrder === "price-asc"
+        ? a.priceCents - b.priceCents
+        : b.priceCents - a.priceCents,
+    );
+  }, [products, sortOrder]);
+
+  const updateHistory = useCallback((value: "price-asc" | "price-desc") => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("sort", value);
+    const nextPath = `${url.pathname}${url.search}${url.hash}`;
+    if (window.location.href === `${window.location.origin}${nextPath}`) {
+      window.history.replaceState({ sort: value }, "", nextPath);
+    } else {
+      window.history.pushState({ sort: value }, "", nextPath);
+    }
+  }, []);
+
+  const handleSortChange = useCallback(
+    (value: "price-asc" | "price-desc") => {
+      if (value === sortOrder) return;
+      setSortOrder(value);
+      updateHistory(value);
+    },
+    [sortOrder, updateHistory],
+  );
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setSortOrder(getSortFromLocation(initialSort));
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [initialSort]);
+
+  return (
+    <section id="product-list" className="space-y-10">
+      <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-4">
+          <span className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500">
+            {dictionary.home.allProductsEyebrow}
+          </span>
+          <h2 className="text-3xl font-semibold text-neutral-900 sm:text-4xl">
+            {dictionary.home.allProductsTitle}
+          </h2>
+          <p className="max-w-2xl text-neutral-600">
+            {dictionary.home.allProductsDescription}
+          </p>
+        </div>
+        <ProductSortControl
+          sortLabel={dictionary.catalog.sortLabel}
+          ascLabel={dictionary.catalog.priceSort.asc}
+          descLabel={dictionary.catalog.priceSort.desc}
+          initialSort={initialSort}
+          value={sortOrder}
+          onValueChange={handleSortChange}
+        />
+      </header>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        {sortedProducts.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            dictionary={dictionary}
+            locale={locale}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+# --- end of components/product/ProductListingSection.tsx ---
+
 # --- components/product/ProductSortControl.tsx ---
 "use client";
 
@@ -10501,6 +11910,8 @@ type ProductSortControlProps = {
   ascLabel: string;
   descLabel: string;
   initialSort: "price-asc" | "price-desc";
+  value?: "price-asc" | "price-desc";
+  onValueChange?: (value: "price-asc" | "price-desc") => void;
 };
 
 export function ProductSortControl({
@@ -10508,23 +11919,33 @@ export function ProductSortControl({
   ascLabel,
   descLabel,
   initialSort,
+  value,
+  onValueChange,
 }: ProductSortControlProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const resolvedSort = searchParams?.get("sort");
-  const currentSort =
-    resolvedSort === "price-desc"
+  const isControlled = typeof value !== "undefined" && !!onValueChange;
+  const currentSort = isControlled
+    ? value
+    : resolvedSort === "price-desc"
       ? "price-desc"
       : resolvedSort === "price-asc"
         ? "price-asc"
         : initialSort;
 
   const updateSort = (value: "price-asc" | "price-desc") => {
+    if (isControlled && onValueChange) {
+      onValueChange(value);
+      return;
+    }
     const params = new URLSearchParams(searchParams?.toString());
     params.set("sort", value);
     const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : (pathname ?? "/"));
+    router.replace(query ? `${pathname}?${query}` : (pathname ?? "/"), {
+      scroll: false,
+    });
   };
 
   return (
@@ -11053,9 +12474,8 @@ export function Toaster() {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="pointer-events-auto"
           >
-            <button
-              type="button"
-              onClick={() => dismiss(toast.id)}
+            <div
+              role="status"
               className={cn(
                 "mb-3 flex w-[min(360px,90vw)] items-start gap-3 rounded-2xl border border-[rgb(var(--border))] bg-white p-4 text-left shadow-lg transition hover:border-neutral-800",
                 toast.variant === "destructive" && "border-red-200 bg-red-50",
@@ -11075,7 +12495,15 @@ export function Toaster() {
                   </span>
                 ) : null}
               </span>
-            </button>
+              <button
+                type="button"
+                onClick={() => dismiss(toast.id)}
+                className="ml-2 rounded-full p-1 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-900/10 hover:text-neutral-900"
+                aria-label="Dismiss notification"
+              >
+                ×
+              </button>
+            </div>
           </motion.div>
         ))}
       </AnimatePresence>
@@ -11204,7 +12632,7 @@ export const locales = ["en", "pt"] as const;
 
 export type Locale = (typeof locales)[number];
 
-export const defaultLocale: Locale = "en";
+export const defaultLocale: Locale = "pt";
 
 type ContactInfo = {
   email: string;
@@ -11219,7 +12647,7 @@ export const siteConfig = {
     "Palmanhac Shop showcases premium Portuguese liqueurs, aguardente, and specialty spirits crafted in small batches.",
   defaultLocale,
   locales,
-  freeShippingThreshold: 50,
+  freeShippingThreshold: 60,
   currency: "EUR",
   contact: {
     email: "info@palmanhac-shop.pt",
@@ -11313,7 +12741,7 @@ export type ParsedMockItem = {
   description: Record<Locale, string>;
   category: ProductCategorySlug;
   priceCents: number;
-  abv: number;
+  vol: number;
   volumeMl: number;
   image: string;
   imageSourcePath: string | null;
@@ -11349,14 +12777,14 @@ const parsePrice = (content: string): number => {
   return Math.round(euros * 100);
 };
 
-const parseAbv = (content: string): number => {
+const parseVol = (content: string): number => {
   const match = content.match(/(\d+(?:[.,]\d+)?)\s*%/);
   if (!match || match[1] === undefined) {
-    throw new Error("ABV not found in mock item content.");
+    throw new Error("VOL not found in mock item content.");
   }
   const value = Number.parseFloat(match[1].replace(",", "."));
   if (Number.isNaN(value)) {
-    throw new Error(`Invalid ABV value "${match[1]}".`);
+    throw new Error(`Invalid VOL value "${match[1]}".`);
   }
   return value;
 };
@@ -11611,7 +13039,7 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
 
     const category = inferCategory(content);
     const priceCents = parsePrice(content);
-    const abv = parseAbv(content);
+    const vol = parseVol(content);
     const volumeMl = parseVolume(content);
     const imageFilename = await discoverImageFilename(folderPath);
 
@@ -11663,11 +13091,11 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
     const alcoholEn =
       extractFieldValue(linesForLocale("en"), englishLabels.alcoholContent) ||
       extractFieldValue(linesForLocale("pt"), portugueseLabels.alcoholContent) ||
-      `${abv}%`;
+      `${vol}%`;
     const alcoholPt =
       extractFieldValue(linesForLocale("pt"), portugueseLabels.alcoholContent) ||
       extractFieldValue(linesForLocale("en"), englishLabels.alcoholContent) ||
-      `${abv}%`;
+      `${vol}%`;
 
     const awardsEn = extractListValue(linesForLocale("en"), englishLabels.awards);
     const awardsPt = extractListValue(linesForLocale("pt"), portugueseLabels.awards);
@@ -11715,7 +13143,7 @@ export const parseMockItems = async (): Promise<ParsedMockItem[]> => {
       description,
       category,
       priceCents,
-      abv,
+      vol,
       volumeMl,
       image: resolveImagePath(slug, imageFilename),
       imageSourcePath: imageFilename ? path.join(folderPath, imageFilename) : null,
@@ -11761,9 +13189,11 @@ export async function seedProducts() {
         image: item.image,
         galleryImages: [item.image],
         volumeMl: item.volumeMl,
-        abv: item.abv,
+        vol: item.vol,
         descriptionEn: item.description.en,
         descriptionPt: item.description.pt,
+        baseEn: item.details.base.en,
+        basePt: item.details.base.pt,
         details: item.details,
         stock: 100,
         isActive: true,
@@ -11904,174 +13334,509 @@ export const sendAdminEmail = async ({
 };
 
 export const formatEmailBlock = (lines: string[]) => lines.filter(Boolean).join("\n");
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const toHtmlWithBold = (line: string) => {
+  const boldPattern = /\*\*(.+?)\*\*/g;
+  let result = "";
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = boldPattern.exec(line)) !== null) {
+    if (match.index > lastIndex) {
+      result += escapeHtml(line.slice(lastIndex, match.index));
+    }
+    const boldText = match[1] ?? "";
+    result += `<strong>${escapeHtml(boldText)}</strong>`;
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < line.length) {
+    result += escapeHtml(line.slice(lastIndex));
+  }
+  if (!result) {
+    result = escapeHtml(line);
+  }
+  return result;
+};
+
+export const formatEmailHtml = (lines: string[]) => {
+  return lines
+    .map((line) =>
+      line.trim()
+        ? `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;">${toHtmlWithBold(line)}</p>`
+        : `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;">&nbsp;</p>`,
+    )
+    .join("");
+};
 # --- end of lib/email/mailer.ts ---
 
 # --- lib/email/order-notifications.ts ---
-import { formatEmailBlock, sendAdminEmail, sendEmail } from "@/lib/email/mailer";
+import { PaymentMethod } from "@prisma/client";
+import {
+  formatEmailBlock,
+  formatEmailHtml,
+  sendAdminEmail,
+  sendEmail,
+} from "./mailer.ts";
 
 export type OrderEmailItem = {
   name: string;
   quantity: number;
+  unitPriceCents: number;
 };
 
-export type BilingualInstructions = {
-  pt?: string[];
-  en?: string[];
+export type MailingAddressFields = {
+  name?: string | null;
+  line1?: string | null;
+  line2?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
 };
 
-export type OrderNotificationOptions = {
+export type OrderEmailBaseOptions = {
   orderId: string;
+  orderDate?: Date;
   totalCents: number;
-  items: OrderEmailItem[];
+  shippingCostCents?: number;
   customerName: string;
   customerEmail?: string | null;
   customerPhone?: string | null;
-  shippingCity?: string | null;
-  paymentSummary?: string;
-  nif?: string | null;
-  notes?: string | null;
-  methodInstructions?: BilingualInstructions;
-  adminSubject?: string;
-  customerSubject?: string;
+  shippingAddress: MailingAddressFields;
+  taxId?: string | null;
+  items: OrderEmailItem[];
+};
+
+type PaymentLabels = {
+  pt: string;
+  en: string;
 };
 
 const formatEuro = (cents: number) => `€${(cents / 100).toFixed(2)}`;
 
-const sanitize = (lines?: string[]) => (lines ?? []).filter(Boolean);
+const buildOrderCode = (orderId: string) => `#${orderId.slice(0, 8).toUpperCase()}`;
 
-const formatItems = (items: OrderEmailItem[]) =>
+const formatOrderItems = (items: OrderEmailItem[]) =>
   items.length
-    ? items.map((item) => `- ${item.name} × ${item.quantity}`)
-    : ["- (no items provided)"];
+    ? items.map(
+        (item) =>
+          `- ${item.name} — ${item.quantity} × ${formatEuro(item.unitPriceCents)}`,
+      )
+    : ["- (sem artigos listados)"];
 
-type BaseEmailOptions = {
-  shortCode: string;
-  totalCents: number;
-  nif?: string | null;
-  items: OrderEmailItem[];
-  methodInstructions?: BilingualInstructions;
+const joinAddress = (address: MailingAddressFields) => {
+  const parts = [
+    address.name,
+    address.line1,
+    address.line2,
+    [address.postalCode, address.city].filter(Boolean).join(" ").trim(),
+    address.country,
+  ]
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter(Boolean);
+
+  return parts.length ? parts.join(", ") : "—";
 };
 
-const buildOrderEmailLines = ({
-  shortCode,
-  totalCents,
-  nif,
-  items,
-  methodInstructions,
-}: BaseEmailOptions) => {
-  const total = formatEuro(totalCents);
-  const itemLines = formatItems(items);
-  const ptSection = [
-    "PT",
-    "Olá!",
+const formatDate = (value: Date, locale: "pt" | "en") =>
+  new Intl.DateTimeFormat(locale === "pt" ? "pt-PT" : "en-GB", {
+    dateStyle: "long",
+    timeStyle: "short",
+  }).format(value);
+
+const applyBilingualLayout = (ptSection: string[], enSection: string[]) => [
+  "Nota: pode encontrar a versão em inglês abaixo desta mensagem.",
+  "",
+  ...ptSection,
+  "",
+  "— English version below —",
+  "",
+  ...enSection,
+];
+
+const summarizeShippingCost = (
+  items: OrderEmailItem[],
+  totalCents: number,
+  provided?: number,
+) => {
+  if (typeof provided === "number") {
+    return provided;
+  }
+
+  const subtotal = items.reduce(
+    (sum, item) => sum + item.unitPriceCents * item.quantity,
+    0,
+  );
+  const bottleCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const discountCents = bottleCount >= 10 ? Math.round(subtotal * 0.05) : 0;
+  const inferred = totalCents - (subtotal - discountCents);
+  return Math.max(inferred, 0);
+};
+
+const resolvePaymentLabels = (method?: PaymentMethod | null): PaymentLabels => {
+  switch (method) {
+    case PaymentMethod.MULTIBANCO:
+      return { pt: "Multibanco", en: "Multibanco" };
+    case PaymentMethod.MBWAY:
+      return { pt: "MB WAY", en: "MB WAY" };
+    default:
+      return {
+        pt: "Cartão (Visa / MasterCard)",
+        en: "Card (Visa / MasterCard)",
+      };
+  }
+};
+
+const computeVatCents = (totalCents: number) =>
+  Math.round(totalCents - totalCents / 1.23);
+
+const sanitizeString = (value?: string | null, fallback = "—") =>
+  value && value.trim().length ? value.trim() : fallback;
+
+export const normalizeMailingAddress = (value: unknown): MailingAddressFields => {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  const source = value as Record<string, unknown>;
+  const read = (key: string) =>
+    typeof source[key] === "string" ? (source[key] as string).trim() : undefined;
+
+  return {
+    name: read("name"),
+    line1: read("line1"),
+    line2: read("line2"),
+    city: read("city"),
+    postalCode: read("postalCode"),
+    country: read("country"),
+  };
+};
+
+const buildOrderSnapshot = (options: OrderEmailBaseOptions) => {
+  const orderDate = options.orderDate ?? new Date();
+  const orderCode = buildOrderCode(options.orderId);
+  const shippingCostCents = summarizeShippingCost(
+    options.items,
+    options.totalCents,
+    options.shippingCostCents,
+  );
+  const vatCents = computeVatCents(options.totalCents);
+  const address = joinAddress(options.shippingAddress);
+  const phone = sanitizeString(options.customerPhone);
+  const customerName = sanitizeString(options.customerName, "Cliente Palmanhac");
+  const itemsList = formatOrderItems(options.items);
+
+  return {
+    orderCode,
+    orderDate,
+    shippingCostCents,
+    vatCents,
+    address,
+    phone,
+    customerName,
+    itemsList,
+  };
+};
+
+export type OrderPlacedEmailOptions = OrderEmailBaseOptions;
+
+export const sendOrderPlacedEmails = async (options: OrderPlacedEmailOptions) => {
+  const snapshot = buildOrderSnapshot(options);
+  const orderTotal = formatEuro(options.totalCents);
+  const shippingCost = formatEuro(snapshot.shippingCostCents);
+  const orderDatePt = formatDate(snapshot.orderDate, "pt");
+  const orderDateEn = formatDate(snapshot.orderDate, "en");
+  const address = snapshot.address;
+  const phone = snapshot.phone;
+  const vatText = formatEuro(snapshot.vatCents);
+
+  const ptCustomerLines = [
+    `Olá, ${snapshot.customerName}!`,
+    "Obrigado pela sua compra na Palmanhac. Temos o prazer de confirmar que a sua encomenda foi recebida com sucesso.",
     "",
-    "Obrigado pela sua encomenda na Palmanhac.",
-    "",
-    "Recebemos o seu pedido com sucesso.",
     "Aqui estão os detalhes da sua encomenda:",
     "",
-    `Número da encomenda: ${shortCode}`,
-    ...(nif ? [`NIF / TIN: ${nif}`] : []),
-    "Itens encomendados:",
-    ...itemLines,
-    `Valor total (incluindo IVA): ${total}`,
+    "🧾 DETALHES DA ENCOMENDA",
+    `Número da encomenda: ${snapshot.orderCode}`,
     "",
-    "A sua encomenda será enviada após a confirmação do pagamento.",
-    "Caso tenha alguma dúvida ou precise de assistência, estamos sempre disponíveis.",
+    "🛒 Itens encomendados:",
+    ...snapshot.itemsList,
+    "(cada item no formato: produto — quantidade × preço)",
     "",
-    "Pode contactar-nos através de:",
+    `Custo de envio: ${shippingCost}`,
+    `Valor total (IVA incluído): ${orderTotal}`,
+    "",
+    "📦 Informações de envio",
+    `Nome: ${snapshot.customerName}`,
+    `Endereço de entrega: ${address}`,
+    `Telefone: ${phone}`,
+    "",
+    "🚚 O que acontece a seguir?",
+    "Após a confirmação do pagamento, iremos enviar-lhe:",
+    "",
+    "a confirmação de envio,",
+    "",
+    "o número de rastreamento para acompanhar a sua entrega.",
+    "",
+    "Obrigado por escolher a Palmanhac.",
+    "Se tiver alguma dúvida, estamos sempre disponíveis para ajudar.",
+    "",
     "Email: info@palmanhac-shop.pt",
     "Telefone: +351 964 690 254",
     "",
-    "Obrigado por escolher a Palmanhac!",
-    "",
     "Com os melhores cumprimentos,",
     "Equipa Palmanhac",
-    "",
-    ...sanitize(methodInstructions?.pt),
   ];
 
-  const enSection = [
-    "EN",
-    "Hello!",
+  const enCustomerLines = [
+    `Hello, ${snapshot.customerName}!`,
+    "Thank you for your purchase at Palmanhac. We are happy to confirm that your order has been successfully received.",
     "",
-    "Thank you for your order at Palmanhac.",
+    "Here are the details of your order:",
     "",
-    "We have successfully received your order.",
-    "Here are the details of your purchase:",
+    "🧾 ORDER DETAILS",
+    `Order number: ${snapshot.orderCode}`,
     "",
-    `Order number: ${shortCode}`,
-    ...(nif ? [`Tax ID (NIF/TIN): ${nif}`] : []),
-    "Ordered items:",
-    ...itemLines,
-    `Total amount (including VAT): ${total}`,
+    "🛒 Items ordered:",
+    ...snapshot.itemsList,
+    "(each item in the format: product — quantity × price)",
     "",
-    "Your order will be shipped once the payment is confirmed.",
-    "If you have any questions or need assistance, we are always here to help.",
+    `Shipping cost: ${shippingCost}`,
+    `Total amount (IVA included): ${orderTotal}`,
     "",
-    "You can contact us at:",
+    "📦 Shipping Information",
+    `Name: ${snapshot.customerName}`,
+    `Delivery address: ${address}`,
+    `Phone number: ${phone}`,
+    "",
+    "🚚 What happens next?",
+    "Once your payment is confirmed, we will send you:",
+    "",
+    "a shipping confirmation,",
+    "",
+    "a tracking number so you can follow your delivery.",
+    "",
+    "Thank you for choosing Palmanhac.",
+    "If you have any questions, we are always here to help.",
+    "",
     "Email: info@palmanhac-shop.pt",
     "Phone: +351 964 690 254",
     "",
-    "Thank you for choosing Palmanhac!",
-    "",
     "Best regards,",
     "Palmanhac Team",
-    "",
-    ...sanitize(methodInstructions?.en),
   ];
 
-  return [...ptSection, "", ...enSection];
-};
+  const customerPayload = applyBilingualLayout(ptCustomerLines, enCustomerLines);
 
-export const sendOrderCreationNotifications = async ({
-  orderId,
-  totalCents,
-  items,
-  customerName,
-  customerEmail,
-  customerPhone,
-  shippingCity,
-  paymentSummary,
-  nif,
-  notes,
-  methodInstructions,
-  adminSubject,
-  customerSubject,
-}: OrderNotificationOptions) => {
-  const shortCode = `#${orderId.slice(0, 8).toUpperCase()}`;
-  const baseLines = buildOrderEmailLines({
-    shortCode,
-    totalCents,
-    nif,
-    items,
-    methodInstructions,
-  });
+  if (options.customerEmail) {
+    await sendEmail({
+      to: options.customerEmail,
+      subject: `A Sua Encomenda ${snapshot.orderCode} Foi Recebida – Palmanhac`,
+      text: formatEmailBlock(customerPayload),
+      html: formatEmailHtml(customerPayload),
+    });
+  }
 
   const adminLines = [
-    "Admin details:",
-    `Full order ID: ${orderId}`,
-    `Short reference: ${shortCode}`,
-    `Customer: ${customerName}`,
-    customerEmail ? `Email: ${customerEmail}` : "",
-    customerPhone ? `Phone: ${customerPhone}` : "",
-    shippingCity ? `City: ${shippingCity}` : "",
-    paymentSummary ? `Payment: ${paymentSummary}` : "",
-    notes ? `Notes: ${notes}` : "",
+    "Olá,",
+    "",
+    "Foi registada uma nova encomenda na loja online.",
+    "",
+    "DETALHES DA ENCOMENDA",
+    `Data da encomenda: ${orderDatePt}`,
+    `Número da encomenda: ${snapshot.orderCode}`,
+    `NIF do cliente: ${sanitizeString(options.taxId)}`,
+    `Email do cliente: ${sanitizeString(options.customerEmail)}`,
+    "",
+    "🛒 Itens encomendados:",
+    ...snapshot.itemsList,
+    "(cada item no formato: produto — quantidade × preço)",
+    "",
+    `Custo de envio: ${shippingCost}`,
+    `Valor total (IVA incluído): ${orderTotal}`,
+    `IVA incluído: ${vatText}`,
+    "",
+    "📦 Informações de envio",
+    `Nome: ${snapshot.customerName}`,
+    `Endereço de entrega: ${address}`,
+    `Telefone: ${phone}`,
+    "",
+    "Se precisar de atualizar ou verificar esta encomenda, pode fazê-lo no painel de administração.",
+    "",
+    "Cumprimentos,",
+    "Sistema Palmanhac-Shop",
   ];
 
   await sendAdminEmail({
-    subject: adminSubject ?? `New order ${shortCode}`,
-    text: formatEmailBlock([...baseLines, "", ...sanitize(adminLines)]),
+    subject: `Nova encomenda ${snapshot.orderCode}`,
+    text: formatEmailBlock(adminLines),
+    html: formatEmailHtml(adminLines),
   });
+};
 
-  if (customerEmail) {
+export type PaymentConfirmationEmailOptions = OrderEmailBaseOptions & {
+  paymentDate?: Date;
+  paymentMethod?: PaymentMethod | null;
+};
+
+export const sendPaymentConfirmationEmails = async (
+  options: PaymentConfirmationEmailOptions,
+) => {
+  const snapshot = buildOrderSnapshot(options);
+  const orderTotal = formatEuro(options.totalCents);
+  const shippingCost = formatEuro(snapshot.shippingCostCents);
+  const vatText = formatEuro(snapshot.vatCents);
+  const paymentLabels = resolvePaymentLabels(options.paymentMethod);
+  const paymentDatePt = formatDate(options.paymentDate ?? new Date(), "pt");
+  const paymentDateEn = formatDate(options.paymentDate ?? new Date(), "en");
+  const orderDatePt = formatDate(snapshot.orderDate, "pt");
+  const orderDateEn = formatDate(snapshot.orderDate, "en");
+  const address = snapshot.address;
+  const phone = snapshot.phone;
+  const itemsList = snapshot.itemsList;
+
+  const ptCustomerLines = [
+    "PAGAMENTO RECEBIDO – CONFIRMAÇÃO",
+    `Assunto: Confirmação de Pagamento – Pedido ${snapshot.orderCode}`,
+    "",
+    `Olá ${snapshot.customerName},`,
+    "",
+    "Confirmamos que o pagamento do seu pedido foi recebido com sucesso.",
+    "",
+    "Detalhes do Pagamento",
+    `Método de pagamento: ${paymentLabels.pt}`,
+    `Valor recebido: ${orderTotal} (IVA incluído)`,
+    `Data de pagamento: ${paymentDatePt}`,
+    "",
+    "Detalhes do Pedido",
+    `Número do pedido: ${snapshot.orderCode}`,
+    "",
+    "Produtos encomendados:",
+    ...itemsList,
+    "",
+    `Custos de envio: ${shippingCost}`,
+    `Total: ${orderTotal} (IVA incluído)`,
+    "",
+    "Endereço de Entrega",
+    `Nome: ${snapshot.customerName}`,
+    `Endereço: ${address}`,
+    `Telefone: ${phone}`,
+    "",
+    "O seu pedido será agora preparado. Assim que for enviado, receberá uma nova notificação com o número de rastreamento.",
+    "",
+    "Agradecemos a sua confiança na Palmanhac!",
+    "",
+    "Com os melhores cumprimentos,",
+    "Equipa Palmanhac",
+  ];
+
+  const enCustomerLines = [
+    "🇬🇧 PAYMENT RECEIVED – CONFIRMATION",
+    `Subject: Payment Confirmation – Order ${snapshot.orderCode}`,
+    "",
+    `Hello ${snapshot.customerName},`,
+    "",
+    "We confirm that the payment for your order has been successfully received.",
+    "",
+    "Payment Details",
+    `Payment method: ${paymentLabels.en}`,
+    `Amount received: ${orderTotal} (VAT included)`,
+    `Payment date: ${paymentDateEn}`,
+    "",
+    "Order Details",
+    `Order number: ${snapshot.orderCode}`,
+    "",
+    "Ordered products:",
+    ...itemsList,
+    "",
+    `Shipping cost: ${shippingCost}`,
+    `Total: ${orderTotal} (VAT included)`,
+    "",
+    "Shipping Address",
+    `Name: ${snapshot.customerName}`,
+    `Address: ${address}`,
+    `Phone: ${phone}`,
+    "",
+    "Your order will now be prepared. As soon as it is shipped, you will receive another notification with the tracking number.",
+    "",
+    "Thank you for choosing Palmanhac!",
+    "",
+    "Kind regards,",
+    "Palmanhac Team",
+  ];
+
+  const customerPayload = applyBilingualLayout(ptCustomerLines, enCustomerLines);
+
+  if (options.customerEmail) {
     await sendEmail({
-      to: customerEmail,
-      subject: customerSubject ?? `We received your order ${shortCode}`,
-      text: formatEmailBlock(baseLines),
+      to: options.customerEmail,
+      subject: `Confirmação de Pagamento – Pedido ${snapshot.orderCode}`,
+      text: formatEmailBlock(customerPayload),
+      html: formatEmailHtml(customerPayload),
     });
   }
+
+  const paymentOptions = [
+    { method: PaymentMethod.CARD, label: "Cartão (Visa / MasterCard)" },
+    { method: PaymentMethod.MULTIBANCO, label: "Multibanco" },
+    { method: PaymentMethod.MBWAY, label: "MB Way" },
+  ];
+
+  const paymentLines = paymentOptions.map(
+    ({ method, label }) => `${options.paymentMethod === method ? "☑" : "☐"} ${label}`,
+  );
+
+  const adminLines = [
+    "ASSUNTO: Pagamento Confirmado – Encomenda",
+    `${snapshot.orderCode}`,
+    "Pagamento Confirmado",
+    `Data do pagamento: ${paymentDatePt}`,
+    `Número da encomenda: ${snapshot.orderCode}`,
+    "",
+    "💳 Método de pagamento",
+    "(assinalar a opção correspondente)",
+    "",
+    ...paymentLines,
+    "",
+    `🧾 Valor recebido: ${orderTotal}`,
+    `IVA incluído (${vatText})`,
+    "",
+    "DETALHES DA ENCOMENDA",
+    `Data da encomenda: ${orderDatePt}`,
+    `Número da encomenda: ${snapshot.orderCode}`,
+    `NIF do cliente: ${sanitizeString(options.taxId)}`,
+    `Email do cliente: ${sanitizeString(options.customerEmail)}`,
+    "",
+    "🛒 Itens encomendados:",
+    ...itemsList,
+    "(cada item no formato: produto — quantidade × preço)",
+    "",
+    `Custo de envio: ${shippingCost}`,
+    `Valor total (IVA incluído): ${orderTotal}`,
+    `IVA incluído: ${vatText}`,
+    "",
+    "📦 Informações de envio",
+    `Nome: ${snapshot.customerName}`,
+    `Endereço de entrega: ${address}`,
+    `Telefone: ${phone}`,
+    "",
+    "Se precisar de atualizar ou verificar esta encomenda, pode fazê-lo no painel de administração.",
+    "",
+    "Cumprimentos,",
+    "Sistema Palmanhac-Shop",
+  ];
+
+  await sendAdminEmail({
+    subject: `Pagamento confirmado ${snapshot.orderCode}`,
+    text: formatEmailBlock(adminLines),
+    html: formatEmailHtml(adminLines),
+  });
 };
 # --- end of lib/email/order-notifications.ts ---
 
@@ -12173,6 +13938,9 @@ export type Dictionary = {
   };
   banner: {
     freeShipping: string;
+    shippingIntro: string;
+    shippingContact: string;
+    dismissLabel: string;
   };
   ageGate: {
     title: string;
@@ -12312,6 +14080,11 @@ export type Dictionary = {
   checkout: {
     heading: string;
     subheading: string;
+    shippingNoticeTitle: string;
+    multibancoNoticeTitle: string;
+    multibancoNotice: string;
+    confirmationNoticeTitle: string;
+    confirmationNotice: string;
     contactInformation: string;
     contactEmailLabel: string;
     contactPhoneLabel: string;
@@ -12347,6 +14120,7 @@ export type Dictionary = {
     pendingHint: string;
     pendingRefresh: string;
     pendingOrdersCta: string;
+    pendingSupportMessage: string;
     pendingMissingOrder: string;
     methods: Record<"multibanco" | "mbway" | "card", string>;
     methodDescriptions: Record<"multibanco" | "mbway" | "card", string>;
@@ -12388,6 +14162,11 @@ export type Dictionary = {
     cardPendingProcessing: string;
     cardPendingGeneric: string;
     cardFinalizeWarning: string;
+    thankYouHeading: string;
+    thankYouSubheading: string;
+    thankYouOrdersCta: string;
+    thankYouTrackCta: string;
+    thankYouOrderLabel: string;
     viewOrdersCta: string;
     summary: string;
     summaryItems: string;
@@ -12426,9 +14205,13 @@ export type Dictionary = {
       cardPending: string;
       paid: string;
     };
+    pendingSupportMessage: string;
     paymentMethodLabel: string;
     paymentMethodUnknown: string;
     viewDetails: string;
+    searchLabel: string;
+    searchPlaceholder: string;
+    searchEmpty: string;
   };
   twoFactor: {
     setupTitle: string;
@@ -12506,7 +14289,11 @@ const dictionaries: Record<Locale, Dictionary> = {
       account: "Account",
     },
     banner: {
-      freeShipping: "Free shipping from €50",
+      freeShipping: "Free shipping from €60",
+      shippingIntro: "Currently, we ship to mainland Portugal and Spain.",
+      shippingContact:
+        "For other international orders, please contact us at info@palmanhac-shop.pt to check the possibility of shipping.",
+      dismissLabel: "Close announcement",
     },
     ageGate: {
       title: "Are you of legal drinking age?",
@@ -12695,7 +14482,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "Which countries do you ship to?",
                 answer: [
-                  "Currently, we ship to mainland Portugal, Madeira, and Spain.",
+                  "Currently, we ship to mainland Portugal and Spain.",
                   "For other international orders, please contact us at info@palmanhac-shop.pt to check the possibility of shipping.",
                 ],
               },
@@ -12707,7 +14494,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 question: "What is the average delivery time?",
                 answer: [
                   "The usual delivery time is 1 to 4 business days after payment confirmation.",
-                  "Deliveries to Madeira and Spain may take slightly longer depending on logistics and customs handling.",
+                  "Deliveries to Spain may take slightly longer depending on logistics and customs handling.",
                   "Delays may occur due to courier issues or external factors beyond Palmanhac's control.",
                 ],
               },
@@ -12716,7 +14503,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 answer: [
                   "- €6.00 — 1 to 2 bottles",
                   "- €8.00 — 3 or more bottles",
-                  "- Free shipping — for orders over €50.00",
+                  "- Free shipping — for orders over €60.00",
                 ],
               },
               {
@@ -12760,7 +14547,7 @@ const dictionaries: Record<Locale, Dictionary> = {
           costs: [
             "€6 for 1 or 2 bottles",
             "€8 for 3 or more bottles",
-            "Free delivery for orders over €50",
+            "Free delivery for orders over €60",
           ],
           extraNotes: [
             "Palmanhac uses secure, custom packaging designed to ensure the integrity of products during transit.",
@@ -12815,7 +14602,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       noAccountCta: "Don't have an account?",
       hasAccountCta: "Already have an account?",
       passwordHint:
-        "Passwords must be at least 12 characters and include uppercase, lowercase, numbers, and symbols.",
+        "Passwords must be at least 6 characters and include uppercase, lowercase, and numeric characters.",
       alerts: {
         loginFailed: "Unable to sign in with those credentials.",
         registrationSuccess: "Account created successfully. You can sign in now.",
@@ -12857,6 +14644,13 @@ const dictionaries: Record<Locale, Dictionary> = {
     checkout: {
       heading: "Checkout",
       subheading: "Confirm your details and complete your Palmanhac order.",
+      shippingNoticeTitle: "Shipping availability",
+      multibancoNoticeTitle: "Multibanco temporarily unavailable",
+      multibancoNotice:
+        "Multibanco payments are currently unavailable while we work on a fix. You can continue using MB WAY and card payments. For any questions, please contact info@palmanhac-shop.pt and we will be happy to assist.",
+      confirmationNoticeTitle: "Need help with your confirmation?",
+      confirmationNotice:
+        "If you've already confirmed the payment but did not receive an email, please reach us at info@palmanhac-shop.pt with your order number and we'll assist right away.",
       contactInformation: "Contact information",
       contactEmailLabel: "Email address",
       contactPhoneLabel: "Phone (optional)",
@@ -12898,6 +14692,8 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Need to double-check? Open the Orders page to review the latest payment status.",
       pendingRefresh: "Refresh status",
       pendingOrdersCta: "Go to Orders",
+      pendingSupportMessage:
+        "If you have already confirmed the payment in your MB WAY app but the status is not updating here, please contact us at info@palmanhac-shop.pt with your order reference {orderId}. We will be happy to assist you.",
       pendingMissingOrder:
         "We could not find that order reference. Please return to checkout and try again.",
       methods: {
@@ -12962,6 +14758,12 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Stripe marked this payment as “{status}”. We’ll update your Orders page automatically once it changes.",
       cardFinalizeWarning:
         "The payment succeeded but we could not refresh the order automatically. Please review the Orders page for the latest status.",
+      thankYouHeading: "Thank you for your purchase!",
+      thankYouSubheading:
+        "We’re preparing your Palmanhac order. You can track the latest updates whenever you need.",
+      thankYouOrdersCta: "Return to my orders",
+      thankYouTrackCta: "Track this order",
+      thankYouOrderLabel: "Order reference",
       viewOrdersCta: "Go to Orders",
       summary: "Order summary",
       summaryItems: "{count} items",
@@ -13014,7 +14816,12 @@ const dictionaries: Record<Locale, Dictionary> = {
           "Awaiting Stripe confirmation. Complete the card payment to update this order.",
         paid: "Payment received. No further action is required.",
       },
+      pendingSupportMessage:
+        "If you already confirmed this payment but it still shows as pending, please email info@palmanhac-shop.pt with order reference {orderId} and we will assist you right away.",
       viewDetails: "View details",
+      searchLabel: "Search orders",
+      searchPlaceholder: "Search by order ID, reference, or product",
+      searchEmpty: "No orders matched that search.",
     },
     twoFactor: {
       setupTitle: "Secure Admin Access",
@@ -13043,7 +14850,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       emailPlaceholder: "Email address",
       submit: "Subscribe",
       logisticsBlurb:
-        "Deliveries within 24–48h in Mainland Portugal. Free shipping for orders over €50.",
+        "Deliveries within 24–48h in Mainland Portugal. Free shipping for orders over €60.",
       addressHeading: "Client Services",
       addressLines: [
         "KARMUXILON LDA",
@@ -13105,7 +14912,11 @@ const dictionaries: Record<Locale, Dictionary> = {
       account: "Conta",
     },
     banner: {
-      freeShipping: "Portes grátis a partir de 50 €",
+      freeShipping: "Portes grátis a partir de 60 €",
+      shippingIntro: "Neste momento enviamos para Portugal continental e Espanha.",
+      shippingContact:
+        "Para outras encomendas internacionais, contacte-nos através de info@palmanhac-shop.pt para verificarmos a possibilidade de envio.",
+      dismissLabel: "Fechar aviso",
     },
     ageGate: {
       title: "Tem idade legal para o consumo de bebidas alcoólicas?",
@@ -13294,7 +15105,7 @@ const dictionaries: Record<Locale, Dictionary> = {
               {
                 question: "Para que países enviam encomendas?",
                 answer: [
-                  "Atualmente, enviamos para Portugal Continental, Madeira e Espanha.",
+                  "Atualmente, enviamos para Portugal Continental e Espanha.",
                   "Para outros destinos internacionais, contacte-nos através de info@palmanhac-shop.pt para verificar a possibilidade de envio.",
                 ],
               },
@@ -13306,7 +15117,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 question: "Qual é o prazo médio de entrega?",
                 answer: [
                   "O prazo habitual é de 1 a 4 dias úteis após a confirmação do pagamento.",
-                  "As entregas para Madeira e Espanha podem demorar um pouco mais, dependendo da logística e do tratamento aduaneiro.",
+                  "As entregas para Espanha podem demorar um pouco mais, dependendo da logística e do tratamento aduaneiro.",
                   "Podem ocorrer atrasos devido a problemas da transportadora ou fatores externos fora do controlo da Palmanhac.",
                 ],
               },
@@ -13315,7 +15126,7 @@ const dictionaries: Record<Locale, Dictionary> = {
                 answer: [
                   "- 6,00 € — 1 a 2 garrafas",
                   "- 8,00 € — 3 ou mais garrafas",
-                  "- Grátis — para encomendas superiores a 50,00 €",
+                  "- Grátis — para encomendas superiores a 60,00 €",
                 ],
               },
               {
@@ -13361,7 +15172,7 @@ const dictionaries: Record<Locale, Dictionary> = {
           costs: [
             "6€ para 1 ou 2 garrafas",
             "8€ para 3 ou mais garrafas",
-            "Entrega gratuita para encomendas superiores a 50€",
+            "Entrega gratuita para encomendas superiores a 60€",
           ],
           extraNotes: [
             "A Palmanhac utiliza embalagens seguras e personalizadas, concebidas para garantir a integridade dos produtos durante o transporte.",
@@ -13416,7 +15227,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       noAccountCta: "Ainda não tem conta?",
       hasAccountCta: "Já tem conta?",
       passwordHint:
-        "A palavra-passe deve ter pelo menos 12 caracteres e incluir maiúsculas, minúsculas, números e símbolos.",
+        "A palavra-passe deve ter pelo menos 6 caracteres e incluir letras maiúsculas, minúsculas e números.",
       alerts: {
         loginFailed: "Não foi possível iniciar sessão com essas credenciais.",
         registrationSuccess: "Conta criada com sucesso. Já pode iniciar sessão.",
@@ -13459,6 +15270,13 @@ const dictionaries: Record<Locale, Dictionary> = {
     checkout: {
       heading: "Checkout",
       subheading: "Confirme os seus dados e finalize a encomenda Palmanhac.",
+      shippingNoticeTitle: "Disponibilidade de envios",
+      multibancoNoticeTitle: "Multibanco temporariamente indisponível",
+      multibancoNotice:
+        "Os pagamentos por Multibanco estão temporariamente indisponíveis enquanto resolvemos o problema. Pode continuar a utilizar MB WAY e pagamentos por cartão. Para qualquer questão contacte info@palmanhac-shop.pt e teremos todo o gosto em ajudar.",
+      confirmationNoticeTitle: "Precisa de ajuda com a confirmação?",
+      confirmationNotice:
+        "Se já confirmou o pagamento mas não recebeu um email, contacte info@palmanhac-shop.pt com o número da encomenda e teremos todo o gosto em ajudar.",
       contactInformation: "Informações de contacto",
       contactEmailLabel: "Email",
       contactPhoneLabel: "Telefone (opcional)",
@@ -13500,6 +15318,8 @@ const dictionaries: Record<Locale, Dictionary> = {
         "Já confirmou o pagamento? Visite a página de Encomendas para ver o estado mais recente.",
       pendingRefresh: "Atualizar estado",
       pendingOrdersCta: "Ver Encomendas",
+      pendingSupportMessage:
+        "Se já confirmou o pagamento na aplicação MB WAY mas o estado não está a atualizar aqui, por favor contacte-nos através de info@palmanhac-shop.pt com a referência {orderId}. Teremos todo o gosto em ajudar.",
       pendingMissingOrder:
         "Não encontrámos a referência da encomenda. Volte a tentar a partir do checkout.",
       methods: {
@@ -13565,6 +15385,12 @@ const dictionaries: Record<Locale, Dictionary> = {
         "A Stripe identificou este pagamento como “{status}”. Atualizaremos automaticamente a página de Encomendas assim que houver alterações.",
       cardFinalizeWarning:
         "O pagamento foi concluído, mas não conseguimos atualizar a encomenda automaticamente. Verifique a página de Encomendas para confirmar o estado.",
+      thankYouHeading: "Obrigado pela sua compra!",
+      thankYouSubheading:
+        "Estamos a preparar a sua encomenda Palmanhac. Pode acompanhar as atualizações sempre que precisar.",
+      thankYouOrdersCta: "Voltar às minhas encomendas",
+      thankYouTrackCta: "Acompanhar esta encomenda",
+      thankYouOrderLabel: "Referência da encomenda",
       viewOrdersCta: "Ir para Encomendas",
       summary: "Resumo da encomenda",
       summaryItems: "{count} artigos",
@@ -13617,7 +15443,12 @@ const dictionaries: Record<Locale, Dictionary> = {
           "A aguardar confirmação do cartão na Stripe. Termine o pagamento para atualizar esta encomenda.",
         paid: "Pagamento recebido. Não é necessária nenhuma ação adicional.",
       },
+      pendingSupportMessage:
+        "Se já confirmou este pagamento mas continua pendente, envie um email para info@palmanhac-shop.pt com a referência {orderId} e teremos todo o gosto em ajudar.",
       viewDetails: "Ver detalhes",
+      searchLabel: "Pesquisar encomendas",
+      searchPlaceholder: "Procure por nº de encomenda, referência ou produto",
+      searchEmpty: "Nenhuma encomenda corresponde a essa pesquisa.",
     },
     twoFactor: {
       setupTitle: "Proteger acesso de administrador",
@@ -13646,7 +15477,7 @@ const dictionaries: Record<Locale, Dictionary> = {
       emailPlaceholder: "Endereço de email",
       submit: "Subscrever",
       logisticsBlurb:
-        "Entregas em 24–48h em Portugal Continental. Portes gratuitos para encomendas superiores a 50€.",
+        "Entregas em 24–48h em Portugal Continental. Portes gratuitos para encomendas superiores a 60€.",
       addressHeading: "Atendimento ao Cliente",
       addressLines: [
         "KARMUXILON LDA",
@@ -13848,6 +15679,7 @@ export type EuPagoMBWayResult = {
   method: "mbway";
   transactionId: string;
   statusUrl?: string;
+  reference?: string | null;
   metadata?: Record<string, unknown>;
 };
 export type EuPagoCardResult = {
@@ -13896,6 +15728,18 @@ const ensureCardReturnUrl = () => {
   if (!url) throw new EuPagoConfigurationError("EUPAGO_CARD_RETURN_URL is not defined.");
   return url.trim();
 };
+const resolveMultibancoPerDup = () => {
+  const raw = process.env.EUPAGO_MULTIBANCO_PER_DUP;
+  if (!raw) return 0;
+  if (raw === "1") return 1;
+  if (raw === "0") return 0;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "true" || normalized === "yes") return 1;
+  if (normalized === "false" || normalized === "no") return 0;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed)) return 0;
+  return parsed === 1 ? 1 : 0;
+};
 
 const buildUrl = (path: string) =>
   `${ensureBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
@@ -13920,8 +15764,13 @@ type EuPagoSerializable =
   | { [key: string]: EuPagoSerializable };
 type EuPagoPayload = Record<string, EuPagoSerializable>;
 type EuPagoFetchOptions = {
-  disableAuthInjection?: boolean;
+  authStrategy?: EuPagoAuthStrategy;
 };
+
+type EuPagoAuthStrategy =
+  | { type: "apiKey" }
+  | { type: "bearer"; token: string }
+  | { type: "none" };
 
 const euPagoFetch = async <T>(
   path: string,
@@ -13959,12 +15808,14 @@ const euPagoFetch = async <T>(
     if (v !== undefined && v !== null) jsonPayload[k] = v;
   }
 
-  if (mode === "header" && !options.disableAuthInjection) {
-    headers["ApiKey"] = key;
+  headers["ApiKey"] = key;
+  headers["X-Api-Key"] = key;
+
+  const authStrategy = options.authStrategy ?? { type: "apiKey" };
+  if (authStrategy.type === "apiKey") {
     headers["Authorization"] = `ApiKey ${key}`;
-    headers["X-Api-Key"] = key;
-  } else if (mode === "body" && !options.disableAuthInjection) {
-    bodyParams.set("apiKey", key);
+  } else if (authStrategy.type === "bearer") {
+    headers["Authorization"] = `Bearer ${authStrategy.token}`;
   }
 
   if (format === "form") {
@@ -14071,25 +15922,48 @@ const normaliseStatusPayload = (p: Record<string, unknown>): EuPagoStatusResult 
     .map((v) => (typeof v === "string" ? v.toLowerCase() : undefined))
     .find((v) => v && v.trim());
   let status: EuPagoStatusResult["status"] = "unknown";
-  if (
-    s?.includes("paid") ||
-    s === "ok" ||
-    s === "paga" ||
-    s === "pago" ||
+  const paidKeywords = [
+    "paid",
+    "pay",
+    "ok",
+    "success",
+    "sucesso",
+    "paga",
+    "pago",
+    "liquidado",
+    "completed",
+    "complete",
+  ];
+  const pendingKeywords = ["pend", "wait", "aguard", "process", "analise"];
+  const failureKeywords = ["fail", "error", "denied", "ko", "reject", "recus"];
+
+  const booleanPaid =
     p.paid === true ||
-    p.pago === 1
+    p.paid === "true" ||
+    p.success === true ||
+    p.success === "true" ||
+    p.confirmed === true ||
+    p.confirmado === true ||
+    p.ok === true ||
+    p.pago === 1 ||
+    p.pago === true ||
+    p.liquidado === true;
+
+  const statusCodePaid =
+    (typeof p.status_code === "number" && p.status_code === 0) ||
+    (typeof p.code === "number" && p.code === 0);
+
+  if (
+    booleanPaid ||
+    (s && paidKeywords.some((keyword) => s.includes(keyword))) ||
+    statusCodePaid
   )
     status = "paid";
-  else if (
-    s?.includes("fail") ||
-    s?.includes("error") ||
-    s?.includes("denied") ||
-    s === "ko"
-  )
-    status = "failed";
+  else if (s && failureKeywords.some((keyword) => s.includes(keyword))) status = "failed";
   else if (s?.includes("cancel")) status = "cancelled";
   else if (s?.includes("expir")) status = "expired";
-  else if (s?.includes("pend") || s?.includes("wait")) status = "pending";
+  else if (s && pendingKeywords.some((keyword) => s.includes(keyword)))
+    status = "pending";
 
   const error =
     (typeof p.error === "string" && p.error) ||
@@ -14184,25 +16058,33 @@ export const createMBWay = async (
     (typeof res.status_url === "string" && res.status_url) ||
     undefined;
 
-  return { method: "mbway", transactionId, statusUrl, metadata: res };
+  const reference =
+    (typeof res.reference === "string" && res.reference) ||
+    (typeof res.referencia === "string" && res.referencia) ||
+    null;
+
+  return { method: "mbway", transactionId, statusUrl, reference, metadata: res };
 };
 
 export const createMultibanco = async (
   order: EuPagoOrderInput,
 ): Promise<EuPagoMultibancoResult> => {
-  const amount = Number.parseFloat(asTwoDecimals(Math.max(order.amountCents, 100) / 100));
+  const amountValue = Math.max(order.amountCents, 100) / 100;
+  const amount = asTwoDecimals(amountValue);
   const payload: EuPagoPayload = {
-    key: ensureApiKey(),
-    value: amount,
+    chave: ensureApiKey(),
+    valor: amount,
     id: order.orderId,
+    per_dup: resolveMultibancoPerDup(),
   };
+  if (order.customer.email) payload.email = order.customer.email;
+  if (order.customer.phone) payload.contacto = order.customer.phone;
 
   const res = await euPagoFetch<Record<string, unknown>>(
     "/clientes/rest_api/multibanco/create",
     payload,
     "body",
     "json",
-    { disableAuthInjection: true },
   );
 
   const entity =
@@ -14311,8 +16193,8 @@ export const fetchMultibancoInfo = async (params: {
 
 export const deriveProviderReference = (result: {
   method: "multibanco" | "mbway" | "card";
-  reference?: string;
-  transactionId?: string;
+  reference?: string | null;
+  transactionId?: string | null;
 }) => {
   if (result.method === "multibanco" && result.reference)
     return normaliseProviderReference(result.reference);
@@ -14326,6 +16208,292 @@ export const normaliseProviderReference = (value: string | null | undefined) => 
   const trimmed = value.trim();
   if (!trimmed) return null;
   return trimmed.replace(/[^0-9A-Za-z_-]/g, "").toUpperCase();
+};
+
+const normaliseDigits = (value: string | null | undefined) => {
+  if (!value) return null;
+  const digits = value.replace(/[^0-9]/g, "");
+  return digits || null;
+};
+
+type EuPagoBearerTokenResponse = {
+  transactionStatus?: string;
+  access_token?: string;
+  token_type?: string;
+  expires_in?: string | number;
+  expiresIn?: string | number;
+  expiration?: string | number;
+  [key: string]: EuPagoSerializable;
+};
+
+const ensureOAuthClientId = () => {
+  const value = process.env.EUPAGO_OAUTH_CLIENT_ID;
+  if (!value)
+    throw new EuPagoConfigurationError("EUPAGO_OAUTH_CLIENT_ID is not defined.");
+  return value.trim();
+};
+const ensureOAuthClientSecret = () => {
+  const value = process.env.EUPAGO_OAUTH_CLIENT_SECRET;
+  if (!value)
+    throw new EuPagoConfigurationError("EUPAGO_OAUTH_CLIENT_SECRET is not defined.");
+  return value.trim();
+};
+const getOAuthGrantType = () =>
+  (process.env.EUPAGO_OAUTH_GRANT_TYPE ?? "client_credentials").trim().toLowerCase();
+const ensureOAuthUsername = () => {
+  const value = process.env.EUPAGO_OAUTH_USERNAME;
+  if (!value) throw new EuPagoConfigurationError("EUPAGO_OAUTH_USERNAME is not defined.");
+  return value.trim();
+};
+const ensureOAuthPassword = () => {
+  const value = process.env.EUPAGO_OAUTH_PASSWORD;
+  if (!value) throw new EuPagoConfigurationError("EUPAGO_OAUTH_PASSWORD is not defined.");
+  return value.trim();
+};
+const ensureOAuthRefreshToken = () => {
+  const value = process.env.EUPAGO_OAUTH_REFRESH_TOKEN;
+  if (!value)
+    throw new EuPagoConfigurationError("EUPAGO_OAUTH_REFRESH_TOKEN is not defined.");
+  return value.trim();
+};
+
+type BearerTokenCache = {
+  token: string;
+  expiresAt: number;
+};
+let bearerTokenCache: BearerTokenCache | null = null;
+let bearerTokenPromise: Promise<BearerTokenCache> | null = null;
+
+const logTokenRequest = async (
+  level: Parameters<typeof logEuPagoEvent>[0],
+  event: string,
+  details: Record<string, unknown>,
+) => logEuPagoEvent(level, event, details);
+
+const requestBearerToken = async (): Promise<BearerTokenCache> => {
+  const grantType = getOAuthGrantType();
+  const body: Record<string, EuPagoSerializable> = {
+    client_id: ensureOAuthClientId(),
+    client_secret: ensureOAuthClientSecret(),
+    grant_type: grantType,
+  };
+  if (grantType === "password") {
+    body.username = ensureOAuthUsername();
+    body.password = ensureOAuthPassword();
+  } else if (grantType === "refresh_token") {
+    body.refresh_token = ensureOAuthRefreshToken();
+  }
+  await logTokenRequest("info", "eupago_oauth_token_request", {
+    grantType,
+    hasUsername: Boolean(body.username),
+  });
+  const res = await fetch(buildUrl("/api/auth/token"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "palmanhac-payments-adapter",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const parsed = await parseJsonSafely<EuPagoBearerTokenResponse>(res);
+  if (!res.ok) {
+    await logTokenRequest("error", "eupago_oauth_token_error", {
+      status: res.status,
+      response: parsed,
+    });
+    throw new EuPagoAPIError(
+      `EuPago bearer token request failed with status ${res.status}.`,
+      parsed,
+    );
+  }
+  const token =
+    (typeof parsed.access_token === "string" && parsed.access_token.trim()) || null;
+  if (!token) {
+    await logTokenRequest("error", "eupago_oauth_token_missing", { response: parsed });
+    throw new EuPagoAPIError(
+      "EuPago bearer token response missing access token.",
+      parsed,
+    );
+  }
+  const expirySource =
+    parsed.expires_in ?? parsed.expiresIn ?? parsed.expiration ?? parsed.expiresIn;
+  let expiresAt = Date.now() + 10 * 60 * 1000;
+  if (typeof expirySource === "number" && Number.isFinite(expirySource)) {
+    expiresAt = Date.now() + Math.max(expirySource - 60, 30) * 1000;
+  } else if (typeof expirySource === "string" && expirySource.trim()) {
+    const numeric = Number(expirySource);
+    if (Number.isFinite(numeric)) {
+      expiresAt = Date.now() + Math.max(numeric - 60, 30) * 1000;
+    } else {
+      const timestamp = Date.parse(expirySource);
+      if (!Number.isNaN(timestamp)) {
+        expiresAt = timestamp - 60 * 1000;
+      }
+    }
+  }
+  const cacheEntry: BearerTokenCache = { token, expiresAt };
+  await logTokenRequest("info", "eupago_oauth_token_received", {
+    expiresAt: new Date(expiresAt).toISOString(),
+  });
+  return cacheEntry;
+};
+
+const ensureBearerToken = async () => {
+  if (bearerTokenCache && bearerTokenCache.expiresAt > Date.now() + 5_000) {
+    return bearerTokenCache.token;
+  }
+  if (bearerTokenPromise) {
+    const pending = await bearerTokenPromise;
+    bearerTokenCache = pending;
+    bearerTokenPromise = null;
+    return pending.token;
+  }
+  bearerTokenPromise = requestBearerToken().catch((error) => {
+    bearerTokenPromise = null;
+    throw error;
+  });
+  const fresh = await bearerTokenPromise;
+  bearerTokenCache = fresh;
+  bearerTokenPromise = null;
+  return fresh.token;
+};
+
+export type EuPagoReferenceEntry = {
+  reference?: string;
+  amount?: string | number;
+  datetime?: string;
+  status?: string;
+  identifier?: string;
+  method?: string;
+  trid?: string | number;
+  [key: string]: EuPagoSerializable;
+};
+
+type ReferencesResponse = {
+  transactionStatus?: string;
+  referenceList?: EuPagoReferenceEntry[];
+  response?: string;
+  code?: string;
+  estado?: number;
+  sucesso?: boolean;
+  [key: string]: EuPagoSerializable;
+};
+
+const REFERENCE_STATUS_CACHE_TTL = 30_000;
+const referenceStatusCache = new Map<
+  string,
+  { result: EuPagoReferenceEntry | null; fetchedAt: number }
+>();
+const DEFAULT_REFERENCE_STATUS_SEQUENCE = [
+  "paga",
+  "pendente",
+  "expirada",
+  "cancelada",
+  "erro",
+  "reembolsada",
+  "devolvida",
+  "arquivada",
+];
+
+const fetchReferencesByStatus = async (status?: string) => {
+  const token = await ensureBearerToken();
+  const searchParams = new URLSearchParams();
+  if (status) searchParams.set("status", status);
+  const path = `/api/management/v1.02/references${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  await logEuPagoEvent("info", "eupago_references_request", {
+    url: path,
+    status,
+  });
+  const res = await fetch(buildUrl(path), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "palmanhac-payments-adapter",
+      ApiKey: ensureApiKey(),
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+  const parsed = await parseJsonSafely<ReferencesResponse>(res);
+  if (!res.ok || parsed.transactionStatus?.toLowerCase().includes("reject")) {
+    await logEuPagoEvent("error", "eupago_references_error", {
+      status: res.status,
+      url: path,
+      response: parsed,
+    });
+    throw new EuPagoAPIError(
+      `EuPago references request failed with status ${res.status}.`,
+      parsed,
+    );
+  }
+  await logEuPagoEvent("info", "eupago_references_success", {
+    url: path,
+    status: res.status,
+    entries: parsed.referenceList?.length ?? 0,
+  });
+  return Array.isArray(parsed.referenceList) ? parsed.referenceList : [];
+};
+
+export const lookupReferenceStatus = async (
+  reference: string,
+  statuses: string[] = DEFAULT_REFERENCE_STATUS_SEQUENCE,
+) => {
+  const normalized = normaliseDigits(reference);
+  if (!normalized) return null;
+  const cacheEntry = referenceStatusCache.get(normalized);
+  if (cacheEntry && Date.now() - cacheEntry.fetchedAt < REFERENCE_STATUS_CACHE_TTL) {
+    return cacheEntry.result;
+  }
+  for (const status of statuses) {
+    const list = await fetchReferencesByStatus(status);
+    const match = list.find((entry) => {
+      const entryRef = normaliseDigits(entry.reference ?? null);
+      return entryRef === normalized;
+    });
+    if (match) {
+      referenceStatusCache.set(normalized, {
+        result: { ...match, status: status ?? match.status },
+        fetchedAt: Date.now(),
+      });
+      return match;
+    }
+  }
+  referenceStatusCache.set(normalized, { result: null, fetchedAt: Date.now() });
+  return null;
+};
+
+const mapReferenceStatus = (status: string | undefined): EuPagoStatusResult["status"] => {
+  if (!status) return "unknown";
+  const normalized = status.toLowerCase();
+  if (normalized.startsWith("pag")) return "paid";
+  if (normalized.startsWith("pen")) return "pending";
+  if (normalized.startsWith("exp")) return "expired";
+  if (normalized.startsWith("can")) return "cancelled";
+  if (normalized.startsWith("err")) return "failed";
+  if (normalized.startsWith("dev") || normalized.startsWith("reemb")) return "refunded";
+  if (normalized.startsWith("arquiv")) return "cancelled";
+  return normalized;
+};
+
+export const referenceEntryToStatus = (
+  entry: EuPagoReferenceEntry | null,
+): EuPagoStatusResult | null => {
+  if (!entry) return null;
+  const status = mapReferenceStatus(
+    typeof entry.status === "string" ? entry.status : undefined,
+  );
+  let paidAt: string | undefined;
+  if (entry.datetime) {
+    const parsed = Date.parse(entry.datetime);
+    paidAt = Number.isNaN(parsed) ? undefined : new Date(parsed).toISOString();
+  }
+  return {
+    status,
+    paidAt,
+    raw: entry as Record<string, unknown>,
+  };
 };
 # --- end of lib/payments/eupago.ts ---
 
@@ -14368,11 +16536,10 @@ const loadBcrypt = async (): Promise<BcryptModule> => {
 
 export const passwordSchema = z
   .string()
-  .min(12, "Password must be at least 12 characters.")
+  .min(6, "Password must be at least 6 characters.")
   .regex(/[A-Z]/, "Password must include an uppercase letter.")
   .regex(/[a-z]/, "Password must include a lowercase letter.")
-  .regex(/\d/, "Password must include a number.")
-  .regex(/[^A-Za-z0-9]/, "Password must include a special character.");
+  .regex(/\d/, "Password must include a number.");
 
 const resolveCost = () => {
   const envCost = Number.parseInt(process.env.BCRYPT_COST ?? "", 10);
@@ -14705,7 +16872,7 @@ const toListItem = (product: PrismaProduct, locale: Locale): ProductListItem => 
     name: product.name,
     description: summarizeDescription(description),
     volumeMl: product.volumeMl,
-    abv: product.abv,
+    vol: product.vol,
     isActive: product.isActive,
   };
 };
@@ -14719,7 +16886,7 @@ const toProduct = (product: PrismaProduct): Product => ({
   image: product.image,
   galleryImages: product.galleryImages,
   volumeMl: product.volumeMl,
-  abv: product.abv,
+  vol: product.vol,
   stock: product.stock,
   isActive: product.isActive,
   description: {
@@ -14730,7 +16897,16 @@ const toProduct = (product: PrismaProduct): Product => ({
     en: product.tastingNotesEn ?? null,
     pt: product.tastingNotesPt ?? null,
   },
-  details: deserializeDetails(product.details),
+  details: (() => {
+    const details = deserializeDetails(product.details);
+    return {
+      ...details,
+      base: {
+        en: product.baseEn ?? details.base.en,
+        pt: product.basePt ?? details.base.pt,
+      },
+    } satisfies ProductDetails;
+  })(),
 });
 
 export const getAllProducts = async (locale: Locale, filters: ProductFilters = {}) => {
@@ -14982,6 +17158,8 @@ export const useFavoritesStore = create<FavoritesStore>()(
 # --- end of lib/store/favorites.ts ---
 
 # --- lib/utils/cart-totals.ts ---
+import { siteConfig } from "@/config/site";
+
 export type CartItemLike = {
   productId: number;
   quantity: number;
@@ -14997,13 +17175,14 @@ export type CartTotals = {
   discountCents: number;
   deliveryCents: number;
   totalCents: number;
-  vatAmount: number;
+  vatCents: number;
 };
 
 export const calculateCartTotals = (
   items: CartItemLike[],
   products: CartProductLike[],
 ): CartTotals => {
+  const freeShippingThresholdCents = siteConfig.freeShippingThreshold * 100;
   const priceMap = new Map(products.map((product) => [product.id, product.priceCents]));
   let subtotal = 0;
   let bottleCount = 0;
@@ -15022,19 +17201,19 @@ export const calculateCartTotals = (
   const discountedSubtotal = subtotal - discountCents;
 
   let deliveryCents = 0;
-  if (discountedSubtotal < 5000) {
+  if (discountedSubtotal < freeShippingThresholdCents) {
     deliveryCents = bottleCount <= 2 ? 600 : 800;
   }
 
   const totalCents = discountedSubtotal + deliveryCents;
-  const vatAmount = totalCents / 100 - totalCents / (100 * 1.23);
+  const vatCents = Math.round(totalCents - totalCents / 1.23);
 
   return {
     itemsSubtotalCents: subtotal,
     discountCents,
     deliveryCents,
     totalCents,
-    vatAmount,
+    vatCents,
   };
 };
 # --- end of lib/utils/cart-totals.ts ---
@@ -15516,7 +17695,9 @@ model Product {
   image          String
   galleryImages  String[]     @default([])
   volumeMl       Int
-  abv            Float
+  vol            Float
+  baseEn         String       @default("")
+  basePt         String       @default("")
   stock          Int          @default(0)
   isActive       Boolean      @default(true)
   descriptionEn  String
@@ -15590,7 +17771,8 @@ model VerificationToken {
 
 model Order {
   id            String         @id @default(cuid())
-  userId        String
+  userId        String?
+  isGuest       Boolean        @default(false)
   status        OrderStatus    @default(PENDING)
   totalAmount   Int
   paymentStatus PaymentStatus  @default(UNPAID)
@@ -15611,7 +17793,7 @@ model Order {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   items      OrderItem[]
 }
 

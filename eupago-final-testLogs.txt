@@ -1,0 +1,25 @@
+Palmanhac EuPago Final Verification Log
+=======================================
+
+Code review & adjustments
+-------------------------
+- Confirmed OAuth/token flow matches official curl sample: `lib/payments/eupago.ts` ensures POST body {client_id, client_secret, grant_type} and parses `access_token` + expiry just like production response.
+- Verified references-by-status call mirrors curl output: `fetchReferencesByStatus()` hits `/api/management/v1.02/references?status=...` with `Authorization: Bearer <token>` + `ApiKey` headers and parses `referenceList` entries (reference, entity, amount, datetime, status, identifier).
+- Audited webhook handling (`app/api/payments/eupago/webhook/route.ts`) for signature validation (x-eupago-signature, HMAC SHA256 with `EUPAGO_WEBHOOK_SHARED_SECRET`), new `transactions[]` payload, providerRef/identifier resolution, order event logging, and email dispatch via `sendPaymentConfirmationEmails()`.
+- Reviewed MB WAY status fallback + admin sync (`app/api/payments/eupago/status/route.ts`, `app/api/admin/orders/status/route.ts`), ensuring `/api/payments/eupago/status` polls `statusUrl` when available, falls back to references-by-status using reference, transactionId, or orderId identifiers, normalizes statuses, persists paidAt, and triggers bilingual confirmation e-mails.
+- Confirmed Multibanco info lookup still uses `/clientes/rest_api/multibanco/info` with entity/reference/amount, and status normalization maps paga/pendente/expirada/cancelada consistently.
+- Checked customer/admin UI data sources so `/orders`, `/order/[id]`, and admin dashboards reflect `paymentStatus` transitions issued by webhook/status routes.
+- Reviewed email templates (`lib/email/order-notifications.ts`) to ensure both `enCustomerLines` and `ptCustomerLines` are used for order placed and payment confirmation notices.
+- Verified checkout frontend (`components/checkout/MbwayPendingView.tsx`) auto-polls `/api/payments/eupago/status`, clears carts on success, escalates cancellations/expirations, and redirects to thank-you flow without refresh.
+
+Tests & simulations
+-------------------
+- `pnpm typecheck` — PASS (tsc --noEmit) to confirm updated TypeScript surfaces no regressions.
+- `pnpm tsx scripts/eupago-simulate.ts` — BLOCKED (sandbox prevents tsx from opening its IPC pipe under TMPDIR; recorded error `listen EPERM .../tsx-501/*.pipe`).
+  *Attempted fallback with custom TMPDIR plus ts-node loaders, but alias resolution under Bundler module mode still refused `@/*` imports outside Next runtime; manual review used instead.*
+
+Manual verification highlights
+------------------------------
+- Exercised MB WAY approval simulation mentally: order creation stores transactionId/statusUrl/reference metadata, pending screen polls `/api/payments/eupago/status?transactionId=...`, backend checks webhook-paid cache, hits statusUrl, then references fallback which now matches by numeric references *and* EuPago identifiers/order IDs to cover cases where only UUIDs are returned. Emails fire upon status switch.
+- Reviewed Multibanco fallback: `/api/payments/eupago/status` passes entity/reference/amount into `/clientes/rest_api/multibanco/info`, ensuring expired/cancelled flows bubble to frontend + admin queries.
+- Validated env coverage for production: `EUPAGO_API_BASE`, `EUPAGO_API_KEY`, `EUPAGO_CARD_RETURN_URL`, `EUPAGO_WEBHOOK_SHARED_SECRET`, OAuth quartet (`CLIENT_ID`, `CLIENT_SECRET`, `GRANT_TYPE`, `USERNAME`/`PASSWORD`/`REFRESH_TOKEN` as needed) plus `EUPAGO_MULTIBANCO_PER_DUP`. No deprecated endpoints remain.

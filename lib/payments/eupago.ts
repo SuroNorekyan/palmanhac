@@ -593,6 +593,11 @@ const normaliseDigits = (value: string | null | undefined) => {
   const digits = value.replace(/[^0-9]/g, "");
   return digits || null;
 };
+const normaliseIdentifier = (value: string | null | undefined) => {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized || null;
+};
 
 type EuPagoBearerTokenResponse = {
   transactionStatus?: string;
@@ -814,31 +819,118 @@ const fetchReferencesByStatus = async (status?: string) => {
   return Array.isArray(parsed.referenceList) ? parsed.referenceList : [];
 };
 
-export const lookupReferenceStatus = async (
-  reference: string,
-  statuses: string[] = DEFAULT_REFERENCE_STATUS_SEQUENCE,
-) => {
-  const normalized = normaliseDigits(reference);
-  if (!normalized) return null;
-  const cacheEntry = referenceStatusCache.get(normalized);
-  if (cacheEntry && Date.now() - cacheEntry.fetchedAt < REFERENCE_STATUS_CACHE_TTL) {
-    return cacheEntry.result;
-  }
-  for (const status of statuses) {
-    const list = await fetchReferencesByStatus(status);
-    const match = list.find((entry) => {
-      const entryRef = normaliseDigits(entry.reference ?? null);
-      return entryRef === normalized;
-    });
-    if (match) {
-      referenceStatusCache.set(normalized, {
-        result: { ...match, status: status ?? match.status },
-        fetchedAt: Date.now(),
-      });
-      return match;
+type ReferenceQuery = {
+  raw: string;
+  digits: string | null;
+  identifier: string | null;
+};
+
+const buildReferenceQueries = (input: string | string[]): ReferenceQuery[] => {
+  const rawValues = (Array.isArray(input) ? input : [input])
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean);
+  const uniqueValues = Array.from(new Set(rawValues));
+  return uniqueValues
+    .map((value) => ({
+      raw: value,
+      digits: normaliseDigits(value),
+      identifier: normaliseIdentifier(value),
+    }))
+    .filter((query) => query.digits || query.identifier);
+};
+
+const entryMatchesQuery = (entry: EuPagoReferenceEntry, query: ReferenceQuery) => {
+  const toStringValue = (value: unknown) => {
+    if (typeof value === "string") return value;
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    return undefined;
+  };
+
+  if (query.digits) {
+    const referenceCandidates = [
+      toStringValue(entry.reference),
+      toStringValue(entry.trid),
+      toStringValue(entry["transactionId"]),
+      toStringValue(entry["transaction_id"]),
+    ];
+    for (const candidate of referenceCandidates) {
+      const digits = normaliseDigits(candidate ?? null);
+      if (digits && digits === query.digits) {
+        return true;
+      }
     }
   }
-  referenceStatusCache.set(normalized, { result: null, fetchedAt: Date.now() });
+
+  if (query.identifier) {
+    const identifierCandidates = [
+      toStringValue(entry.identifier),
+      toStringValue(entry.trid),
+      toStringValue(entry["transactionId"]),
+      toStringValue(entry["transaction_id"]),
+      toStringValue(entry["id"]),
+      typeof entry.reference === "string" && entry.reference.length > 15
+        ? entry.reference
+        : undefined,
+    ];
+    for (const candidate of identifierCandidates) {
+      const normalized = normaliseIdentifier(candidate);
+      if (normalized && normalized === query.identifier) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+export const lookupReferenceStatus = async (
+  referenceOrIdentifier: string | string[],
+  statuses: string[] = DEFAULT_REFERENCE_STATUS_SEQUENCE,
+) => {
+  const queries = buildReferenceQueries(referenceOrIdentifier);
+  if (!queries.length) return null;
+
+  const now = Date.now();
+  for (const query of queries) {
+    for (const key of [query.digits, query.identifier]) {
+      if (!key) continue;
+      const cacheEntry = referenceStatusCache.get(key);
+      if (cacheEntry && now - cacheEntry.fetchedAt < REFERENCE_STATUS_CACHE_TTL) {
+        return cacheEntry.result;
+      }
+    }
+  }
+
+  for (const status of statuses) {
+    const list = await fetchReferencesByStatus(status);
+    for (const entry of list) {
+      const matchingKeys: string[] = [];
+      for (const query of queries) {
+        if (entryMatchesQuery(entry, query)) {
+          if (query.digits) matchingKeys.push(query.digits);
+          if (query.identifier) matchingKeys.push(query.identifier);
+        }
+      }
+      if (matchingKeys.length) {
+        const cachePayload = {
+          result: { ...entry, status: status ?? entry.status },
+          fetchedAt: Date.now(),
+        };
+        for (const key of matchingKeys) {
+          referenceStatusCache.set(key, cachePayload);
+        }
+        return entry;
+      }
+    }
+  }
+
+  const missTimestamp = Date.now();
+  for (const query of queries) {
+    for (const key of [query.digits, query.identifier]) {
+      if (!key) continue;
+      referenceStatusCache.set(key, { result: null, fetchedAt: missTimestamp });
+    }
+  }
   return null;
 };
 
