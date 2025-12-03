@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { Analytics } from "@vercel/analytics/react";
 import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
 import { AgeGate } from "@/components/layout/AgeGate";
 import { Footer } from "@/components/layout/Footer";
@@ -39,17 +40,23 @@ export default async function LocaleLayout({
         <TopBanner banner={dictionary.banner} />
         <Header nav={navigation} dictionary={dictionary} locale={locale} />
       </div>
+
       <main className="container space-y-16 pb-16 pt-56 sm:pt-56 md:pt-48 lg:pt-44 xl:pt-40">
         {children}
       </main>
+
       <Footer
         nav={navigation}
         site={siteConfig}
         dictionary={dictionary}
         locale={locale}
       />
+
       <ScrollToTopButton />
       <AgeGate copy={dictionary.ageGate} locale={locale} />
+
+      {/* Vercel Analytics - required */}
+      <Analytics />
     </Providers>
   );
 }
