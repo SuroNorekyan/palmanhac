@@ -168,9 +168,13 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         const t = await res.text().catch(() => "");
         throw new Error(t || "Failed to upload file");
       }
-      const json = (await res.json()) as { path: string };
-      handleChange("image", json.path);
-      if (!form.galleryImages?.trim()) handleChange("galleryImages", json.path);
+      const json = (await res.json()) as { path?: string; url?: string };
+      const uploadPath = json.path || json.url;
+      if (!uploadPath) {
+        throw new Error("Upload did not return a valid path.");
+      }
+      handleChange("image", uploadPath);
+      if (!form.galleryImages?.trim()) handleChange("galleryImages", uploadPath);
       toast({ title: "Image uploaded", variant: "success" });
     } catch (e) {
       console.error(e);
