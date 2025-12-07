@@ -38,6 +38,15 @@ export default async function ProductPage({
     notFound();
   }
 
+  const localizedName =
+    locale === "pt"
+      ? product.namePt?.trim().length
+        ? product.namePt
+        : product.name
+      : product.name?.trim().length
+        ? product.name
+        : product.namePt;
+
   const withFallback = (value: string | undefined, fallback: string | undefined) =>
     value && value.trim().length ? value : (fallback ?? "");
 
@@ -68,7 +77,7 @@ export default async function ProductPage({
   const detail = {
     id: product.id,
     slug: product.slug,
-    name: product.name,
+    name: localizedName,
     description: localizedDescriptionValue,
     image: product.image,
     priceCents: product.priceCents,

@@ -48,6 +48,7 @@ const detailsSchema = z.object({
 const updateSchema = z
   .object({
     name: z.string().min(2).optional(),
+    namePt: z.string().min(2).optional(),
     slug: z
       .string()
       .min(2)
@@ -149,6 +150,7 @@ export async function PATCH(
       where: { id: productId },
       data: {
         ...(updates.name ? { name: updates.name } : {}),
+        ...(updates.namePt ? { namePt: updates.namePt } : {}),
         ...(updates.slug ? { slug: updates.slug } : {}),
         ...(updates.category ? { category: updates.category } : {}),
         ...(updates.priceCents !== undefined ? { priceCents: updates.priceCents } : {}),

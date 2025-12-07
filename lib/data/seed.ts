@@ -27,6 +27,7 @@ export async function seedProducts() {
         slug: item.slug,
         category: item.category,
         name: item.name,
+        namePt: item.name,
         priceCents: item.priceCents,
         image: item.image,
         galleryImages: [item.image],

@@ -48,6 +48,7 @@ const detailsSchema = z.object({
 
 const productSchema = z.object({
   name: z.string().min(2),
+  namePt: z.string().min(2),
   slug: z
     .string()
     .min(2)
@@ -102,6 +103,7 @@ export async function GET(request: NextRequest) {
           ? {
               OR: [
                 { name: { contains: query, mode: "insensitive" } },
+                { namePt: { contains: query, mode: "insensitive" } },
                 { descriptionEn: { contains: query, mode: "insensitive" } },
                 { descriptionPt: { contains: query, mode: "insensitive" } },
                 { slug: { contains: query, mode: "insensitive" } },
@@ -146,6 +148,7 @@ export async function POST(request: NextRequest) {
     const created = await prisma.product.create({
       data: {
         name: data.name,
+        namePt: data.namePt,
         slug,
         category: data.category,
         priceCents: data.priceCents,

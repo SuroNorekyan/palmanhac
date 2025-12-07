@@ -86,6 +86,7 @@ const pickLocalized = (enValue: string, ptValue: string, locale: Locale) => {
 
 const toListItem = (product: PrismaProduct, locale: Locale): ProductListItem => {
   const description = pickLocalized(product.descriptionEn, product.descriptionPt, locale);
+  const localizedName = pickLocalized(product.name, product.namePt ?? "", locale);
 
   return {
     id: product.id,
@@ -94,7 +95,7 @@ const toListItem = (product: PrismaProduct, locale: Locale): ProductListItem => 
     image: product.image,
     galleryImages: product.galleryImages,
     priceCents: product.priceCents,
-    name: product.name,
+    name: localizedName,
     description: summarizeDescription(description),
     volumeMl: product.volumeMl,
     vol: product.vol,
@@ -107,6 +108,7 @@ const toProduct = (product: PrismaProduct): Product => ({
   slug: product.slug,
   category: product.category as ProductCategorySlug,
   name: product.name,
+  namePt: product.namePt ?? "",
   priceCents: product.priceCents,
   image: product.image,
   galleryImages: product.galleryImages,
@@ -146,6 +148,7 @@ export const getAllProducts = async (locale: Locale, filters: ProductFilters = {
       ? {
           OR: [
             { name: { contains: filters.query, mode: "insensitive" } },
+            { namePt: { contains: filters.query, mode: "insensitive" } },
             { descriptionEn: { contains: filters.query, mode: "insensitive" } },
             { descriptionPt: { contains: filters.query, mode: "insensitive" } },
           ],

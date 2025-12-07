@@ -40,7 +40,8 @@ const CATEGORY_LABELS: Record<(typeof CATEGORY_OPTIONS)[number], string> = {
 };
 
 const productFormSchema = z.object({
-  name: z.string().min(2, "Name is required"),
+  name: z.string().min(2, "English name is required"),
+  namePt: z.string().min(2, "Portuguese name is required"),
   slug: z
     .string()
     .trim()
@@ -62,6 +63,8 @@ const productFormSchema = z.object({
     }, "Enter a valid price"),
   image: imageUrlOrPath,
   galleryImages: z.string().optional(),
+  baseEn: z.string().min(1, "Base (EN) is required"),
+  basePt: z.string().min(1, "Base (PT) is required"),
   volumeMl: z.string().refine(
     (value) => {
       if (!value.trim()) return true;
@@ -98,6 +101,7 @@ type ProductFormProps = {
   product?: {
     id: number;
     name: string;
+    namePt: string;
     slug: string;
     category: string;
     priceCents: number;
@@ -106,6 +110,8 @@ type ProductFormProps = {
     volumeMl: number;
     vol: number;
     stock: number;
+    baseEn: string;
+    basePt: string;
     isActive: boolean;
     descriptionEn: string;
     descriptionPt: string;
@@ -122,11 +128,14 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<ProductFormValues>({
     name: product?.name ?? "",
+    namePt: product?.namePt ?? "",
     slug: product?.slug ?? "",
     category: product?.category ?? "",
     price: product ? (product.priceCents / 100).toFixed(2) : "",
     image: product?.image ?? "",
     galleryImages: product?.galleryImages?.join(", ") ?? "",
+    baseEn: product?.baseEn ?? "",
+    basePt: product?.basePt ?? "",
     volumeMl: product?.volumeMl?.toString() ?? "",
     vol: product?.vol?.toString() ?? "",
     stock: product?.stock?.toString() ?? "",
@@ -213,6 +222,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         // Match server contract: structured JSON payload
         const payload = {
           name: parsed.data.name,
+          namePt: parsed.data.namePt,
           slug: parsed.data.slug?.trim() || undefined,
           category: parsed.data.category,
           priceCents,
@@ -225,6 +235,10 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           description: {
             en: parsed.data.descriptionEn,
             pt: parsed.data.descriptionPt,
+          },
+          base: {
+            en: parsed.data.baseEn,
+            pt: parsed.data.basePt,
           },
           // Server wants strings, not nulls:
           tastingNotes: {
@@ -279,6 +293,10 @@ export function ProductForm({ mode, product }: ProductFormProps) {
               mapped.descriptionEn = result.fieldErrors.description[0];
               mapped.descriptionPt = result.fieldErrors.description[0];
             }
+            if (result.fieldErrors.base?.[0]) {
+              mapped.baseEn = result.fieldErrors.base[0];
+              mapped.basePt = result.fieldErrors.base[0];
+            }
             if (result.fieldErrors.tastingNotes?.[0]) {
               // We don't have dedicated inputs for notes, bubble to banner
               setSubmitError((prev) =>
@@ -319,12 +337,21 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Name" error={errors.name}>
+        <Field label="Name (EN)" error={errors.name}>
           <Input
             className={cn(errors.name && "ring-1 ring-red-500")}
             required
             value={form.name}
             onChange={(e) => handleChange("name", e.target.value)}
+          />
+        </Field>
+
+        <Field label="Nome (PT)" error={errors.namePt}>
+          <Input
+            className={cn(errors.namePt && "ring-1 ring-red-500")}
+            required
+            value={form.namePt}
+            onChange={(e) => handleChange("namePt", e.target.value)}
           />
         </Field>
 
@@ -446,6 +473,29 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           />
           <Label htmlFor="product-active">Active</Label>
         </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Base (EN)" error={errors.baseEn}>
+          <Textarea
+            className={cn(errors.baseEn && "ring-1 ring-red-500")}
+            required
+            rows={4}
+            value={form.baseEn}
+            onChange={(e) => handleChange("baseEn", e.target.value)}
+            placeholder="e.g. Fresh oranges"
+          />
+        </Field>
+        <Field label="Base (PT)" error={errors.basePt}>
+          <Textarea
+            className={cn(errors.basePt && "ring-1 ring-red-500")}
+            required
+            rows={4}
+            value={form.basePt}
+            onChange={(e) => handleChange("basePt", e.target.value)}
+            placeholder="ex.: Laranjas frescas"
+          />
+        </Field>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

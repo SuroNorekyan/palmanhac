@@ -31,6 +31,7 @@ export default async function AdminProductEditPage({ params }: Params) {
     select: {
       id: true,
       name: true,
+      namePt: true,
       slug: true,
       category: true,
       priceCents: true,
@@ -40,6 +41,8 @@ export default async function AdminProductEditPage({ params }: Params) {
       vol: true,
       stock: true,
       isActive: true,
+      baseEn: true,
+      basePt: true,
       descriptionEn: true,
       descriptionPt: true,
       createdAt: true,
@@ -74,12 +77,6 @@ export default async function AdminProductEditPage({ params }: Params) {
             className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
           >
             Back to products
-          </Link>
-          <Link
-            href={`/admin/products/${product.id}/base`}
-            className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
-          >
-            Edit base
           </Link>
           <DeleteProductButton
             productId={product.id}

@@ -39,6 +39,7 @@ model Product {
   slug           String       @unique
   category       String
   name           String
+  namePt         String       @default("")
   priceCents     Int
   image          String
   galleryImages  String[]     @default([])
