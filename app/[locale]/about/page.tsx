@@ -11,6 +11,7 @@ export default async function AboutPage({
   const dictionary = getDictionary(locale);
 
   const { hero, pillars, faq, shippingReturns } = dictionary.about;
+  const faqCategories = faq.categories;
 
   return (
     <section className="space-y-16">
@@ -77,9 +78,10 @@ export default async function AboutPage({
           <p className="max-w-3xl text-neutral-600">{faq.subtitle}</p>
         </div>
         <div className="space-y-6">
-          {faq.categories.map((category) => (
+          {faqCategories.map((category) => (
             <div
               key={category.id}
+              id={category.id}
               className="space-y-6 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm md:p-8"
             >
               <div>

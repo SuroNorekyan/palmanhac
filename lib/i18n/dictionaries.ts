@@ -600,6 +600,112 @@ const dictionaries: Record<Locale, Dictionary> = {
               },
             ],
           },
+          {
+            id: "cookies",
+            title: "5. Cookie Policy",
+            items: [
+              {
+                question: "What is the Palmanhac cookie policy?",
+                answer: [
+                  "We use cookies so palmanhac-shop.pt can operate properly, remember essential preferences, and improve navigation.",
+                  "By browsing our website you agree to this Cookie Policy and consent to the described use of cookies.",
+                ],
+              },
+              {
+                question: "What are cookies?",
+                answer: [
+                  "Cookies are small files stored on your device that support key website functions, improve navigation, and retain preferences.",
+                  "- Session cookies — removed automatically when you close your browser.",
+                  "- Persistent cookies — remain stored until they expire or are deleted.",
+                  "The cookies we use do not collect personally identifiable information, and you can block or delete them in your browser settings if you wish (doing so may impact website functionality).",
+                ],
+              },
+              {
+                question: "Which cookies are used on palmanhac-shop.pt?",
+                answer: [
+                  "We only rely on the cookies strictly necessary to:",
+                  "- ensure the online store runs reliably;",
+                  "- store basic user preferences such as language or cart status;",
+                  "- enhance navigation and usability so you can complete purchases smoothly.",
+                ],
+              },
+              {
+                question: "Do you use third-party cookies or analytics?",
+                answer: [
+                  "No. We do not use third-party cookies or analytics tools such as Google Analytics to collect personal data.",
+                  "If you have questions about cookie usage you can contact us at info@palmanhac-shop.pt.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "privacy",
+            title: "6. Privacy Policy",
+            items: [
+              {
+                question: "What does the Palmanhac privacy policy cover?",
+                answer: [
+                  "Palmanhac respects every visitor's privacy and processes data according to the GDPR (EU Regulation 2016/679).",
+                  "You can browse palmanhac-shop.pt without providing personal data, and we only request information when strictly necessary to process orders, contact requests, or newsletter subscriptions.",
+                  "This policy applies solely to palmanhac-shop.pt and not to external sites mentioned via links.",
+                ],
+              },
+              {
+                question: "What personal data can Palmanhac collect?",
+                answer: [
+                  "Personal data refers to information that can identify you, such as name, address, phone, email, tax number, birth date, and purchase preferences.",
+                  "We do not collect sensitive data, and whenever you provide information voluntarily we treat it as clear and informed consent.",
+                  "Depending on the service requested we may collect:",
+                  "- name, billing and shipping address, and country;",
+                  "- email and phone number;",
+                  "- tax ID and date of birth when invoicing requires it;",
+                  "- order history and communication records.",
+                ],
+              },
+              {
+                question:
+                  "Who is responsible for data processing and how can I reach Palmanhac?",
+                answer: [
+                  "Palmanhac (palmanhac-shop.pt) is the controller responsible for processing your data and for ensuring appropriate security measures.",
+                  "For any privacy questions or to exercise your rights, contact info@palmanhac-shop.pt.",
+                ],
+              },
+              {
+                question: "Why is personal data processed?",
+                answer: [
+                  "Data is used exclusively for:",
+                  "- processing and shipping orders;",
+                  "- issuing invoices and complying with legal obligations;",
+                  "- managing customer accounts and providing support;",
+                  "- handling complaints and internal statistics;",
+                  "- sending updates, newsletters, or campaigns when you grant consent.",
+                  "You may opt out of marketing communications at any time.",
+                ],
+              },
+              {
+                question: "How long is data stored?",
+                answer: [
+                  "Data is kept only for as long as necessary to fulfill the purpose for which it was collected or for the period required by law (such as tax obligations).",
+                  "You may request deletion of your personal data at any time by emailing info@palmanhac-shop.pt.",
+                ],
+              },
+              {
+                question: "Is data shared with third parties?",
+                answer: [
+                  "Palmanhac only shares data with trusted partners when strictly necessary—for example with shipping companies, payment processors, or IT service providers.",
+                  "All partners comply with GDPR requirements, guarantee confidentiality, and data is never sold or misused for commercial purposes.",
+                ],
+              },
+              {
+                question: "How are cookies and policy updates managed?",
+                answer: [
+                  "palmanhac-shop.pt uses cookies only to ensure correct website operation, remember preferences, and generate anonymized statistics.",
+                  "You can disable cookies in your browser settings, though some features may be limited.",
+                  "Palmanhac may update this Privacy Policy at any time and updates will always be published on this page, so please review it periodically.",
+                ],
+              },
+            ],
+          },
         ],
       },
       shippingReturns: {
@@ -1220,6 +1326,111 @@ const dictionaries: Record<Locale, Dictionary> = {
                 answer: [
                   "Se a quebra ocorrer antes da entrega, será enviada uma nova encomenda sem custos adicionais.",
                   "Se detetar danos após a entrega, contacte-nos imediatamente para providenciar a substituição.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "cookies",
+            title: "5. Política de Cookies",
+            items: [
+              {
+                question: "Qual é a política de cookies da Palmanhac?",
+                answer: [
+                  "Utilizamos cookies para que o website palmanhac-shop.pt funcione corretamente, memorize preferências essenciais e ofereça uma navegação mais fluida.",
+                  "Ao continuar a navegação, concorda com esta Política de Cookies e consente a utilização de cookies nos termos descritos.",
+                ],
+              },
+              {
+                question: "O que são cookies?",
+                answer: [
+                  "São pequenos ficheiros guardados no seu dispositivo que suportam o funcionamento do website, melhoram a navegação e guardam determinadas preferências.",
+                  "- Cookies de sessão — eliminados quando fecha o navegador.",
+                  "- Cookies persistentes — permanecem no dispositivo até expirarem ou serem apagados.",
+                  "Os cookies que utilizamos não recolhem informações que permitam identificar pessoalmente o utilizador e podem ser geridos ou bloqueados nas definições do navegador (desativar cookies essenciais pode afetar o funcionamento do website).",
+                ],
+              },
+              {
+                question: "Que cookies são utilizados em palmanhac-shop.pt?",
+                answer: [
+                  "Utilizamos apenas cookies estritamente necessários para:",
+                  "- garantir o funcionamento da loja online;",
+                  "- guardar preferências básicas do utilizador, como idioma ou estado do carrinho;",
+                  "- melhorar a navegação e a usabilidade para facilitar a finalização das compras.",
+                ],
+              },
+              {
+                question: "Utilizam cookies de terceiros ou ferramentas analíticas?",
+                answer: [
+                  "Não. Não recorremos a cookies de terceiros nem utilizamos Google Analytics para recolher dados pessoais.",
+                  "Em caso de dúvidas relacionadas com cookies, contacte-nos através de info@palmanhac-shop.pt.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "privacy",
+            title: "6. Política de Privacidade",
+            items: [
+              {
+                question: "Em que consiste a Política de Privacidade da Palmanhac?",
+                answer: [
+                  "A Palmanhac respeita a privacidade de todos os utilizadores e processa os dados pessoais de acordo com o RGPD (Regulamento UE 2016/679).",
+                  "O website pode ser navegado sem fornecer dados pessoais e apenas solicitamos informação quando estritamente necessária para encomendas, pedidos de contacto ou subscrições.",
+                  "Esta Política aplica-se exclusivamente ao website palmanhac-shop.pt e não a websites externos referidos por links.",
+                ],
+              },
+              {
+                question: "Que dados pessoais podem ser recolhidos?",
+                answer: [
+                  "Consideram-se dados pessoais informações que permitam identificar o utilizador, como nome, morada, telefone, email, NIF, data de nascimento e preferências de compra.",
+                  "Não recolhemos dados sensíveis e, sempre que fornece dados voluntariamente, consideramos que nos dá um consentimento claro, livre e informado.",
+                  "Dependendo do pedido, podemos recolher:",
+                  "- nome, morada de faturação e envio, país;",
+                  "- email e telefone;",
+                  "- NIF e data de nascimento quando exigido por lei;",
+                  "- histórico de encomendas e registos de comunicação.",
+                ],
+              },
+              {
+                question: "Quem é o responsável pelo tratamento e como posso contactar?",
+                answer: [
+                  "O responsável pelo tratamento dos dados é a Palmanhac – palmanhac-shop.pt, que garante medidas de segurança adequadas.",
+                  "Para questões sobre privacidade ou para exercer os seus direitos, contacte info@palmanhac-shop.pt.",
+                ],
+              },
+              {
+                question: "Para que finalidades os dados são utilizados?",
+                answer: [
+                  "Os dados são usados exclusivamente para:",
+                  "- processar e enviar encomendas;",
+                  "- emitir faturas e cumprir obrigações legais;",
+                  "- gerir contas de cliente e prestar apoio;",
+                  "- atender reclamações e realizar análises estatísticas internas;",
+                  "- enviar campanhas, novidades ou newsletters (mediante consentimento).",
+                  "O utilizador pode cancelar a receção de comunicações de marketing a qualquer momento.",
+                ],
+              },
+              {
+                question: "Durante quanto tempo os dados são conservados?",
+                answer: [
+                  "Os dados são mantidos apenas pelo período necessário para cumprir as finalidades a que se destinam ou pelo tempo imposto por lei (por exemplo, obrigações fiscais).",
+                  "Pode solicitar a eliminação completa dos seus dados através de info@palmanhac-shop.pt.",
+                ],
+              },
+              {
+                question: "Os dados são partilhados com terceiros?",
+                answer: [
+                  "A Palmanhac apenas partilha dados pessoais com parceiros essenciais, como transportadoras, processadores de pagamento ou prestadores de serviços informáticos.",
+                  "Todos os parceiros cumprem o RGPD, garantem confidencialidade e os dados nunca são vendidos ou cedidos para fins comerciais indevidos.",
+                ],
+              },
+              {
+                question: "Como são tratados os cookies e atualizações desta política?",
+                answer: [
+                  "Palmanhac-shop.pt utiliza cookies apenas para assegurar o bom funcionamento do website, recordar preferências e gerar estatísticas anonimizadas.",
+                  "Pode desativar cookies no navegador, embora algumas funcionalidades possam ficar limitadas.",
+                  "A Palmanhac poderá atualizar esta Política de Privacidade a qualquer momento; as alterações serão sempre publicadas nesta página.",
                 ],
               },
             ],
