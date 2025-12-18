@@ -66,6 +66,8 @@ const updateSchema = z
     tastingNotes: localeContentSchema.partial().optional(),
     base: localeContentSchema.optional(),
     details: detailsSchema.optional(),
+    discountEnabled: z.boolean().optional(),
+    discountPercent: z.number().int().min(0).max(99).optional(),
   })
   .strict();
 
@@ -160,6 +162,12 @@ export async function PATCH(
         ...(updates.vol !== undefined ? { vol: updates.vol } : {}),
         ...(updates.stock !== undefined ? { stock: updates.stock } : {}),
         ...(updates.isActive !== undefined ? { isActive: updates.isActive } : {}),
+        ...(updates.discountEnabled !== undefined
+          ? { discountEnabled: updates.discountEnabled }
+          : {}),
+        ...(updates.discountPercent !== undefined
+          ? { discountPercent: updates.discountPercent }
+          : {}),
         ...(updates.description
           ? {
               descriptionEn: updates.description.en,

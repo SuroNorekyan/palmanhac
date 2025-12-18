@@ -334,6 +334,25 @@ export type Dictionary = {
       servingTemperature: string;
       awards: string;
     };
+    discount: {
+      badge: string;
+      percentLabel: string;
+      savingsLabel: string;
+    };
+    reviews: {
+      heading: string;
+      averageLabel: string;
+      writeReview: string;
+      ratingLabel: string;
+      commentLabel: string;
+      guestNameLabel: string;
+      guestEmailLabel: string;
+      submit: string;
+      success: string;
+      error: string;
+      empty: string;
+      countLabel: string;
+    };
   };
   catalog: {
     heading: string;
@@ -1064,6 +1083,25 @@ const dictionaries: Record<Locale, Dictionary> = {
         bottleSize: "Bottle Size",
         servingTemperature: "Serving Temperature",
         awards: "Awards",
+      },
+      discount: {
+        badge: "Discount applied",
+        percentLabel: "Discount (%)",
+        savingsLabel: "Save {percent}%",
+      },
+      reviews: {
+        heading: "Reviews",
+        averageLabel: "Average rating",
+        writeReview: "Write a review",
+        ratingLabel: "Rating",
+        commentLabel: "Comment",
+        guestNameLabel: "Name (optional)",
+        guestEmailLabel: "Email (optional)",
+        submit: "Submit review",
+        success: "Thanks! Your review was submitted.",
+        error: "Unable to submit review. Please try again.",
+        empty: "No reviews yet.",
+        countLabel: "{count} reviews",
       },
     },
     catalog: {
@@ -1796,6 +1834,25 @@ const dictionaries: Record<Locale, Dictionary> = {
         bottleSize: "Formato",
         servingTemperature: "Temperatura de Serviço",
         awards: "Prémios",
+      },
+      discount: {
+        badge: "Desconto ativo",
+        percentLabel: "Desconto (%)",
+        savingsLabel: "Poupe {percent}%",
+      },
+      reviews: {
+        heading: "Avaliações",
+        averageLabel: "Classificação média",
+        writeReview: "Escreva uma avaliação",
+        ratingLabel: "Classificação",
+        commentLabel: "Comentário",
+        guestNameLabel: "Nome (opcional)",
+        guestEmailLabel: "Email (opcional)",
+        submit: "Enviar avaliação",
+        success: "Obrigado! A sua avaliação foi registada.",
+        error: "Não foi possível enviar a avaliação. Tente novamente.",
+        empty: "Ainda não existem avaliações.",
+        countLabel: "{count} avaliações",
       },
     },
     catalog: {

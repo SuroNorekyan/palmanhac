@@ -47,6 +47,8 @@ export default async function AdminProductEditPage({ params }: Params) {
       descriptionPt: true,
       createdAt: true,
       updatedAt: true,
+      discountEnabled: true,
+      discountPercent: true,
     },
   });
 

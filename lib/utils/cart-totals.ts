@@ -1,4 +1,5 @@
 import { siteConfig } from "@/config/site";
+import { getEffectivePriceCents } from "@/lib/utils/pricing";
 
 export type CartItemLike = {
   productId: number;
@@ -8,6 +9,9 @@ export type CartItemLike = {
 export type CartProductLike = {
   id: number;
   priceCents: number;
+  discountEnabled?: boolean;
+  discountPercent?: number;
+  effectivePriceCents?: number;
 };
 
 export type CartTotals = {
@@ -23,7 +27,14 @@ export const calculateCartTotals = (
   products: CartProductLike[],
 ): CartTotals => {
   const freeShippingThresholdCents = siteConfig.freeShippingThreshold * 100;
-  const priceMap = new Map(products.map((product) => [product.id, product.priceCents]));
+  const priceMap = new Map(
+    products.map((product) => [
+      product.id,
+      typeof product.effectivePriceCents === "number"
+        ? product.effectivePriceCents
+        : getEffectivePriceCents(product),
+    ]),
+  );
   let subtotal = 0;
   let bottleCount = 0;
 

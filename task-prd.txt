@@ -1,0 +1,270 @@
+# Task PRD — Product Discounts (Admin) + Product Reviews (Users/Guests)
+
+
+❗ Do NOT run or suggest:
+
+prisma migrate reset
+
+prisma db push --force-reset
+
+deleteMany() on Product, Order, OrderItem, User
+
+dropping or renaming existing columns
+
+modifying existing enum values
+
+Ensure that db entries remain, nothing is deleted.
+
+Project: Palmanhac (Next.js App Router + Prisma/Postgres)
+Goal: Add (1) per-product discounts editable in Admin, and (2) product reviews (stars + comment) for users and guests.
+Must be safe: no destructive DB operations, no product deletion, no reset migrations.
+
+---
+
+## 0) Current architecture (what to align with)
+
+- Product pricing is stored as `Product.priceCents` in DB and used directly in UI and totals.
+  - UI: ProductCard uses `product.priceCents` for display and toast text.
+  - Product details: ProductDetailView expects `priceCents` on the product payload.
+  - Cart totals: calculateCartTotals uses product priceCents from fetched product summaries.
+  - Checkout + mock checkout: order total and OrderItem.unitPrice use `priceCents` selected from Prisma.
+  References:
+  - ProductCard price render + toast uses priceCents: components/product/ProductCard.tsx
+  - Checkout route selects {id, priceCents} and computes total + unitPrice: app/api/checkout/route.ts
+  - Products API returns product summaries used across app: app/api/products/route.ts
+
+---
+
+## 1) Feature A — Product Discounts (Admin-managed)
+
+### 1.1 Requirements
+Admin page: /admin/products/{id}
+- Add a checkbox: “Apply discount”
+- If checked, reveal an input: “Discount (%)”
+  - Validate: integer percent 1..99 (or 0..99 if you prefer allowing 0)
+  - When unchecked: discount is disabled and percent resets to 0 (or keep stored but ignored)
+- Discounted price must be calculated from base priceCents and shown as:
+  - Old price crossed out
+  - New price shown next to it
+  - Display formatted to 2 decimals (currency format). (Since we store cents, use integer cents + formatCurrency; do NOT use floats for money.)
+- In product cards (ProductCard.tsx), show a reusable “Discount Applied” indicator (badge/button style).
+- If a discount is enabled, the *new effective price* must be used everywhere:
+  - product lists
+  - product details
+  - cart
+  - checkout totals
+  - payment creation routes
+  - OrderItem.unitPrice must capture the discounted price at the time of order
+
+### 1.2 DB changes (safe)
+Update schema.prisma Product model (non-destructive additions):
+- discountEnabled Boolean @default(false)
+- discountPercent Int @default(0)
+
+Rules:
+- Effective price formula:
+  - if (!discountEnabled || discountPercent <= 0) => effectivePriceCents = priceCents
+  - else => effectivePriceCents = round(priceCents * (100 - discountPercent) / 100)
+  - Use integer rounding at the cents level:
+    - effectivePriceCents = Math.max(0, Math.round(priceCents * (100 - discountPercent) / 100))
+
+Migration safety:
+- Only ADD columns; do not drop/rename existing columns.
+- No data resets. No deleteMany. No “prisma migrate reset”.
+- Create a normal Prisma migration, or (if project uses SQL migration files) ensure it only adds columns.
+
+### 1.3 Backend / server mapping
+Add a single reusable helper:
+- lib/utils/pricing.ts (new):
+  - export function getEffectivePriceCents(product: { priceCents: number; discountEnabled?: boolean; discountPercent?: number }): number
+  - export function getDiscountedPriceCents(...) (optional)
+  - export function getDiscountLabel(discountPercent) (optional)
+
+Update product mapping so UI can render both prices cleanly:
+- Extend ProductListItem and ProductDetail payloads to include:
+  - priceCents (base)
+  - discountEnabled
+  - discountPercent
+  - effectivePriceCents (computed server-side OR computed client-side consistently via helper)
+  - optionally: discountedPriceCents alias == effectivePriceCents
+
+Where to update:
+- lib/server/products.ts:
+  - When returning list items and summaries, include discount fields and compute effectivePriceCents.
+- app/api/products/route.ts:
+  - Ensure returned product objects include discount fields + effectivePriceCents.
+- app/api/product/[slug]/route.ts:
+  - Include discount fields + effectivePriceCents in payload.
+
+### 1.4 Admin UI implementation
+Files:
+- app/admin/products/[id]/page.tsx (loads product; ensure discount fields included)
+- components/admin/products/ProductForm.tsx (add checkbox + percent input)
+- app/api/admin/products/[id]/route.ts (update Zod schema to accept discountEnabled/discountPercent; persist to Prisma)
+
+UI behavior:
+- Checkbox toggles UI.
+- Percent input only visible when enabled.
+- Validate and clamp values; show helpful error messages.
+- When saving, send discountEnabled/discountPercent with existing payload.
+- Ensure formatting is consistent with existing price input approach (they currently parse “12,34” style input into cents — keep that approach for base price; for discount use integers only).
+
+### 1.5 Frontend UI updates
+- components/product/ProductCard.tsx:
+  - Replace single price render with:
+    - if discounted: show old price with line-through + new price bold
+    - show a reusable badge/button “Discount” (make it reusable component)
+  - Update toast description to use effective price, not base price.
+- components/product/ProductDetailView.tsx:
+  - Show discounted pricing consistently.
+  - “Add to cart” should add the product normally; pricing is resolved from fetched product data.
+- Cart + Checkout:
+  - Ensure all totals and line items use effectivePriceCents.
+  - Update calculateCartTotals to use effective price field (or compute via helper).
+  - Ensure payment routes (Eupago/Stripe) compute totals using effective prices.
+
+Critical places to update (known from dump):
+- app/api/checkout/route.ts uses priceCents map for totals and OrderItem.unitPrice.
+- lib/utils/cart-totals.ts expects priceCents from products.
+- components/cart/CartView.tsx uses calculateCartTotals with products fetched from /api/products?ids=...
+- lib/payments/* routes that select {id, priceCents} and compute totals must switch to effective.
+
+Acceptance check:
+- If discountEnabled=true and discountPercent=10 on a €10.00 product:
+  - Base: 1000 cents
+  - Effective: 900 cents (€9.00)
+  - Cart totals and checkout totals must reflect €9.00 per unit.
+
+---
+
+## 2) Feature B — Product Reviews (Stars + Comment, Users + Guests)
+
+### 2.1 Requirements
+- On product detail page, show:
+  - Average rating (e.g. 4.3)
+  - Count of reviews
+  - List of latest reviews (rating + comment + author display)
+- Allow adding a review:
+  - If logged in: user can submit rating (1..5) + comment
+  - If guest: can submit rating + comment; optionally provide name/email
+- Basic anti-spam:
+  - Rate limit by IP (and/or session user id) similar to auth routes.
+- Persist reviews in DB. No external service.
+
+### 2.2 DB changes
+Add new Prisma model:
+
+model ProductReview {
+  id        String   @id @default(cuid())
+  productId Int
+  userId    String?
+  guestName String?
+  guestEmail String?
+  rating    Int      // 1..5
+  comment   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([productId, createdAt])
+  // Optional: enforce single review per logged-in user per product:
+  // @@unique([productId, userId])
+}
+
+Notes:
+- Use onDelete: Cascade for Product relation (if product ever deleted).
+- Use onDelete: SetNull for User relation to keep review if user deleted.
+
+### 2.3 API endpoints
+Create:
+- app/api/products/[id]/reviews/route.ts
+  - GET:
+    - returns { summary: { average, count }, reviews: [...] }
+    - pagination optional (default last 10/20)
+  - POST:
+    - payload: { rating: 1..5, comment: string, guestName?, guestEmail? }
+    - if logged in -> userId = session.user.id
+    - else -> store guestName/guestEmail if provided
+    - validate via zod:
+      - rating int 1..5
+      - comment min 5 max 1000
+      - guestName max 120 optional
+      - guestEmail email optional
+    - rate limit key:
+      - logged in: reviews:${userId}:${productId}
+      - guest: reviews:${ip}:${productId}
+    - return created review + updated summary
+
+### 2.4 UI components
+New components:
+- components/product/reviews/StarRating.tsx
+  - clickable stars 1..5 (shadcn button/icon)
+- components/product/reviews/ReviewForm.tsx (client)
+  - rating input + textarea + submit
+  - if guest (no session): show optional name/email fields
+  - POST to API, then refresh list
+- components/product/reviews/ReviewsSection.tsx
+  - displays summary + list + form
+
+Integrate into:
+- components/product/ProductDetailView.tsx
+  - place ReviewsSection below description (before related items is fine)
+
+Types:
+- types/review.ts (new) for DTOs returned by API
+- Extend ProductDetailData / ProductListItem if you want to show rating summary in cards (optional; not required for MVP)
+
+### 2.5 Internationalization
+- Add dictionary keys for:
+  - “Discount applied”, “Discount (%)”, “Reviews”, “Write a review”, “Submit”, “Average rating”, validation errors, etc.
+- Follow existing dictionary usage patterns.
+
+---
+
+## 3) Testing & QA
+
+### Discount tests
+- Unit test getEffectivePriceCents:
+  - no discount => unchanged
+  - 10% discount => correct rounding
+  - boundary values (1, 99, 0)
+- Integration:
+  - Admin: toggle discount, save, reload, confirm persisted.
+  - UI: ProductCard shows old+new price and badge when discounted.
+  - Cart/Checkout/Payments:
+    - Add discounted product to cart, confirm totals match effective price.
+    - Place order, confirm OrderItem.unitPrice stored as effective price.
+
+### Reviews tests
+- API:
+  - POST review as logged-in user => persists with userId
+  - POST review as guest => persists with guest fields
+  - GET returns correct average/count
+  - rate limit returns 429 when exceeded
+
+---
+
+## 4) Acceptance Criteria (must pass)
+- Discount:
+  - Admin can enable/disable per product; percent saved.
+  - Discounted price rendered across app consistently.
+  - Cart/checkout/payment/order creation uses discounted unit price.
+  - No products deleted; migration is additive only.
+- Reviews:
+  - Users and guests can submit rating+comment.
+  - Reviews displayed on product page with average + count.
+  - Rate limiting exists to reduce spam.
+
+---
+
+## 5) Implementation checklist (Codex)
+1) Update schema.prisma (Product + ProductReview) and create safe migration.
+2) Add pricing helper and update products server mapping + APIs.
+3) Update Admin ProductForm + admin API to save discount fields.
+4) Update ProductCard + ProductDetailView to render discount UI (badge + strike-through).
+5) Update cart totals + checkout/payment routes to use effective prices.
+6) Implement reviews API + UI section on product detail page.
+7) Add minimal tests (helper unit tests + API route tests if test setup exists).
+8) Run build and basic smoke tests.

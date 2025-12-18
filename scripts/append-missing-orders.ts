@@ -5,6 +5,7 @@ import {
   PaymentStatus,
   PrismaClient,
 } from "@prisma/client";
+import { getEffectivePriceCents } from "@/lib/utils/pricing";
 
 if (typeof process.loadEnvFile === "function") {
   process.loadEnvFile();
@@ -114,13 +115,23 @@ async function restoreOrders() {
       if (item.productSlug) {
         product = await prisma.product.findUnique({
           where: { slug: item.productSlug },
-          select: { id: true, priceCents: true },
+          select: {
+            id: true,
+            priceCents: true,
+            discountEnabled: true,
+            discountPercent: true,
+          },
         });
       }
       if (!product) {
         product = await prisma.product.findFirst({
           where: { name: { equals: item.productName, mode: "insensitive" } },
-          select: { id: true, priceCents: true },
+          select: {
+            id: true,
+            priceCents: true,
+            discountEnabled: true,
+            discountPercent: true,
+          },
         });
       }
       if (!product) {
@@ -131,7 +142,7 @@ async function restoreOrders() {
       normalizedItems.push({
         productId: product.id,
         quantity: item.quantity,
-        unitPrice: item.unitPriceCents ?? product.priceCents,
+        unitPrice: item.unitPriceCents ?? getEffectivePriceCents(product),
       });
     }
 

@@ -1,6 +1,7 @@
 import type { Prisma, Product as PrismaProduct } from "@prisma/client";
 import type { Locale } from "@/config/site";
 import { prisma } from "@/lib/server/db";
+import { getEffectivePriceCents } from "@/lib/utils/pricing";
 import type {
   Product,
   ProductCategorySlug,
@@ -84,9 +85,16 @@ const pickLocalized = (enValue: string, ptValue: string, locale: Locale) => {
   return enValue?.trim().length ? enValue : ptValue;
 };
 
+const applyPricing = (product: PrismaProduct) => ({
+  discountEnabled: product.discountEnabled,
+  discountPercent: product.discountPercent,
+  effectivePriceCents: getEffectivePriceCents(product),
+});
+
 const toListItem = (product: PrismaProduct, locale: Locale): ProductListItem => {
   const description = pickLocalized(product.descriptionEn, product.descriptionPt, locale);
   const localizedName = pickLocalized(product.name, product.namePt ?? "", locale);
+  const pricing = applyPricing(product);
 
   return {
     id: product.id,
@@ -95,6 +103,9 @@ const toListItem = (product: PrismaProduct, locale: Locale): ProductListItem => 
     image: product.image,
     galleryImages: product.galleryImages,
     priceCents: product.priceCents,
+    discountEnabled: pricing.discountEnabled,
+    discountPercent: pricing.discountPercent,
+    effectivePriceCents: pricing.effectivePriceCents,
     name: localizedName,
     description: summarizeDescription(description),
     volumeMl: product.volumeMl,
@@ -103,38 +114,44 @@ const toListItem = (product: PrismaProduct, locale: Locale): ProductListItem => 
   };
 };
 
-const toProduct = (product: PrismaProduct): Product => ({
-  id: product.id,
-  slug: product.slug,
-  category: product.category as ProductCategorySlug,
-  name: product.name,
-  namePt: product.namePt ?? "",
-  priceCents: product.priceCents,
-  image: product.image,
-  galleryImages: product.galleryImages,
-  volumeMl: product.volumeMl,
-  vol: product.vol,
-  stock: product.stock,
-  isActive: product.isActive,
-  description: {
-    en: product.descriptionEn,
-    pt: product.descriptionPt,
-  },
-  tastingNotes: {
-    en: product.tastingNotesEn ?? null,
-    pt: product.tastingNotesPt ?? null,
-  },
-  details: (() => {
-    const details = deserializeDetails(product.details);
-    return {
-      ...details,
-      base: {
-        en: product.baseEn ?? details.base.en,
-        pt: product.basePt ?? details.base.pt,
-      },
-    } satisfies ProductDetails;
-  })(),
-});
+const toProduct = (product: PrismaProduct): Product => {
+  const pricing = applyPricing(product);
+  return {
+    id: product.id,
+    slug: product.slug,
+    category: product.category as ProductCategorySlug,
+    name: product.name,
+    namePt: product.namePt ?? "",
+    priceCents: product.priceCents,
+    discountEnabled: pricing.discountEnabled,
+    discountPercent: pricing.discountPercent,
+    effectivePriceCents: pricing.effectivePriceCents,
+    image: product.image,
+    galleryImages: product.galleryImages,
+    volumeMl: product.volumeMl,
+    vol: product.vol,
+    stock: product.stock,
+    isActive: product.isActive,
+    description: {
+      en: product.descriptionEn,
+      pt: product.descriptionPt,
+    },
+    tastingNotes: {
+      en: product.tastingNotesEn ?? null,
+      pt: product.tastingNotesPt ?? null,
+    },
+    details: (() => {
+      const details = deserializeDetails(product.details);
+      return {
+        ...details,
+        base: {
+          en: product.baseEn ?? details.base.en,
+          pt: product.basePt ?? details.base.pt,
+        },
+      } satisfies ProductDetails;
+    })(),
+  };
+};
 
 export const getAllProducts = async (locale: Locale, filters: ProductFilters = {}) => {
   const where: Prisma.ProductWhereInput = {
@@ -168,7 +185,16 @@ export const getAllProducts = async (locale: Locale, filters: ProductFilters = {
     orderBy,
   });
 
-  return products.map((product) => toListItem(product, locale));
+  const list = products.map((product) => toListItem(product, locale));
+
+  if (filters.sort === "price-asc") {
+    return list.sort((a, b) => a.effectivePriceCents - b.effectivePriceCents);
+  }
+  if (filters.sort === "price-desc") {
+    return list.sort((a, b) => b.effectivePriceCents - a.effectivePriceCents);
+  }
+
+  return list;
 };
 
 export const getProductsByIds = async (ids: number[]) => {

@@ -152,6 +152,12 @@ export function CartView({
             );
           }
 
+          const hasDiscount =
+            product.discountEnabled &&
+            product.discountPercent > 0 &&
+            product.effectivePriceCents < product.priceCents;
+          const lineTotal = product.effectivePriceCents * item.quantity;
+
           return (
             <div
               key={product.id}
@@ -182,8 +188,13 @@ export function CartView({
                   onChange={(value) => updateQuantity(product.id, value)}
                 />
                 <div className="text-right">
+                  {hasDiscount ? (
+                    <p className="text-xs text-neutral-400 line-through">
+                      {formatCurrency(locale, product.priceCents * item.quantity)}
+                    </p>
+                  ) : null}
                   <p className="text-sm font-semibold text-neutral-900">
-                    {formatCurrency(locale, product.priceCents * item.quantity)}
+                    {formatCurrency(locale, lineTotal)}
                   </p>
                   <button
                     type="button"

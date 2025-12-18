@@ -49,8 +49,8 @@ export function ProductListingSection({
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) =>
       sortOrder === "price-asc"
-        ? a.priceCents - b.priceCents
-        : b.priceCents - a.priceCents,
+        ? a.effectivePriceCents - b.effectivePriceCents
+        : b.effectivePriceCents - a.effectivePriceCents,
     );
   }, [products, sortOrder]);
 

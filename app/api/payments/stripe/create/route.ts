@@ -21,6 +21,7 @@ import { prisma } from "@/lib/server/db";
 import { calculateCartTotals } from "@/lib/utils/cart-totals";
 import { appendOrderEvent } from "@/lib/utils/order-events";
 import { logPaymentEvent } from "@/lib/utils/payment-logger";
+import { getEffectivePriceCents } from "@/lib/utils/pricing";
 import { redactForLogging } from "@/lib/utils/redact";
 
 export const runtime = "nodejs";
@@ -69,7 +70,13 @@ export async function POST(request: NextRequest) {
   const productIds = payload.items.map((item) => item.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
-    select: { id: true, priceCents: true, name: true },
+    select: {
+      id: true,
+      priceCents: true,
+      name: true,
+      discountEnabled: true,
+      discountPercent: true,
+    },
   });
 
   const expectedCount = new Set(productIds).size;
@@ -85,6 +92,8 @@ export async function POST(request: NextRequest) {
     products.map((product) => ({
       id: product.id,
       priceCents: product.priceCents,
+      discountEnabled: product.discountEnabled,
+      discountPercent: product.discountPercent,
     })),
   );
 
@@ -149,7 +158,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const priceMap = new Map(products.map((product) => [product.id, product.priceCents]));
+  const priceMap = new Map(
+    products.map((product) => [product.id, getEffectivePriceCents(product)]),
+  );
   const latestChargeId =
     typeof paymentIntent.latest_charge === "string"
       ? paymentIntent.latest_charge

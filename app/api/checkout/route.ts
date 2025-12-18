@@ -3,6 +3,7 @@ import { PaymentMethod, PaymentProvider, PaymentStatus } from "@prisma/client";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/server/db";
+import { getEffectivePriceCents } from "@/lib/utils/pricing";
 
 const checkoutSchema = z.object({
   items: z
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
   const productIds = items.map((item) => item.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
-    select: { id: true, priceCents: true },
+    select: { id: true, priceCents: true, discountEnabled: true, discountPercent: true },
   });
 
   if (products.length !== productIds.length) {
@@ -47,7 +48,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const priceMap = new Map(products.map((product) => [product.id, product.priceCents]));
+  const priceMap = new Map(
+    products.map((product) => [product.id, getEffectivePriceCents(product)]),
+  );
   const totalAmount = items.reduce((acc, item) => {
     const price = priceMap.get(item.productId) ?? 0;
     return acc + price * item.quantity;

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { DiscountBadge } from "@/components/product/DiscountBadge";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { QuantitySelector } from "@/components/product/QuantitySelector";
+import { ReviewsSection } from "@/components/product/reviews/ReviewsSection";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -21,6 +23,9 @@ export interface ProductDetailData {
   description: string;
   image: string;
   priceCents: number;
+  effectivePriceCents: number;
+  discountEnabled: boolean;
+  discountPercent: number;
   category: string;
   volumeMl: number;
   vol: number;
@@ -49,6 +54,16 @@ export function ProductDetailView({
   const toggleFavorite = useFavoritesStore((state) => state.toggle);
   const isFavorite = useFavoritesStore((state) => state.has(product.id));
   const [quantity, setQuantity] = useState(1);
+  const hasDiscount =
+    product.discountEnabled &&
+    product.discountPercent > 0 &&
+    product.effectivePriceCents < product.priceCents;
+  const basePriceFormatted = formatCurrency(locale, product.priceCents);
+  const effectivePriceFormatted = formatCurrency(locale, product.effectivePriceCents);
+  const savingsLabel = dictionary.product.discount.savingsLabel.replace(
+    "{percent}",
+    product.discountPercent.toString(),
+  );
 
   const descriptionParagraphs = product.description
     .split(/\n{2,}|\r?\n\r?\n?/)
@@ -118,10 +133,32 @@ export function ProductDetailView({
               <span>{product.vol}% VOL</span>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <p className="text-3xl font-semibold text-neutral-900">
-              {formatCurrency(locale, product.priceCents)}
-            </p>
+          <div className="flex flex-wrap items-center gap-6">
+            <div>
+              {hasDiscount ? (
+                <>
+                  <p className="text-base font-medium text-neutral-400 line-through">
+                    {basePriceFormatted}
+                  </p>
+                  <div className="mt-1 flex items-center gap-3">
+                    <p className="text-3xl font-semibold text-neutral-900">
+                      {effectivePriceFormatted}
+                    </p>
+                    <DiscountBadge
+                      label={dictionary.product.discount.badge}
+                      percent={product.discountPercent}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+                    {savingsLabel}
+                  </p>
+                </>
+              ) : (
+                <p className="text-3xl font-semibold text-neutral-900">
+                  {basePriceFormatted}
+                </p>
+              )}
+            </div>
             <QuantitySelector value={quantity} onChange={setQuantity} />
           </div>
           <div className="flex flex-wrap gap-4">
@@ -131,7 +168,7 @@ export function ProductDetailView({
                 addItem(product.id, quantity);
                 toast({
                   title: dictionary.product.addToCart,
-                  description: `${product.name} • ${formatCurrency(locale, product.priceCents * quantity)}`,
+                  description: `${product.name} • ${formatCurrency(locale, product.effectivePriceCents * quantity)}`,
                   variant: "success",
                 });
                 setQuantity(1);
@@ -203,6 +240,7 @@ export function ProductDetailView({
           ) : null}
         </div>
       </div>
+      <ReviewsSection productId={product.id} dictionary={dictionary} locale={locale} />
       {related.length ? (
         <div className="space-y-6">
           <h2 className="text-2xl font-semibold text-neutral-900">

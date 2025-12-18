@@ -61,6 +61,8 @@ const productSchema = z.object({
   vol: z.number().min(0).max(100),
   stock: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
+  discountEnabled: z.boolean().optional(),
+  discountPercent: z.number().int().min(0).max(99).optional(),
   description: localeContentSchema,
   tastingNotes: localeContentSchema.partial(),
   base: localeContentSchema.optional(),
@@ -161,6 +163,11 @@ export async function POST(request: NextRequest) {
         vol: data.vol,
         stock: data.stock ?? 0,
         isActive: data.isActive ?? true,
+        discountEnabled: Boolean(data.discountEnabled && (data.discountPercent ?? 0) > 0),
+        discountPercent:
+          data.discountEnabled && typeof data.discountPercent === "number"
+            ? data.discountPercent
+            : 0,
         descriptionEn: data.description.en,
         descriptionPt: data.description.pt,
         tastingNotesEn: data.tastingNotes?.en,

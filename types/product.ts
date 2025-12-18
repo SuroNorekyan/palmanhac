@@ -19,6 +19,9 @@ export type Product = {
   name: string;
   namePt: string;
   priceCents: number;
+  discountEnabled: boolean;
+  discountPercent: number;
+  effectivePriceCents: number;
   image: string;
   galleryImages: string[];
   volumeMl: number;
@@ -37,6 +40,9 @@ export type ProductListItem = {
   image: string;
   galleryImages: string[];
   priceCents: number;
+  discountEnabled: boolean;
+  discountPercent: number;
+  effectivePriceCents: number;
   name: string;
   description: string;
   volumeMl: number;

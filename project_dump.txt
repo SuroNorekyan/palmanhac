@@ -1,4 +1,4 @@
-# === Project Dump (2025-11-28T08:18:00.496Z) ===
+# === Project Dump (2025-12-18T06:52:42.488Z) ===
 
 
 # --- app/[locale]/about/page.tsx ---
@@ -15,6 +15,7 @@ export default async function AboutPage({
   const dictionary = getDictionary(locale);
 
   const { hero, pillars, faq, shippingReturns } = dictionary.about;
+  const faqCategories = faq.categories;
 
   return (
     <section className="space-y-16">
@@ -81,9 +82,10 @@ export default async function AboutPage({
           <p className="max-w-3xl text-neutral-600">{faq.subtitle}</p>
         </div>
         <div className="space-y-6">
-          {faq.categories.map((category) => (
+          {faqCategories.map((category) => (
             <div
               key={category.id}
+              id={category.id}
               className="space-y-6 rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm md:p-8"
             >
               <div>
@@ -564,6 +566,7 @@ export default async function FavoritesPage({
 # --- app/[locale]/layout.tsx ---
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { Analytics } from "@vercel/analytics/react";
 import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
 import { AgeGate } from "@/components/layout/AgeGate";
 import { Footer } from "@/components/layout/Footer";
@@ -603,17 +606,23 @@ export default async function LocaleLayout({
         <TopBanner banner={dictionary.banner} />
         <Header nav={navigation} dictionary={dictionary} locale={locale} />
       </div>
+
       <main className="container space-y-16 pb-16 pt-56 sm:pt-56 md:pt-48 lg:pt-44 xl:pt-40">
         {children}
       </main>
+
       <Footer
         nav={navigation}
         site={siteConfig}
         dictionary={dictionary}
         locale={locale}
       />
+
       <ScrollToTopButton />
       <AgeGate copy={dictionary.ageGate} locale={locale} />
+
+      {/* Vercel Analytics - required */}
+      <Analytics />
     </Providers>
   );
 }
@@ -1147,6 +1156,15 @@ export default async function ProductPage({
     notFound();
   }
 
+  const localizedName =
+    locale === "pt"
+      ? product.namePt?.trim().length
+        ? product.namePt
+        : product.name
+      : product.name?.trim().length
+        ? product.name
+        : product.namePt;
+
   const withFallback = (value: string | undefined, fallback: string | undefined) =>
     value && value.trim().length ? value : (fallback ?? "");
 
@@ -1177,7 +1195,7 @@ export default async function ProductPage({
   const detail = {
     id: product.id,
     slug: product.slug,
-    name: product.name,
+    name: localizedName,
     description: localizedDescriptionValue,
     image: product.image,
     priceCents: product.priceCents,
@@ -2125,84 +2143,6 @@ function QuickLinkCard({
 }
 # --- end of app/admin/page.tsx ---
 
-# --- app/admin/products/[id]/base/page.tsx ---
-import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { auth } from "@/auth";
-import { ProductBaseForm } from "@/components/admin/products/ProductBaseForm";
-import { prisma } from "@/lib/server/db";
-
-export const dynamic = "force-dynamic";
-
-type Params = {
-  params: Promise<{ id: string }>;
-};
-
-export default async function AdminProductBasePage({ params }: Params) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    redirect("/account");
-  }
-  if (session.user.twoFAEnabled && !(session as any).twoFAVerified) {
-    redirect("/admin/2fa/challenge");
-  }
-
-  const { id } = await params;
-  const productId = Number.parseInt(id, 10);
-  if (!Number.isInteger(productId)) {
-    notFound();
-  }
-
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-    select: {
-      id: true,
-      name: true,
-      baseEn: true,
-      basePt: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-
-  if (!product) {
-    notFound();
-  }
-
-  return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">Edit base</h1>
-          <p className="text-sm text-neutral-600">
-            Provide the product base in English and Portuguese for {product.name}.
-          </p>
-          <p className="text-xs text-neutral-500">
-            #{product.id} • Created {product.createdAt.toLocaleDateString("en-GB")} •
-            Updated{" "}
-            {product.updatedAt.toLocaleString("en-GB", {
-              dateStyle: "medium",
-              timeStyle: "short",
-            })}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/products/${product.id}`}
-            className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
-          >
-            Back to product
-          </Link>
-        </div>
-      </header>
-      <div className="rounded-3xl border border-[rgb(var(--border))] bg-white p-6 shadow-sm">
-        <ProductBaseForm product={product} />
-      </div>
-    </div>
-  );
-}
-# --- end of app/admin/products/[id]/base/page.tsx ---
-
 # --- app/admin/products/[id]/page.tsx ---
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -2237,6 +2177,7 @@ export default async function AdminProductEditPage({ params }: Params) {
     select: {
       id: true,
       name: true,
+      namePt: true,
       slug: true,
       category: true,
       priceCents: true,
@@ -2246,6 +2187,8 @@ export default async function AdminProductEditPage({ params }: Params) {
       vol: true,
       stock: true,
       isActive: true,
+      baseEn: true,
+      basePt: true,
       descriptionEn: true,
       descriptionPt: true,
       createdAt: true,
@@ -2280,12 +2223,6 @@ export default async function AdminProductEditPage({ params }: Params) {
             className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline"
           >
             Back to products
-          </Link>
-          <Link
-            href={`/admin/products/${product.id}/base`}
-            className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-50"
-          >
-            Edit base
           </Link>
           <DeleteProductButton
             productId={product.id}
@@ -3069,9 +3006,6 @@ const asRecord = (value: unknown) =>
 const asString = (value: unknown) =>
   typeof value === "string" && value.trim().length > 0 ? value : undefined;
 
-const normalizeReferenceDigits = (value: string | null | undefined) =>
-  value ? value.replace(/[^0-9]/g, "") : undefined;
-
 const toOrderWhere = (code: string) => {
   const candidates: Prisma.OrderWhereInput[] = [];
   const trimmed = code.trim();
@@ -3176,14 +3110,21 @@ export async function GET(request: NextRequest) {
     let remoteStatus = null;
 
     if (order.paymentMethod === PaymentMethod.MBWAY) {
-      const reference =
-        normalizeReferenceDigits(
-          asString(providerMetadata.reference) ??
-            asString(providerMetadata.referencia) ??
-            undefined,
-        ) ?? normalizeReferenceDigits(order.providerRef);
-      if (reference) {
-        const entry = await lookupReferenceStatus(reference);
+      const referenceCandidates = Array.from(
+        new Set(
+          [
+            asString(providerMetadata.reference),
+            asString(providerMetadata.referencia),
+            asString(providerMetadata.identifier),
+            asString(providerMetadata.transactionId),
+            asString(providerMetadata.transaction_id),
+            order.providerRef,
+            order.id,
+          ].filter((value): value is string => Boolean(value && value.trim())),
+        ),
+      );
+      if (referenceCandidates.length) {
+        const entry = await lookupReferenceStatus(referenceCandidates);
         remoteStatus = referenceEntryToStatus(entry);
       }
     }
@@ -3269,109 +3210,6 @@ export async function GET(request: NextRequest) {
 }
 # --- end of app/api/admin/orders/status/route.ts ---
 
-# --- app/api/admin/products/[id]/base/route.ts ---
-import { NextResponse, type NextRequest } from "next/server";
-import { Prisma } from "@prisma/client";
-import { z } from "zod";
-import {
-  requireAdminSession,
-  TwoFactorRequiredError,
-  UnauthorizedError,
-} from "@/lib/auth/guards";
-import { prisma } from "@/lib/server/db";
-
-const localeContentSchema = z.object({
-  en: z.string().min(1, "English base is required"),
-  pt: z.string().min(1, "Portuguese base is required"),
-});
-
-const baseSchema = z.object({
-  base: localeContentSchema,
-});
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const handleError = (error: unknown, fallback = "Unexpected error.") => {
-  if (error instanceof UnauthorizedError) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 403 });
-  }
-  if (error instanceof TwoFactorRequiredError) {
-    return NextResponse.json(
-      { error: "Two-factor authentication is required." },
-      { status: 401 },
-    );
-  }
-  console.error(error);
-  return NextResponse.json({ error: fallback }, { status: 500 });
-};
-
-const parseId = (value: string) => {
-  const coerced = Number.parseInt(value, 10);
-  return Number.isFinite(coerced) ? coerced : null;
-};
-
-export async function PATCH(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> },
-) {
-  try {
-    await requireAdminSession();
-    const { id } = await context.params;
-    const productId = parseId(id);
-    if (!productId) {
-      return NextResponse.json({ error: "Invalid product id." }, { status: 400 });
-    }
-
-    const body = await request.json().catch(() => null);
-    const parsed = baseSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid payload.", issues: parsed.error.flatten() },
-        { status: 400 },
-      );
-    }
-
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      select: { details: true },
-    });
-    if (!product) {
-      return NextResponse.json({ error: "Product not found." }, { status: 404 });
-    }
-
-    const nextDetails = (() => {
-      if (!product.details || !isRecord(product.details)) {
-        return { base: parsed.data.base } as Prisma.JsonObject;
-      }
-      return {
-        ...product.details,
-        base: parsed.data.base,
-      } as Prisma.JsonObject;
-    })();
-
-    const updated = await prisma.product.update({
-      where: { id: productId },
-      data: {
-        baseEn: parsed.data.base.en,
-        basePt: parsed.data.base.pt,
-        details: nextDetails,
-      },
-      select: {
-        id: true,
-        name: true,
-        baseEn: true,
-        basePt: true,
-      },
-    });
-
-    return NextResponse.json({ product: updated });
-  } catch (error) {
-    return handleError(error, "Failed to update base.");
-  }
-}
-# --- end of app/api/admin/products/[id]/base/route.ts ---
-
 # --- app/api/admin/products/[id]/route.ts ---
 import { NextResponse, type NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -3423,6 +3261,7 @@ const detailsSchema = z.object({
 const updateSchema = z
   .object({
     name: z.string().min(2).optional(),
+    namePt: z.string().min(2).optional(),
     slug: z
       .string()
       .min(2)
@@ -3524,6 +3363,7 @@ export async function PATCH(
       where: { id: productId },
       data: {
         ...(updates.name ? { name: updates.name } : {}),
+        ...(updates.namePt ? { namePt: updates.namePt } : {}),
         ...(updates.slug ? { slug: updates.slug } : {}),
         ...(updates.category ? { category: updates.category } : {}),
         ...(updates.priceCents !== undefined ? { priceCents: updates.priceCents } : {}),
@@ -3648,6 +3488,7 @@ const detailsSchema = z.object({
 
 const productSchema = z.object({
   name: z.string().min(2),
+  namePt: z.string().min(2),
   slug: z
     .string()
     .min(2)
@@ -3702,6 +3543,7 @@ export async function GET(request: NextRequest) {
           ? {
               OR: [
                 { name: { contains: query, mode: "insensitive" } },
+                { namePt: { contains: query, mode: "insensitive" } },
                 { descriptionEn: { contains: query, mode: "insensitive" } },
                 { descriptionPt: { contains: query, mode: "insensitive" } },
                 { slug: { contains: query, mode: "insensitive" } },
@@ -3746,6 +3588,7 @@ export async function POST(request: NextRequest) {
     const created = await prisma.product.create({
       data: {
         name: data.name,
+        namePt: data.namePt,
         slug,
         category: data.category,
         priceCents: data.priceCents,
@@ -3779,9 +3622,8 @@ export async function POST(request: NextRequest) {
 # --- end of app/api/admin/products/route.ts ---
 
 # --- app/api/admin/upload/route.ts ---
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { NextResponse } from "next/server";
+import { put } from "@vercel/blob";
 
 export const runtime = "nodejs";
 
@@ -3789,24 +3631,24 @@ export async function POST(req: Request) {
   try {
     const form = await req.formData();
     const file = form.get("file");
+
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    const assetsDir = path.join(process.cwd(), "public", "assets");
-    await mkdir(assetsDir, { recursive: true });
-
-    const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+    const originalName = file.name || "upload";
+    const safeName = originalName.replace(/[^\w.\-]+/g, "_");
     const filename = `${Date.now()}-${safeName}`;
-    const dest = path.join(assetsDir, filename);
-    await writeFile(dest, buffer);
 
-    return NextResponse.json({ path: `/assets/${filename}` });
-  } catch (e) {
-    console.error("[upload] error:", e);
+    // Upload the File directly
+    const blob = await put(`products/${filename}`, file, {
+      access: "public",
+      contentType: file.type || "application/octet-stream",
+    });
+
+    return NextResponse.json({ path: blob.url }, { status: 200 });
+  } catch (err) {
+    console.error("[Vercel Blob] Upload error:", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
@@ -4819,26 +4661,34 @@ export async function GET(request: NextRequest) {
     if (order.paymentMethod === PaymentMethod.MBWAY) {
       const statusUrl =
         asString(providerMetadata.statusUrl) ?? asString(providerMetadata.status_url);
-      const metadataReference =
-        normalizeReferenceDigits(
-          asString(providerMetadata.reference) ??
-            asString(providerMetadata.referencia) ??
-            undefined,
-        ) ?? normalizeReferenceDigits(order.providerRef);
+      const referenceCandidates = Array.from(
+        new Set(
+          [
+            asString(providerMetadata.reference),
+            asString(providerMetadata.referencia),
+            asString(providerMetadata.identifier),
+            asString(providerMetadata.transactionId),
+            asString(providerMetadata.transaction_id),
+            order.providerRef,
+            transactionId,
+            order.id,
+          ].filter((value): value is string => Boolean(value && value.trim())),
+        ),
+      );
 
       const fetchReferenceStatus = async () => {
-        if (!metadataReference) return null;
-        const entry = await lookupReferenceStatus(metadataReference);
-        const normalizedStatus = referenceEntryToStatus(entry);
-        if (normalizedStatus) {
+        if (!referenceCandidates.length) return null;
+        const entry = await lookupReferenceStatus(referenceCandidates);
+        if (entry) {
           await logStatusEvent("info", "checkout_status_reference_match", {
             orderId: order.id,
             providerRef: order.providerRef,
-            reference: metadataReference,
-            upstreamStatus: entry?.status,
+            referenceCandidates,
+            upstreamStatus: entry.status,
+            identifier: entry.identifier,
           });
         }
-        return normalizedStatus;
+        return referenceEntryToStatus(entry);
       };
 
       const handleStatusResult = async (status: EuPagoStatusResult | null) => {
@@ -4894,7 +4744,7 @@ export async function GET(request: NextRequest) {
               await logStatusEvent("error", "checkout_status_reference_error", {
                 orderId: order.id,
                 providerRef: order.providerRef,
-                reference: metadataReference,
+                referenceCandidates,
                 error:
                   referenceError instanceof Error
                     ? referenceError.message
@@ -4910,7 +4760,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      if (!metadataReference) {
+      if (!statusUrl && !referenceCandidates.length) {
         await logStatusEvent("warn", "checkout_status_missing_status_url", {
           orderId: order.id,
           providerRef: order.providerRef,
@@ -4930,7 +4780,7 @@ export async function GET(request: NextRequest) {
           await logStatusEvent("error", "checkout_status_reference_error", {
             orderId: order.id,
             providerRef: order.providerRef,
-            reference: metadataReference,
+            referenceCandidates,
             error:
               referenceError instanceof Error
                 ? referenceError.message
@@ -7337,105 +7187,6 @@ export function DeleteProductButton({
 }
 # --- end of components/admin/products/DeleteProductButton.tsx ---
 
-# --- components/admin/products/ProductBaseForm.tsx ---
-"use client";
-
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
-import { cn } from "@/lib/utils/format";
-
-export function ProductBaseForm({
-  product,
-}: {
-  product: { id: number; name: string; baseEn: string; basePt: string };
-}) {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
-  const [form, setForm] = useState({
-    en: product.baseEn ?? "",
-    pt: product.basePt ?? "",
-  });
-  const [error, setError] = useState<string | null>(null);
-
-  const handleChange = (locale: "en" | "pt", value: string) => {
-    setForm((prev) => ({ ...prev, [locale]: value }));
-  };
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    startTransition(async () => {
-      const en = form.en.trim();
-      const pt = form.pt.trim();
-      if (!en || !pt) {
-        setError("Please provide the base in both English and Portuguese.");
-        return;
-      }
-      try {
-        const response = await fetch(`/api/admin/products/${product.id}/base`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ base: { en, pt } }),
-        });
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new Error(payload?.error || "Failed to update product base.");
-        }
-        toast({ title: "Base updated", description: product.name, variant: "success" });
-        router.refresh();
-      } catch (err) {
-        console.error("[ProductBaseForm] Failed to update base", err);
-        setError(err instanceof Error ? err.message : "Unable to update base.");
-      }
-    });
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="base-en" className="text-sm font-semibold text-neutral-800">
-            Base (EN)
-          </Label>
-          <Input
-            id="base-en"
-            value={form.en}
-            onChange={(event) => handleChange("en", event.target.value)}
-            className={cn(!form.en.trim() && error && "ring-1 ring-red-500")}
-            placeholder="e.g. Fresh oranges"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="base-pt" className="text-sm font-semibold text-neutral-800">
-            Base (PT)
-          </Label>
-          <Input
-            id="base-pt"
-            value={form.pt}
-            onChange={(event) => handleChange("pt", event.target.value)}
-            className={cn(!form.pt.trim() && error && "ring-1 ring-red-500")}
-            placeholder="ex.: Laranjas frescas"
-          />
-        </div>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      </div>
-      <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
-          Save base
-        </Button>
-      </div>
-    </form>
-  );
-}
-# --- end of components/admin/products/ProductBaseForm.tsx ---
-
 # --- components/admin/products/ProductForm.tsx ---
 "use client";
 
@@ -7479,7 +7230,8 @@ const CATEGORY_LABELS: Record<(typeof CATEGORY_OPTIONS)[number], string> = {
 };
 
 const productFormSchema = z.object({
-  name: z.string().min(2, "Name is required"),
+  name: z.string().min(2, "English name is required"),
+  namePt: z.string().min(2, "Portuguese name is required"),
   slug: z
     .string()
     .trim()
@@ -7501,6 +7253,8 @@ const productFormSchema = z.object({
     }, "Enter a valid price"),
   image: imageUrlOrPath,
   galleryImages: z.string().optional(),
+  baseEn: z.string().min(1, "Base (EN) is required"),
+  basePt: z.string().min(1, "Base (PT) is required"),
   volumeMl: z.string().refine(
     (value) => {
       if (!value.trim()) return true;
@@ -7537,6 +7291,7 @@ type ProductFormProps = {
   product?: {
     id: number;
     name: string;
+    namePt: string;
     slug: string;
     category: string;
     priceCents: number;
@@ -7545,6 +7300,8 @@ type ProductFormProps = {
     volumeMl: number;
     vol: number;
     stock: number;
+    baseEn: string;
+    basePt: string;
     isActive: boolean;
     descriptionEn: string;
     descriptionPt: string;
@@ -7561,11 +7318,14 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<ProductFormValues>({
     name: product?.name ?? "",
+    namePt: product?.namePt ?? "",
     slug: product?.slug ?? "",
     category: product?.category ?? "",
     price: product ? (product.priceCents / 100).toFixed(2) : "",
     image: product?.image ?? "",
     galleryImages: product?.galleryImages?.join(", ") ?? "",
+    baseEn: product?.baseEn ?? "",
+    basePt: product?.basePt ?? "",
     volumeMl: product?.volumeMl?.toString() ?? "",
     vol: product?.vol?.toString() ?? "",
     stock: product?.stock?.toString() ?? "",
@@ -7607,9 +7367,13 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         const t = await res.text().catch(() => "");
         throw new Error(t || "Failed to upload file");
       }
-      const json = (await res.json()) as { path: string };
-      handleChange("image", json.path);
-      if (!form.galleryImages?.trim()) handleChange("galleryImages", json.path);
+      const json = (await res.json()) as { path?: string; url?: string };
+      const uploadPath = json.path || json.url;
+      if (!uploadPath) {
+        throw new Error("Upload did not return a valid path.");
+      }
+      handleChange("image", uploadPath);
+      if (!form.galleryImages?.trim()) handleChange("galleryImages", uploadPath);
       toast({ title: "Image uploaded", variant: "success" });
     } catch (e) {
       console.error(e);
@@ -7648,6 +7412,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         // Match server contract: structured JSON payload
         const payload = {
           name: parsed.data.name,
+          namePt: parsed.data.namePt,
           slug: parsed.data.slug?.trim() || undefined,
           category: parsed.data.category,
           priceCents,
@@ -7660,6 +7425,10 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           description: {
             en: parsed.data.descriptionEn,
             pt: parsed.data.descriptionPt,
+          },
+          base: {
+            en: parsed.data.baseEn,
+            pt: parsed.data.basePt,
           },
           // Server wants strings, not nulls:
           tastingNotes: {
@@ -7714,6 +7483,10 @@ export function ProductForm({ mode, product }: ProductFormProps) {
               mapped.descriptionEn = result.fieldErrors.description[0];
               mapped.descriptionPt = result.fieldErrors.description[0];
             }
+            if (result.fieldErrors.base?.[0]) {
+              mapped.baseEn = result.fieldErrors.base[0];
+              mapped.basePt = result.fieldErrors.base[0];
+            }
             if (result.fieldErrors.tastingNotes?.[0]) {
               // We don't have dedicated inputs for notes, bubble to banner
               setSubmitError((prev) =>
@@ -7754,12 +7527,21 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Name" error={errors.name}>
+        <Field label="Name (EN)" error={errors.name}>
           <Input
             className={cn(errors.name && "ring-1 ring-red-500")}
             required
             value={form.name}
             onChange={(e) => handleChange("name", e.target.value)}
+          />
+        </Field>
+
+        <Field label="Nome (PT)" error={errors.namePt}>
+          <Input
+            className={cn(errors.namePt && "ring-1 ring-red-500")}
+            required
+            value={form.namePt}
+            onChange={(e) => handleChange("namePt", e.target.value)}
           />
         </Field>
 
@@ -7881,6 +7663,29 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           />
           <Label htmlFor="product-active">Active</Label>
         </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Base (EN)" error={errors.baseEn}>
+          <Textarea
+            className={cn(errors.baseEn && "ring-1 ring-red-500")}
+            required
+            rows={4}
+            value={form.baseEn}
+            onChange={(e) => handleChange("baseEn", e.target.value)}
+            placeholder="e.g. Fresh oranges"
+          />
+        </Field>
+        <Field label="Base (PT)" error={errors.basePt}>
+          <Textarea
+            className={cn(errors.basePt && "ring-1 ring-red-500")}
+            required
+            rows={4}
+            value={form.basePt}
+            onChange={(e) => handleChange("basePt", e.target.value)}
+            placeholder="ex.: Laranjas frescas"
+          />
+        </Field>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -9532,7 +9337,14 @@ export function MbwayPendingView({
         }
 
         const rawStatus = (payload.status?.status ?? "").toLowerCase();
-        if (rawStatus.includes("paid") || rawStatus === "ok" || rawStatus === "success") {
+        const isPaidStatus =
+          rawStatus === "ok" ||
+          rawStatus === "success" ||
+          rawStatus.includes("paid") ||
+          rawStatus.includes("paga") ||
+          rawStatus.includes("sucesso") ||
+          rawStatus.includes("captur");
+        if (isPaidStatus) {
           setStatusState("paid");
           setStatusMessage(dictionary.checkout.pendingStatusPaid);
           clearCart();
@@ -9542,7 +9354,14 @@ export function MbwayPendingView({
           return;
         }
 
-        if (rawStatus.includes("fail") || rawStatus.includes("error")) {
+        const isFailureStatus =
+          rawStatus.includes("fail") ||
+          rawStatus.includes("error") ||
+          rawStatus.includes("denied") ||
+          rawStatus.includes("recus") ||
+          rawStatus.includes("cancel") ||
+          rawStatus.includes("expir");
+        if (isFailureStatus) {
           setStatusState("failed");
           setStatusMessage(
             payload.status?.error ?? dictionary.checkout.pendingStatusFailed,
@@ -13185,6 +13004,7 @@ export async function seedProducts() {
         slug: item.slug,
         category: item.category,
         name: item.name,
+        namePt: item.name,
         priceCents: item.priceCents,
         image: item.image,
         galleryImages: [item.image],
@@ -14529,6 +14349,112 @@ const dictionaries: Record<Locale, Dictionary> = {
               },
             ],
           },
+          {
+            id: "cookies",
+            title: "5. Cookie Policy",
+            items: [
+              {
+                question: "What is the Palmanhac cookie policy?",
+                answer: [
+                  "We use cookies so palmanhac-shop.pt can operate properly, remember essential preferences, and improve navigation.",
+                  "By browsing our website you agree to this Cookie Policy and consent to the described use of cookies.",
+                ],
+              },
+              {
+                question: "What are cookies?",
+                answer: [
+                  "Cookies are small files stored on your device that support key website functions, improve navigation, and retain preferences.",
+                  "- Session cookies — removed automatically when you close your browser.",
+                  "- Persistent cookies — remain stored until they expire or are deleted.",
+                  "The cookies we use do not collect personally identifiable information, and you can block or delete them in your browser settings if you wish (doing so may impact website functionality).",
+                ],
+              },
+              {
+                question: "Which cookies are used on palmanhac-shop.pt?",
+                answer: [
+                  "We only rely on the cookies strictly necessary to:",
+                  "- ensure the online store runs reliably;",
+                  "- store basic user preferences such as language or cart status;",
+                  "- enhance navigation and usability so you can complete purchases smoothly.",
+                ],
+              },
+              {
+                question: "Do you use third-party cookies or analytics?",
+                answer: [
+                  "No. We do not use third-party cookies or analytics tools such as Google Analytics to collect personal data.",
+                  "If you have questions about cookie usage you can contact us at info@palmanhac-shop.pt.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "privacy",
+            title: "6. Privacy Policy",
+            items: [
+              {
+                question: "What does the Palmanhac privacy policy cover?",
+                answer: [
+                  "Palmanhac respects every visitor's privacy and processes data according to the GDPR (EU Regulation 2016/679).",
+                  "You can browse palmanhac-shop.pt without providing personal data, and we only request information when strictly necessary to process orders, contact requests, or newsletter subscriptions.",
+                  "This policy applies solely to palmanhac-shop.pt and not to external sites mentioned via links.",
+                ],
+              },
+              {
+                question: "What personal data can Palmanhac collect?",
+                answer: [
+                  "Personal data refers to information that can identify you, such as name, address, phone, email, tax number, birth date, and purchase preferences.",
+                  "We do not collect sensitive data, and whenever you provide information voluntarily we treat it as clear and informed consent.",
+                  "Depending on the service requested we may collect:",
+                  "- name, billing and shipping address, and country;",
+                  "- email and phone number;",
+                  "- tax ID and date of birth when invoicing requires it;",
+                  "- order history and communication records.",
+                ],
+              },
+              {
+                question:
+                  "Who is responsible for data processing and how can I reach Palmanhac?",
+                answer: [
+                  "Palmanhac (palmanhac-shop.pt) is the controller responsible for processing your data and for ensuring appropriate security measures.",
+                  "For any privacy questions or to exercise your rights, contact info@palmanhac-shop.pt.",
+                ],
+              },
+              {
+                question: "Why is personal data processed?",
+                answer: [
+                  "Data is used exclusively for:",
+                  "- processing and shipping orders;",
+                  "- issuing invoices and complying with legal obligations;",
+                  "- managing customer accounts and providing support;",
+                  "- handling complaints and internal statistics;",
+                  "- sending updates, newsletters, or campaigns when you grant consent.",
+                  "You may opt out of marketing communications at any time.",
+                ],
+              },
+              {
+                question: "How long is data stored?",
+                answer: [
+                  "Data is kept only for as long as necessary to fulfill the purpose for which it was collected or for the period required by law (such as tax obligations).",
+                  "You may request deletion of your personal data at any time by emailing info@palmanhac-shop.pt.",
+                ],
+              },
+              {
+                question: "Is data shared with third parties?",
+                answer: [
+                  "Palmanhac only shares data with trusted partners when strictly necessary—for example with shipping companies, payment processors, or IT service providers.",
+                  "All partners comply with GDPR requirements, guarantee confidentiality, and data is never sold or misused for commercial purposes.",
+                ],
+              },
+              {
+                question: "How are cookies and policy updates managed?",
+                answer: [
+                  "palmanhac-shop.pt uses cookies only to ensure correct website operation, remember preferences, and generate anonymized statistics.",
+                  "You can disable cookies in your browser settings, though some features may be limited.",
+                  "Palmanhac may update this Privacy Policy at any time and updates will always be published on this page, so please review it periodically.",
+                ],
+              },
+            ],
+          },
         ],
       },
       shippingReturns: {
@@ -15149,6 +15075,111 @@ const dictionaries: Record<Locale, Dictionary> = {
                 answer: [
                   "Se a quebra ocorrer antes da entrega, será enviada uma nova encomenda sem custos adicionais.",
                   "Se detetar danos após a entrega, contacte-nos imediatamente para providenciar a substituição.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "cookies",
+            title: "5. Política de Cookies",
+            items: [
+              {
+                question: "Qual é a política de cookies da Palmanhac?",
+                answer: [
+                  "Utilizamos cookies para que o website palmanhac-shop.pt funcione corretamente, memorize preferências essenciais e ofereça uma navegação mais fluida.",
+                  "Ao continuar a navegação, concorda com esta Política de Cookies e consente a utilização de cookies nos termos descritos.",
+                ],
+              },
+              {
+                question: "O que são cookies?",
+                answer: [
+                  "São pequenos ficheiros guardados no seu dispositivo que suportam o funcionamento do website, melhoram a navegação e guardam determinadas preferências.",
+                  "- Cookies de sessão — eliminados quando fecha o navegador.",
+                  "- Cookies persistentes — permanecem no dispositivo até expirarem ou serem apagados.",
+                  "Os cookies que utilizamos não recolhem informações que permitam identificar pessoalmente o utilizador e podem ser geridos ou bloqueados nas definições do navegador (desativar cookies essenciais pode afetar o funcionamento do website).",
+                ],
+              },
+              {
+                question: "Que cookies são utilizados em palmanhac-shop.pt?",
+                answer: [
+                  "Utilizamos apenas cookies estritamente necessários para:",
+                  "- garantir o funcionamento da loja online;",
+                  "- guardar preferências básicas do utilizador, como idioma ou estado do carrinho;",
+                  "- melhorar a navegação e a usabilidade para facilitar a finalização das compras.",
+                ],
+              },
+              {
+                question: "Utilizam cookies de terceiros ou ferramentas analíticas?",
+                answer: [
+                  "Não. Não recorremos a cookies de terceiros nem utilizamos Google Analytics para recolher dados pessoais.",
+                  "Em caso de dúvidas relacionadas com cookies, contacte-nos através de info@palmanhac-shop.pt.",
+                ],
+              },
+            ],
+          },
+          {
+            id: "privacy",
+            title: "6. Política de Privacidade",
+            items: [
+              {
+                question: "Em que consiste a Política de Privacidade da Palmanhac?",
+                answer: [
+                  "A Palmanhac respeita a privacidade de todos os utilizadores e processa os dados pessoais de acordo com o RGPD (Regulamento UE 2016/679).",
+                  "O website pode ser navegado sem fornecer dados pessoais e apenas solicitamos informação quando estritamente necessária para encomendas, pedidos de contacto ou subscrições.",
+                  "Esta Política aplica-se exclusivamente ao website palmanhac-shop.pt e não a websites externos referidos por links.",
+                ],
+              },
+              {
+                question: "Que dados pessoais podem ser recolhidos?",
+                answer: [
+                  "Consideram-se dados pessoais informações que permitam identificar o utilizador, como nome, morada, telefone, email, NIF, data de nascimento e preferências de compra.",
+                  "Não recolhemos dados sensíveis e, sempre que fornece dados voluntariamente, consideramos que nos dá um consentimento claro, livre e informado.",
+                  "Dependendo do pedido, podemos recolher:",
+                  "- nome, morada de faturação e envio, país;",
+                  "- email e telefone;",
+                  "- NIF e data de nascimento quando exigido por lei;",
+                  "- histórico de encomendas e registos de comunicação.",
+                ],
+              },
+              {
+                question: "Quem é o responsável pelo tratamento e como posso contactar?",
+                answer: [
+                  "O responsável pelo tratamento dos dados é a Palmanhac – palmanhac-shop.pt, que garante medidas de segurança adequadas.",
+                  "Para questões sobre privacidade ou para exercer os seus direitos, contacte info@palmanhac-shop.pt.",
+                ],
+              },
+              {
+                question: "Para que finalidades os dados são utilizados?",
+                answer: [
+                  "Os dados são usados exclusivamente para:",
+                  "- processar e enviar encomendas;",
+                  "- emitir faturas e cumprir obrigações legais;",
+                  "- gerir contas de cliente e prestar apoio;",
+                  "- atender reclamações e realizar análises estatísticas internas;",
+                  "- enviar campanhas, novidades ou newsletters (mediante consentimento).",
+                  "O utilizador pode cancelar a receção de comunicações de marketing a qualquer momento.",
+                ],
+              },
+              {
+                question: "Durante quanto tempo os dados são conservados?",
+                answer: [
+                  "Os dados são mantidos apenas pelo período necessário para cumprir as finalidades a que se destinam ou pelo tempo imposto por lei (por exemplo, obrigações fiscais).",
+                  "Pode solicitar a eliminação completa dos seus dados através de info@palmanhac-shop.pt.",
+                ],
+              },
+              {
+                question: "Os dados são partilhados com terceiros?",
+                answer: [
+                  "A Palmanhac apenas partilha dados pessoais com parceiros essenciais, como transportadoras, processadores de pagamento ou prestadores de serviços informáticos.",
+                  "Todos os parceiros cumprem o RGPD, garantem confidencialidade e os dados nunca são vendidos ou cedidos para fins comerciais indevidos.",
+                ],
+              },
+              {
+                question: "Como são tratados os cookies e atualizações desta política?",
+                answer: [
+                  "Palmanhac-shop.pt utiliza cookies apenas para assegurar o bom funcionamento do website, recordar preferências e gerar estatísticas anonimizadas.",
+                  "Pode desativar cookies no navegador, embora algumas funcionalidades possam ficar limitadas.",
+                  "A Palmanhac poderá atualizar esta Política de Privacidade a qualquer momento; as alterações serão sempre publicadas nesta página.",
                 ],
               },
             ],
@@ -16215,6 +16246,11 @@ const normaliseDigits = (value: string | null | undefined) => {
   const digits = value.replace(/[^0-9]/g, "");
   return digits || null;
 };
+const normaliseIdentifier = (value: string | null | undefined) => {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized || null;
+};
 
 type EuPagoBearerTokenResponse = {
   transactionStatus?: string;
@@ -16436,31 +16472,118 @@ const fetchReferencesByStatus = async (status?: string) => {
   return Array.isArray(parsed.referenceList) ? parsed.referenceList : [];
 };
 
-export const lookupReferenceStatus = async (
-  reference: string,
-  statuses: string[] = DEFAULT_REFERENCE_STATUS_SEQUENCE,
-) => {
-  const normalized = normaliseDigits(reference);
-  if (!normalized) return null;
-  const cacheEntry = referenceStatusCache.get(normalized);
-  if (cacheEntry && Date.now() - cacheEntry.fetchedAt < REFERENCE_STATUS_CACHE_TTL) {
-    return cacheEntry.result;
-  }
-  for (const status of statuses) {
-    const list = await fetchReferencesByStatus(status);
-    const match = list.find((entry) => {
-      const entryRef = normaliseDigits(entry.reference ?? null);
-      return entryRef === normalized;
-    });
-    if (match) {
-      referenceStatusCache.set(normalized, {
-        result: { ...match, status: status ?? match.status },
-        fetchedAt: Date.now(),
-      });
-      return match;
+type ReferenceQuery = {
+  raw: string;
+  digits: string | null;
+  identifier: string | null;
+};
+
+const buildReferenceQueries = (input: string | string[]): ReferenceQuery[] => {
+  const rawValues = (Array.isArray(input) ? input : [input])
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean);
+  const uniqueValues = Array.from(new Set(rawValues));
+  return uniqueValues
+    .map((value) => ({
+      raw: value,
+      digits: normaliseDigits(value),
+      identifier: normaliseIdentifier(value),
+    }))
+    .filter((query) => query.digits || query.identifier);
+};
+
+const entryMatchesQuery = (entry: EuPagoReferenceEntry, query: ReferenceQuery) => {
+  const toStringValue = (value: unknown) => {
+    if (typeof value === "string") return value;
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    return undefined;
+  };
+
+  if (query.digits) {
+    const referenceCandidates = [
+      toStringValue(entry.reference),
+      toStringValue(entry.trid),
+      toStringValue(entry["transactionId"]),
+      toStringValue(entry["transaction_id"]),
+    ];
+    for (const candidate of referenceCandidates) {
+      const digits = normaliseDigits(candidate ?? null);
+      if (digits && digits === query.digits) {
+        return true;
+      }
     }
   }
-  referenceStatusCache.set(normalized, { result: null, fetchedAt: Date.now() });
+
+  if (query.identifier) {
+    const identifierCandidates = [
+      toStringValue(entry.identifier),
+      toStringValue(entry.trid),
+      toStringValue(entry["transactionId"]),
+      toStringValue(entry["transaction_id"]),
+      toStringValue(entry["id"]),
+      typeof entry.reference === "string" && entry.reference.length > 15
+        ? entry.reference
+        : undefined,
+    ];
+    for (const candidate of identifierCandidates) {
+      const normalized = normaliseIdentifier(candidate);
+      if (normalized && normalized === query.identifier) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+export const lookupReferenceStatus = async (
+  referenceOrIdentifier: string | string[],
+  statuses: string[] = DEFAULT_REFERENCE_STATUS_SEQUENCE,
+) => {
+  const queries = buildReferenceQueries(referenceOrIdentifier);
+  if (!queries.length) return null;
+
+  const now = Date.now();
+  for (const query of queries) {
+    for (const key of [query.digits, query.identifier]) {
+      if (!key) continue;
+      const cacheEntry = referenceStatusCache.get(key);
+      if (cacheEntry && now - cacheEntry.fetchedAt < REFERENCE_STATUS_CACHE_TTL) {
+        return cacheEntry.result;
+      }
+    }
+  }
+
+  for (const status of statuses) {
+    const list = await fetchReferencesByStatus(status);
+    for (const entry of list) {
+      const matchingKeys: string[] = [];
+      for (const query of queries) {
+        if (entryMatchesQuery(entry, query)) {
+          if (query.digits) matchingKeys.push(query.digits);
+          if (query.identifier) matchingKeys.push(query.identifier);
+        }
+      }
+      if (matchingKeys.length) {
+        const cachePayload = {
+          result: { ...entry, status: status ?? entry.status },
+          fetchedAt: Date.now(),
+        };
+        for (const key of matchingKeys) {
+          referenceStatusCache.set(key, cachePayload);
+        }
+        return entry;
+      }
+    }
+  }
+
+  const missTimestamp = Date.now();
+  for (const query of queries) {
+    for (const key of [query.digits, query.identifier]) {
+      if (!key) continue;
+      referenceStatusCache.set(key, { result: null, fetchedAt: missTimestamp });
+    }
+  }
   return null;
 };
 
@@ -16861,6 +16984,7 @@ const pickLocalized = (enValue: string, ptValue: string, locale: Locale) => {
 
 const toListItem = (product: PrismaProduct, locale: Locale): ProductListItem => {
   const description = pickLocalized(product.descriptionEn, product.descriptionPt, locale);
+  const localizedName = pickLocalized(product.name, product.namePt ?? "", locale);
 
   return {
     id: product.id,
@@ -16869,7 +16993,7 @@ const toListItem = (product: PrismaProduct, locale: Locale): ProductListItem => 
     image: product.image,
     galleryImages: product.galleryImages,
     priceCents: product.priceCents,
-    name: product.name,
+    name: localizedName,
     description: summarizeDescription(description),
     volumeMl: product.volumeMl,
     vol: product.vol,
@@ -16882,6 +17006,7 @@ const toProduct = (product: PrismaProduct): Product => ({
   slug: product.slug,
   category: product.category as ProductCategorySlug,
   name: product.name,
+  namePt: product.namePt ?? "",
   priceCents: product.priceCents,
   image: product.image,
   galleryImages: product.galleryImages,
@@ -16921,6 +17046,7 @@ export const getAllProducts = async (locale: Locale, filters: ProductFilters = {
       ? {
           OR: [
             { name: { contains: filters.query, mode: "insensitive" } },
+            { namePt: { contains: filters.query, mode: "insensitive" } },
             { descriptionEn: { contains: filters.query, mode: "insensitive" } },
             { descriptionPt: { contains: filters.query, mode: "insensitive" } },
           ],
@@ -17691,6 +17817,7 @@ model Product {
   slug           String       @unique
   category       String
   name           String
+  namePt         String       @default("")
   priceCents     Int
   image          String
   galleryImages  String[]     @default([])

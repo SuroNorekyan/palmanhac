@@ -41,6 +41,8 @@ model Product {
   name           String
   namePt         String       @default("")
   priceCents     Int
+  discountEnabled Boolean     @default(false)
+  discountPercent Int         @default(0)
   image          String
   galleryImages  String[]     @default([])
   volumeMl       Int
@@ -58,6 +60,7 @@ model Product {
   updatedAt      DateTime     @updatedAt
   orderItems     OrderItem[]
   favorites      Favorite[]
+  reviews        ProductReview[]
 }
 
 model User {
@@ -77,6 +80,7 @@ model User {
   sessions       Session[]
   orders         Order[]
   favorites      Favorite[]
+  reviews        ProductReview[]
 }
 
 model Account {
@@ -167,6 +171,23 @@ model Favorite {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
+}
+
+model ProductReview {
+  id          String   @id @default(cuid())
+  productId   Int
+  userId      String?
+  guestName   String?
+  guestEmail  String?
+  rating      Int
+  comment     String   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([productId, createdAt])
 }
 
 enum PaymentMethod {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Heart } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { IconButton } from "@/components/common/IconButton";
+import { DiscountBadge } from "@/components/product/DiscountBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,12 +46,18 @@ export function ProductCard({
     "object-contain transition duration-500",
     isFeatured ? "scale-95 sm:scale-100" : "scale-90 sm:scale-95",
   );
+  const hasDiscount =
+    product.discountEnabled &&
+    product.discountPercent > 0 &&
+    product.effectivePriceCents < product.priceCents;
+  const basePriceFormatted = formatCurrency(locale, product.priceCents);
+  const effectivePriceFormatted = formatCurrency(locale, product.effectivePriceCents);
 
   const handleAddToCart = () => {
     addToCart(product.id, 1);
     toast({
       title: dictionary.product.addToCart,
-      description: `${product.name} • ${formatCurrency(locale, product.priceCents)}`,
+      description: `${product.name} • ${effectivePriceFormatted}`,
       variant: "success",
     });
   };
@@ -102,6 +109,12 @@ export function ProductCard({
           <Badge variant="muted" className="uppercase">
             {product?.category?.replace("-", " ")}
           </Badge>
+          {hasDiscount ? (
+            <DiscountBadge
+              label={dictionary.product.discount.badge}
+              percent={product.discountPercent}
+            />
+          ) : null}
         </div>
       </Link>
       <CardContent className="flex flex-1 flex-col justify-between gap-4 p-6">
@@ -113,9 +126,18 @@ export function ProductCard({
             >
               {product.name}
             </Link>
-            <span className="text-sm font-semibold text-neutral-700">
-              {formatCurrency(locale, product.priceCents)}
-            </span>
+            <div className="text-right text-sm font-semibold text-neutral-700">
+              {hasDiscount ? (
+                <>
+                  <span className="block text-xs font-medium text-neutral-400 line-through">
+                    {basePriceFormatted}
+                  </span>
+                  <span className="text-neutral-900">{effectivePriceFormatted}</span>
+                </>
+              ) : (
+                <span>{basePriceFormatted}</span>
+              )}
+            </div>
           </div>
           <p className="line-clamp-2 text-sm text-neutral-500">{product.description}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium uppercase tracking-wide text-neutral-500">

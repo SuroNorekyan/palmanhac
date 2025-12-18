@@ -26,6 +26,7 @@ import { calculateCartTotals } from "@/lib/utils/cart-totals";
 import { normalizeCountryInput } from "@/lib/utils/country";
 import { formatCurrency } from "@/lib/utils/currency";
 import { withLocale } from "@/lib/utils/locale";
+import type { ProductListItem } from "@/types/product";
 
 const localeFormatMap = {
   en: "en-GB",
@@ -82,11 +83,8 @@ type EuPagoCreateResponse =
   | EuPagoMBWayResponse
   | EuPagoCardResponse;
 
-type CheckoutProduct = {
-  id: number;
+type CheckoutProduct = ProductListItem & {
   slug: string;
-  name: string;
-  priceCents: number;
   image: string;
 };
 
@@ -1156,13 +1154,26 @@ function CheckoutForm({
                       if (!product) {
                         return null;
                       }
+                      const hasDiscount =
+                        product.discountEnabled &&
+                        product.discountPercent > 0 &&
+                        product.effectivePriceCents < product.priceCents;
+                      const lineTotal = product.effectivePriceCents * item.quantity;
                       return (
                         <li key={item.productId} className="flex justify-between gap-3">
                           <span>
                             {product.name} × {item.quantity}
                           </span>
-                          <span className="font-medium text-neutral-900">
-                            {formatCurrency(locale, product.priceCents * item.quantity)}
+                          <span className="text-right font-medium text-neutral-900">
+                            {hasDiscount ? (
+                              <span className="block text-xs text-neutral-400 line-through">
+                                {formatCurrency(
+                                  locale,
+                                  product.priceCents * item.quantity,
+                                )}
+                              </span>
+                            ) : null}
+                            <span>{formatCurrency(locale, lineTotal)}</span>
                           </span>
                         </li>
                       );

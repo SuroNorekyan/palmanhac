@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { formatCurrency } from "@/lib/utils/currency";
 import { cn } from "@/lib/utils/format";
+import { getEffectivePriceCents } from "@/lib/utils/pricing";
 
 const slugPattern = /^[a-z0-9-]+$/;
 
@@ -92,6 +94,14 @@ const productFormSchema = z.object({
   descriptionEn: z.string().min(1, "Provide an English description"),
   descriptionPt: z.string().min(1, "Forneça a descrição em português"),
   isActive: z.boolean(),
+  discountEnabled: z.boolean(),
+  discountPercent: z.string().refine(
+    (value) => {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isInteger(parsed) && parsed >= 0 && parsed <= 99;
+    },
+    { message: "Enter a discount between 0 and 99" },
+  ),
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -115,6 +125,8 @@ type ProductFormProps = {
     isActive: boolean;
     descriptionEn: string;
     descriptionPt: string;
+    discountEnabled: boolean;
+    discountPercent: number;
   } | null;
 };
 
@@ -142,9 +154,35 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     descriptionEn: product?.descriptionEn ?? "",
     descriptionPt: product?.descriptionPt ?? "",
     isActive: product?.isActive ?? true,
+    discountEnabled: product?.discountEnabled ?? false,
+    discountPercent: (product?.discountPercent ?? 0).toString(),
   });
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const previewPriceCents = (() => {
+    const normalized = form.price?.replace(",", ".") ?? "";
+    const value = Number.parseFloat(normalized);
+    if (!Number.isFinite(value) || value < 0) {
+      return 0;
+    }
+    return Math.round(value * 100);
+  })();
+
+  const draftDiscountPercent = (() => {
+    const parsed = Number.parseInt(form.discountPercent, 10);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      return 0;
+    }
+    return Math.min(parsed, 99);
+  })();
+
+  const previewEffectiveCents = getEffectivePriceCents({
+    priceCents: previewPriceCents,
+    discountEnabled: form.discountEnabled,
+    discountPercent: draftDiscountPercent,
+  });
+  const previewHasDiscount = form.discountEnabled && draftDiscountPercent > 0;
 
   const handleChange = <Field extends keyof ProductFormValues>(
     field: Field,
@@ -158,6 +196,14 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
+
+  const handleDiscountToggle = (checked: boolean) => {
+    setForm((prev) => ({
+      ...prev,
+      discountEnabled: checked,
+      discountPercent: checked ? (prev.discountPercent ?? "0") : "0",
+    }));
+  };
 
   const handleAttachClick = () => fileInputRef.current?.click();
 
@@ -218,6 +264,9 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         if (!Number.isFinite(priceCents) || priceCents < 0) {
           throw new Error("Unable to parse price.");
         }
+        const discountPercentValue = parsed.data.discountEnabled
+          ? Number.parseInt(parsed.data.discountPercent, 10)
+          : 0;
 
         // Match server contract: structured JSON payload
         const payload = {
@@ -232,6 +281,8 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           vol: Number.parseFloat(parsed.data.vol || "0") || 0,
           stock: Number.parseInt(parsed.data.stock || "0", 10) || 0,
           isActive: parsed.data.isActive,
+          discountEnabled: parsed.data.discountEnabled && discountPercentValue > 0,
+          discountPercent: discountPercentValue,
           description: {
             en: parsed.data.descriptionEn,
             pt: parsed.data.descriptionPt,
@@ -396,6 +447,55 @@ export function ProductForm({ mode, product }: ProductFormProps) {
             onChange={(e) => handleChange("price", e.target.value)}
           />
         </Field>
+
+        <div className="rounded-2xl border border-[rgb(var(--border))] bg-neutral-50/60 p-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="product-discount"
+              className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+              checked={form.discountEnabled}
+              onChange={(e) => handleDiscountToggle(e.target.checked)}
+            />
+            <Label
+              htmlFor="product-discount"
+              className="text-sm font-semibold text-neutral-800"
+            >
+              Apply discount
+            </Label>
+          </div>
+          {form.discountEnabled ? (
+            <div className="mt-4 max-w-[180px]">
+              <Field label="Discount (%)" error={errors.discountPercent}>
+                <Input
+                  className={cn(errors.discountPercent && "ring-1 ring-red-500")}
+                  type="number"
+                  min="0"
+                  max="99"
+                  value={form.discountPercent}
+                  onChange={(e) => handleChange("discountPercent", e.target.value)}
+                />
+              </Field>
+            </div>
+          ) : null}
+          <div className="mt-4 flex items-center gap-3 text-sm font-semibold">
+            <span className={cn(previewHasDiscount && "text-neutral-400 line-through")}>
+              {formatCurrency("en", previewPriceCents)}
+            </span>
+            {previewHasDiscount ? (
+              <>
+                <span className="text-neutral-400">→</span>
+                <span className="text-emerald-600">
+                  {formatCurrency("en", previewEffectiveCents)}
+                </span>
+              </>
+            ) : (
+              <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                No discount
+              </span>
+            )}
+          </div>
+        </div>
 
         <Field label="Image" helper="URL or /assets/file.png" error={errors.image}>
           <div className="flex items-center gap-2">
