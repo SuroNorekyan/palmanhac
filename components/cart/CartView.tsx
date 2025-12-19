@@ -179,7 +179,6 @@ export function CartView({
                   >
                     {product.name}
                   </Link>
-                  <p className="text-sm text-neutral-500">{product.description}</p>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-4 sm:flex-row sm:items-center">
